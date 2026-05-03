@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Models
+*.pkl
+
+# Database
+*.db
+
+# Environment
+.env
+venv/
