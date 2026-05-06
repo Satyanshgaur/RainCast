@@ -2,16 +2,21 @@
 Satellite Link Budget Simulator — Multi-Station, Physics-Upgraded
 ==================================================================
 Ground station data is imported from ground_stations.py (single source of
-truth shared with app.py).  All per-station parameters (ITU rain quantiles,
-climate, geometry, sat-arc) live there; this file only contains physics models
-and the simulation loop.
+truth shared with app.py).
+
+Public API (used by app.py):
+    simulate_station(gs, n_steps, dt_s, force_rain) -> StationResult
+    simulate_all(n_steps, dt_s, force_rain)          -> list[StationResult]
+
+StationResult carries both the full per-step time series AND pre-computed
+summary statistics that app.py feeds directly to the ML feature vector.
 
 Physics models:
   1. ITU-R P.837-7  — location-specific rain statistics (from ground_stations)
   2. ITU-R P.838-3  — specific rain attenuation coefficients (freq/pol aware)
   3. ITU-R P.839-4  — rain height (latitude dependent)
   4. ITU-R P.618-13 — effective path length, scintillation model
-  5. ITU-R P.676-12 — gaseous absorption (O₂ + H₂O, humidity aware)
+  5. ITU-R P.676-12 — gaseous absorption (O2 + H2O, humidity aware)
   6. ITU-R P.1853   — Maseng-Bakken AR(1) correlated rain time series
   7. Geometry       — GEO elevation angle computed from lat/lon/sat-lon
 """
@@ -19,45 +24,43 @@ Physics models:
 import math
 import random
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ground_stations import GROUND_STATIONS
 
-# ── Physical constants ───────────────────────────────────────────────────────
-C   = 2.998e8          # speed of light, m/s
-K_B = 1.380649e-23     # Boltzmann constant, J/K
-R_E = 6371.0           # Earth radius, km
-R_GEO = 42_164.0       # GEO orbit radius from Earth centre, km
+# ── Physical constants ────────────────────────────────────────────────────────
+C     = 2.998e8        # speed of light, m/s
+K_B   = 1.380649e-23   # Boltzmann constant, J/K
+R_E   = 6371.0         # Earth mean radius, km
+R_GEO = 42_164.0       # GEO orbital radius from Earth centre, km
 
-# ── System-wide RF parameters ────────────────────────────────────────────────
+# ── System-wide RF parameters ─────────────────────────────────────────────────
 CARRIER_FREQ_HZ = 14e9        # Ku-band uplink
 BANDWIDTH_HZ    = 36e6
 POLARIZATION    = "vertical"  # "vertical" | "horizontal"
 
-# ── Simulation timing ────────────────────────────────────────────────────────
-DT_SECONDS = 60    # 1-minute time step
-N_STEPS    = 60    # simulate 60 minutes
+# ── Default simulation timing ─────────────────────────────────────────────────
+DEFAULT_DT_S    = 60    # 1-minute time step
+DEFAULT_N_STEPS = 60    # 60 minutes
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  A.  Geometry — GEO elevation angle & slant range                      ║
+# ║  A.  Geometry                                                           ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 def geo_elevation_deg(lat_deg: float, lon_deg: float, sat_lon_deg: float) -> float:
-    """
-    Elevation angle from ground station to GEO satellite (ITU-R S.1066).
-    """
-    lat      = math.radians(lat_deg)
-    dlon     = math.radians(lon_deg - sat_lon_deg)
+    """Elevation angle to GEO satellite (ITU-R S.1066)."""
+    lat       = math.radians(lat_deg)
+    dlon      = math.radians(lon_deg - sat_lon_deg)
     cos_gamma = math.cos(lat) * math.cos(dlon)
-    sin_el   = (cos_gamma - R_E / R_GEO) / math.sqrt(1 - cos_gamma**2 + 1e-12)
+    sin_el    = (cos_gamma - R_E / R_GEO) / math.sqrt(1 - cos_gamma**2 + 1e-12)
     return math.degrees(math.asin(max(min(sin_el, 1.0), -1.0)))
 
 
 def geo_slant_range_km(lat_deg: float, lon_deg: float, sat_lon_deg: float) -> float:
     """Slant range to GEO satellite (km)."""
-    lat      = math.radians(lat_deg)
-    dlon     = math.radians(lon_deg - sat_lon_deg)
+    lat       = math.radians(lat_deg)
+    dlon      = math.radians(lon_deg - sat_lon_deg)
     cos_gamma = math.cos(lat) * math.cos(dlon)
     return math.sqrt(R_GEO**2 + R_E**2 - 2 * R_GEO * R_E * cos_gamma)
 
@@ -115,7 +118,7 @@ def itu_rain_coefficients(freq_ghz: float, polarization: str) -> tuple[float, fl
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 def itu_rain_height(lat_deg: float) -> float:
-    """Mean rain height above MSL (km) per ITU-R P.839-4."""
+    """Mean rain height above MSL (km) — ITU-R P.839-4."""
     a = abs(lat_deg)
     if a > 23:
         return max(5.0 - 0.075 * (a - 23.0), 3.0) if a < 36 else max(5.0 - 0.1 * (a - 36.0), 2.0)
@@ -128,7 +131,7 @@ def itu_rain_height(lat_deg: float) -> float:
 
 def effective_path_length(elevation_deg: float, rain_height_km: float,
                            station_altitude_km: float, itu_k: float) -> float:
-    """Effective slant path through rain layer (km), ITU-R P.618-13 §2.2.1."""
+    """Effective slant path through rain layer (km) — ITU-R P.618-13 §2.2.1."""
     el_rad  = math.radians(max(elevation_deg, 5.0))
     h_delta = rain_height_km - station_altitude_km
     if h_delta <= 0:
@@ -152,38 +155,45 @@ def rain_attenuation_db(rain_rate_mmh: float, itu_k: float, itu_alpha: float,
 # ║  E.  ITU-R P.1853 — Maseng-Bakken AR(1) correlated rain process        ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
-TAU_COHERENCE_S = 300.0   # rain cell coherence time ~5 min
+TAU_COHERENCE_S = 300.0   # rain-cell coherence time ~5 min
 
 class CorrelatedRainProcess:
     """
-    First-order log-normal AR(1) rain time series (Maseng-Bakken).
-    Parameters are derived from the station's itu_rain dict (P.837-7).
+    First-order log-normal AR(1) rain time series anchored to station's
+    ITU-R P.837-7 quantiles.  force_rain=True locks the process into its
+    raining state for the entire run (used by app.py "Rain" mode).
     """
-    def __init__(self, gs: dict, dt_s: float, tau_c: float = TAU_COHERENCE_S):
+    def __init__(self, gs: dict, dt_s: float,
+                 tau_c: float = TAU_COHERENCE_S,
+                 force_rain: bool = False):
         p = gs["itu_rain"]
         R001, R01, P_rain = p["R001"], p["R01"], p["P_rain"]
         _z001, _z01 = 3.0902, 2.3263
-        self.sigma   = (math.log(R001) - math.log(R01)) / (_z001 - _z01)
-        self.mu      = math.log(R01) - _z01 * self.sigma
-        self.rho     = math.exp(-dt_s / tau_c)
-        self.ln_R    = self.mu
-        self.raining = False
+        self.sigma      = (math.log(R001) - math.log(R01)) / (_z001 - _z01)
+        self.mu         = math.log(R01) - _z01 * self.sigma
+        self.rho        = math.exp(-dt_s / tau_c)
+        self.ln_R       = self.mu
+        self.force_rain = force_rain
+        self.raining    = force_rain
         mean_rain_dur_s  = tau_c
         mean_clear_dur_s = tau_c * (1 - P_rain) / (P_rain + 1e-9)
         self._p_onset = 1 - math.exp(-dt_s / mean_clear_dur_s)
         self._p_clear = 1 - math.exp(-dt_s / mean_rain_dur_s)
 
     def step(self) -> float:
-        """Advance one time step; return instantaneous rain rate (mm/h)."""
-        if not self.raining:
-            if random.random() < self._p_onset:
-                self.raining = True
-                self.ln_R = self.mu
-        else:
-            if random.random() < self._p_clear:
-                self.raining = False
+        """Return instantaneous rain rate (mm/h) for this time step."""
+        if not self.force_rain:
+            if not self.raining:
+                if random.random() < self._p_onset:
+                    self.raining = True
+                    self.ln_R = self.mu
+            else:
+                if random.random() < self._p_clear:
+                    self.raining = False
+
         if not self.raining:
             return 0.0
+
         self.ln_R = (self.rho * self.ln_R
                      + math.sqrt(1 - self.rho**2) * self.sigma * random.gauss(0.0, 1.0)
                      + (1 - self.rho) * self.mu)
@@ -240,38 +250,86 @@ def noise_power_dbw(T_sys_K: float, B_hz: float) -> float:
 def doppler_shift_hz(v_radial_ms: float, freq_hz: float) -> float:
     return (v_radial_ms / C) * freq_hz
 
+def packet_loss_from_snr(snr_db: float) -> float:
+    """Sigmoid mapping from SNR to packet loss probability."""
+    return 1.0 / (1.0 + math.exp(0.8 * (snr_db - 3.0)))
+
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  I.  Per-station simulation                                             ║
+# ║  I.  StationResult — full output returned to app.py                    ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 @dataclass
 class StationResult:
-    name:        str
-    snr_log:     list
-    rain_steps:  int
-    elevation:   float
-    slant_km:    float
-    gas_loss:    float
-    rain_height: float
-    eff_path:    float
-    itu_k:       float
-    itu_alpha:   float
-    scint_sig:   float
-    doppler_hz:  float
+    # ── identity ──────────────────────────────────────────────────────────
+    name:          str
+
+    # ── geometry (fixed per station) ──────────────────────────────────────
+    elevation:     float   # deg
+    slant_km:      float   # km
+    doppler_hz:    float   # Hz
+
+    # ── propagation constants (fixed per station) ──────────────────────────
+    path_loss:     float   # dB  FSPL
+    gas_loss:      float   # dB  ITU-R P.676
+    rain_height:   float   # km  ITU-R P.839
+    eff_path:      float   # km  ITU-R P.618
+    itu_k:         float
+    itu_alpha:     float
+    scint_sig:     float   # dB  1-sigma scintillation
+
+    # ── per-step time series ────────────────────────────────────────────────
+    snr_series:    list    # dB,  length = n_steps
+    rain_series:   list    # mm/h
+    rain_db_series: list   # dB
+    scint_series:  list    # dB
+    pkt_loss_series: list  # [0,1]
+
+    # ── summary statistics (derived from time series) ──────────────────────
+    snr_mean:      float   # dB  — primary ML feature
+    snr_min:       float   # dB  — worst-case quality indicator
+    snr_std:       float   # dB  — variability / stability
+    snr_p10:       float   # dB  — 10th-percentile (near-outage margin)
+    rain_fraction: float   # fraction of steps where rain occurred
+    avg_rain_db:   float   # dB  mean rain attenuation over rainy steps
+    avg_pkt_loss:  float   # [0,1] mean packet loss over run
+    outage_fraction: float # fraction of steps with SNR < 3 dB (threshold)
 
 
-def run_station(gs: dict) -> StationResult:
-    name     = gs["name"]
-    lat      = gs["latitude"]
-    lon      = gs["longitude"]
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  J.  simulate_station() — public API consumed by app.py                ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+def simulate_station(gs: dict,
+                     n_steps: int  = DEFAULT_N_STEPS,
+                     dt_s: float   = DEFAULT_DT_S,
+                     force_rain: bool = False,
+                     seed: int | None = None) -> StationResult:
+    """
+    Run the full ITU-R physics simulation for one ground station.
+
+    Parameters
+    ----------
+    gs          : ground station dict from ground_stations.py
+    n_steps     : number of time steps to simulate
+    dt_s        : time step in seconds
+    force_rain  : if True, lock the rain process into its raining state
+                  (maps to app.py "Rain" weather mode)
+    seed        : random seed for reproducibility (None = random)
+
+    Returns
+    -------
+    StationResult with full time series + summary statistics
+    """
+    if seed is not None:
+        random.seed(seed)
+
     freq_ghz = CARRIER_FREQ_HZ / 1e9
+    lat, lon = gs["latitude"], gs["longitude"]
 
-    # ── Geometry ─────────────────────────────────────────────────────────────
-    elevation = geo_elevation_deg(lat, lon, gs["sat_lon_deg"])
-    slant_km  = geo_slant_range_km(lat, lon, gs["sat_lon_deg"])
-
-    # ── Fixed propagation terms ──────────────────────────────────────────────
+    # ── Fixed geometric / propagation terms ──────────────────────────────────
+    elevation    = geo_elevation_deg(lat, lon, gs["sat_lon_deg"])
+    slant_km     = geo_slant_range_km(lat, lon, gs["sat_lon_deg"])
     path_loss    = fspl_db(CARRIER_FREQ_HZ, slant_km)
     noise_dbw    = noise_power_dbw(gs["system_temp_k"], BANDWIDTH_HZ)
     gas_loss     = gaseous_absorption_db(freq_ghz, elevation, gs["wv_g_m3"])
@@ -282,33 +340,16 @@ def run_station(gs: dict) -> StationResult:
                                            gs["antenna_diam_m"], gs["humidity_pct"])
     dop_hz       = doppler_shift_hz(gs["v_radial_ms"], CARRIER_FREQ_HZ)
 
-    # ── Correlated rain process ──────────────────────────────────────────────
-    rain_proc = CorrelatedRainProcess(gs, dt_s=DT_SECONDS)
+    # ── Time-varying rain process ─────────────────────────────────────────────
+    rain_proc = CorrelatedRainProcess(gs, dt_s=dt_s, force_rain=force_rain)
 
-    # ── Print header ─────────────────────────────────────────────────────────
-    W = 92
-    print("=" * W)
-    print(f"  STATION : {name}  ({lat:+.1f}, {lon:+.1f})  |  "
-          f"Sat: {gs['sat_lon_deg']:+.1f}  |  El: {elevation:.1f}  |  "
-          f"Range: {slant_km:.0f} km")
-    print(f"  FSPL    : {path_loss:.2f} dB  |  Gas: {gas_loss:.3f} dB  "
-          f"|  Rain height (P.839): {rain_h:.2f} km  |  Eff path: {eff_path:.2f} km")
-    print(f"  P.838   : k={itu_k:.5f}, a={itu_a:.4f}  "
-          f"|  Scint s={scint_sig:.4f} dB  |  Doppler: {dop_hz:+.1f} Hz")
-    p = gs["itu_rain"]
-    print(f"  P.837-7 : R001={p['R001']} mm/h  R01={p['R01']} mm/h  "
-          f"R1={p['R1']} mm/h  P_rain={p['P_rain']*100:.1f}%  "
-          f"(severity: {gs['rain_severity']})")
-    print("-" * W)
-    hdr = (f"{'t':>4} | {'State':^6} | {'R mm/h':>7} | "
-           f"{'Rain dB':>8} | {'Gas dB':>7} | {'Scint dB':>9} | {'SNR dB':>8}")
-    print(hdr)
-    print("-" * W)
+    snr_series      = []
+    rain_series     = []
+    rain_db_series  = []
+    scint_series    = []
+    pkt_loss_series = []
 
-    snr_log    = []
-    rain_steps = 0
-
-    for t in range(N_STEPS):
+    for _ in range(n_steps):
         rain_rate = rain_proc.step()
         rain_db   = rain_attenuation_db(rain_rate, itu_k, itu_a, eff_path)
         scint_db  = random.gauss(0.0, scint_sig)
@@ -321,61 +362,118 @@ def run_station(gs: dict) -> StationResult:
                + gs["g_rx_dbi"]
                - noise_dbw)
 
-        snr_log.append(snr)
-        if rain_proc.raining:
-            rain_steps += 1
+        pkt_loss = packet_loss_from_snr(snr)
 
-        state = "RAIN" if rain_proc.raining else "CLEAR"
-        print(f"{t:>4} | {state:^6} | {rain_rate:>7.2f} | "
-              f"{rain_db:>8.3f} | {gas_loss:>7.3f} | {scint_db:>+9.4f} | {snr:>8.2f}")
+        snr_series.append(snr)
+        rain_series.append(rain_rate)
+        rain_db_series.append(rain_db)
+        scint_series.append(scint_db)
+        pkt_loss_series.append(pkt_loss)
 
-    print("=" * W)
-    print(f"  SNR   mean={statistics.mean(snr_log):.2f} dB  "
-          f"median={statistics.median(snr_log):.2f} dB  "
-          f"std={statistics.stdev(snr_log):.2f} dB  "
-          f"min={min(snr_log):.2f} dB  max={max(snr_log):.2f} dB")
-    print(f"  Rain  {rain_steps}/{N_STEPS} steps ({100*rain_steps/N_STEPS:.1f}%)  "
-          f"|  P.837-7 annual expectation: {p['P_rain']*100:.1f}%")
-    print()
+    # ── Derived summary statistics ────────────────────────────────────────────
+    rainy_steps   = [db for db in rain_db_series if db > 0]
+    rain_fraction = sum(1 for r in rain_series if r > 0) / n_steps
+    sorted_snr    = sorted(snr_series)
+    p10_idx       = max(0, int(0.10 * n_steps) - 1)
 
     return StationResult(
-        name=name, snr_log=snr_log, rain_steps=rain_steps,
-        elevation=elevation, slant_km=slant_km, gas_loss=gas_loss,
-        rain_height=rain_h, eff_path=eff_path, itu_k=itu_k,
-        itu_alpha=itu_a, scint_sig=scint_sig, doppler_hz=dop_hz,
+        name          = gs["name"],
+        elevation     = elevation,
+        slant_km      = slant_km,
+        doppler_hz    = dop_hz,
+        path_loss     = path_loss,
+        gas_loss      = gas_loss,
+        rain_height   = rain_h,
+        eff_path      = eff_path,
+        itu_k         = itu_k,
+        itu_alpha     = itu_a,
+        scint_sig     = scint_sig,
+        snr_series    = snr_series,
+        rain_series   = rain_series,
+        rain_db_series = rain_db_series,
+        scint_series  = scint_series,
+        pkt_loss_series = pkt_loss_series,
+        snr_mean      = statistics.mean(snr_series),
+        snr_min       = min(snr_series),
+        snr_std       = statistics.stdev(snr_series),
+        snr_p10       = sorted_snr[p10_idx],
+        rain_fraction = rain_fraction,
+        avg_rain_db   = statistics.mean(rainy_steps) if rainy_steps else 0.0,
+        avg_pkt_loss  = statistics.mean(pkt_loss_series),
+        outage_fraction = sum(1 for s in snr_series if s < 3.0) / n_steps,
     )
 
 
+def simulate_all(n_steps: int = DEFAULT_N_STEPS,
+                 dt_s: float  = DEFAULT_DT_S,
+                 force_rain: bool = False) -> list[StationResult]:
+    """Run simulate_station() for every entry in GROUND_STATIONS."""
+    return [simulate_station(gs, n_steps=n_steps, dt_s=dt_s,
+                             force_rain=force_rain,
+                             seed=hash(gs["name"]) % 100_000)
+            for gs in GROUND_STATIONS]
+
+
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  J.  Summary comparison table                                           ║
+# ║  K.  CLI entry point (unchanged behaviour)                              ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
-def print_summary(results: list) -> None:
+def _print_station(gs: dict, r: StationResult) -> None:
+    W = 92
+    p = gs["itu_rain"]
+    print("=" * W)
+    print(f"  STATION : {r.name}  ({gs['latitude']:+.1f}, {gs['longitude']:+.1f})  |  "
+          f"Sat: {gs['sat_lon_deg']:+.1f}  |  El: {r.elevation:.1f}  |  "
+          f"Range: {r.slant_km:.0f} km")
+    print(f"  FSPL    : {r.path_loss:.2f} dB  |  Gas: {r.gas_loss:.3f} dB  "
+          f"|  Rain height: {r.rain_height:.2f} km  |  Eff path: {r.eff_path:.2f} km")
+    print(f"  P.838   : k={r.itu_k:.5f}, a={r.itu_alpha:.4f}  "
+          f"|  Scint s={r.scint_sig:.4f} dB  |  Doppler: {r.doppler_hz:+.1f} Hz")
+    print(f"  P.837-7 : R001={p['R001']} mm/h  R01={p['R01']} mm/h  "
+          f"R1={p['R1']} mm/h  P_rain={p['P_rain']*100:.1f}%")
+    print("-" * W)
+    hdr = (f"{'t':>4} | {'R mm/h':>7} | {'Rain dB':>8} | "
+           f"{'Gas dB':>7} | {'Scint dB':>9} | {'SNR dB':>8} | {'PktLoss':>8}")
+    print(hdr)
+    print("-" * W)
+    for t, (snr, rain, rain_db, scint, pkt) in enumerate(
+            zip(r.snr_series, r.rain_series, r.rain_db_series,
+                r.scint_series, r.pkt_loss_series)):
+        print(f"{t:>4} | {rain:>7.2f} | {rain_db:>8.3f} | "
+              f"{r.gas_loss:>7.3f} | {scint:>+9.4f} | {snr:>8.2f} | {pkt:>8.4f}")
+    print("=" * W)
+    print(f"  SNR   mean={r.snr_mean:.2f}  min={r.snr_min:.2f}  "
+          f"std={r.snr_std:.2f}  p10={r.snr_p10:.2f} dB")
+    print(f"  Rain  {r.rain_fraction*100:.1f}% of steps  |  "
+          f"avg rain atten={r.avg_rain_db:.2f} dB  |  "
+          f"outage frac={r.outage_fraction*100:.1f}%")
+    print(f"  Pkt loss mean={r.avg_pkt_loss:.4f}")
+    print()
+
+
+def _print_summary(results: list[StationResult]) -> None:
     W = 92
     print("=" * W)
     print("  CROSS-STATION SUMMARY")
     print("=" * W)
-    hdr = (f"{'Station':<12} | {'El':>5} | {'Slant km':>9} | "
-           f"{'Gas dB':>7} | {'Eff path':>9} | {'SNR mean':>9} | "
-           f"{'SNR min':>8} | {'Doppler Hz':>11}")
+    hdr = (f"{'Station':<12} | {'El':>5} | {'SNR mean':>9} | {'SNR min':>8} | "
+           f"{'SNR p10':>8} | {'Rain %':>7} | {'Outage %':>9} | {'PktLoss':>8}")
     print(hdr)
     print("-" * W)
     for r in results:
-        print(f"{r.name:<12} | {r.elevation:>5.1f} | {r.slant_km:>9.0f} | "
-              f"{r.gas_loss:>7.3f} | {r.eff_path:>9.2f} | "
-              f"{statistics.mean(r.snr_log):>9.2f} | "
-              f"{min(r.snr_log):>8.2f} | {r.doppler_hz:>+11.1f}")
+        print(f"{r.name:<12} | {r.elevation:>5.1f} | {r.snr_mean:>9.2f} | "
+              f"{r.snr_min:>8.2f} | {r.snr_p10:>8.2f} | "
+              f"{r.rain_fraction*100:>7.1f} | {r.outage_fraction*100:>9.1f} | "
+              f"{r.avg_pkt_loss:>8.4f}")
     print("=" * W)
 
 
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  K.  Entry point                                                        ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
-
 if __name__ == "__main__":
-    random.seed(42)
     freq_ghz = CARRIER_FREQ_HZ / 1e9
     print(f"\nSATELLITE LINK BUDGET SIMULATOR  --  {freq_ghz:.0f} GHz Ku-band  "
           f"|  Pol: {POLARIZATION}  |  Per-station GEO arc\n")
-    results = [run_station(gs) for gs in GROUND_STATIONS]
-    print_summary(results)
+    gs_map = {gs["name"]: gs for gs in GROUND_STATIONS}
+    results = simulate_all(n_steps=DEFAULT_N_STEPS, dt_s=DEFAULT_DT_S)
+    for r in results:
+        _print_station(gs_map[r.name], r)
+    _print_summary(results)
