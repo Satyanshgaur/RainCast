@@ -1,107 +1,147 @@
-import pandas as pd
+#!/usr/bin/env python3
+
+import os
+import sys
+import joblib
 import numpy as np
+import pandas as pd
 
 from xgboost import XGBRegressor
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-import joblib
+from sklearn.metrics import mean_squared_error, r2_score
 
-# -----------------------------
-# Load & clean dataset
-# -----------------------------
-df = pd.read_csv("link_training_data.csv")
+# ==================================================
+# CONFIG
+# ==================================================
+CSV_FILE = "link_training_data.csv"
 
-# Remove duplicated header rows or junk rows
-df = df[df["timestamp"] != "timestamp"]
+# ==================================================
+# CHECK FILE
+# ==================================================
+if not os.path.exists(CSV_FILE):
+    print(f"ERROR: {CSV_FILE} not found")
+    sys.exit(1)
 
-# Parse timestamps safely
-df["timestamp"] = pd.to_datetime(
-    df["timestamp"],
-    errors="coerce"   # invalid strings → NaT
-)
+# ==================================================
+# LOAD DATASET
+# ==================================================
+print(f"\nLoading dataset: {CSV_FILE}")
 
-# Drop rows with invalid timestamps
-df = df.dropna(subset=["timestamp"])
+df = pd.read_csv(CSV_FILE)
 
-# Sort by time (important!)
-df = df.sort_values("timestamp").reset_index(drop=True)
+print(f"Original dataset shape: {df.shape}")
 
-# -----------------------------
-# Features & target
-# -----------------------------
-FEATURES = ["snr_db", "packet_loss", "load_factor"]
+# ==================================================
+# REMOVE TIMESTAMP
+# ==================================================
+if "timestamp" in df.columns:
+    df = df.drop(columns=["timestamp"])
+
+# ==================================================
+# FORCE NUMERIC VALUES
+# ==================================================
+for col in df.columns:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# Remove broken rows
+df = df.dropna()
+
+print(f"Cleaned dataset shape: {df.shape}")
+
+print("\nColumns:")
+print(df.columns.tolist())
+
+# ==================================================
+# FEATURES + TARGET
+# ==================================================
 TARGET = "link_quality"
+FEATURES = [c for c in df.columns if c != TARGET]
 
+print(f"\nTarget   : {TARGET}")
+print(f"Features : {FEATURES}")
+
+# ==================================================
+# DATA
+# ==================================================
 X = df[FEATURES]
 y = df[TARGET]
 
-# -----------------------------
-# Time-aware split
-# -----------------------------
-split_idx = int(0.8 * len(df))
-
-X_train = X.iloc[:split_idx]
-X_val   = X.iloc[split_idx:]
-
-y_train = y.iloc[:split_idx]
-y_val   = y.iloc[split_idx:]
-
-# -----------------------------
-# Scaling
-# -----------------------------
+# ==================================================
+# SCALE
+# ==================================================
 scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_val   = scaler.transform(X_val)
+X_scaled = scaler.fit_transform(X)
 
-# -----------------------------
-# XGBoost model (Ubuntu-safe)
-# -----------------------------
+# ==================================================
+# SPLIT
+# ==================================================
+X_train, X_val, y_train, y_val = train_test_split(
+    X_scaled,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+print(f"\nTraining samples  : {len(X_train)}")
+print(f"Validation samples: {len(X_val)}")
+
+# ==================================================
+# MODEL
+# ==================================================
 model = XGBRegressor(
     objective="reg:squarederror",
-
     n_estimators=200,
     learning_rate=0.05,
-
     max_depth=3,
     min_child_weight=10,
     subsample=0.7,
     colsample_bytree=0.7,
-
     reg_alpha=1.0,
     reg_lambda=2.0,
-
     random_state=42
 )
 
-# -----------------------------
-# Train
-# -----------------------------
+# ==================================================
+# TRAIN
+# ==================================================
+print("\nTraining model...")
+
 model.fit(X_train, y_train)
 
-# -----------------------------
-# Evaluate
-# -----------------------------
+print("Training complete.")
+
+# ==================================================
+# PREDICT
+# ==================================================
 y_pred = model.predict(X_val)
 
+# ==================================================
+# METRICS
+# ==================================================
 rmse = np.sqrt(mean_squared_error(y_val, y_pred))
 r2 = r2_score(y_val, y_pred)
 
-print("\n--- Model Performance ---")
-print(f"RMSE: {rmse:.4f}")
-print(f"R²:   {r2:.4f}")
+print("\n==============================")
+print("MODEL PERFORMANCE")
+print("==============================")
+print(f"RMSE : {rmse:.4f}")
+print(f"R²   : {r2:.4f}")
 
-# -----------------------------
-# Feature importance
-# -----------------------------
-print("\n--- Feature Importance ---")
-for name, imp in zip(FEATURES, model.feature_importances_):
-    print(f"{name:15s}: {imp:.4f}")
+# ==================================================
+# FEATURE IMPORTANCE
+# ==================================================
+print("\n==============================")
+print("FEATURE IMPORTANCE")
+print("==============================")
 
-# -----------------------------
-# Save model & scaler
-# -----------------------------
+for feature, importance in zip(FEATURES, model.feature_importances_):
+    print(f"{feature:20s}: {importance:.4f}")
+
+# ==================================================
+# SAVE
+# ==================================================
 joblib.dump(model, "xgb_link_model.pkl")
 joblib.dump(scaler, "feature_scaler.pkl")
 
-print("\n Model and scaler saved successfully.")
-
+print("\nModel + scaler saved successfully.")
