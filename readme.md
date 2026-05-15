@@ -2,8 +2,6 @@
 
 ## 📑 Index
 
-## 📑 Index
-
 1. [Project Overview](#-project-overview)
 2. [File Structure & Responsibilities](#️-file-structure--responsibilities)
 3. [Script-by-Script Breakdown](#️-script-by-script-breakdown)
