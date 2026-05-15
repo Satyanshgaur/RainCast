@@ -2,27 +2,36 @@
 
 ## 📑 Index
 
-1. [Project Overview](https://www.google.com/search?q=%23-project-overview)
-2. [File Structure & Responsibilities](https://www.google.com/search?q=%23-file-structure--responsibilities)
-3. [Script-by-Script Breakdown](https://www.google.com/search?q=%23-script-by-script-breakdown)
-* [Orbital Propagation]()
-* [Physics Engine]()
-* [Geometry Calculator]()
-* [Ground Station Management]()
-* [RF Link Budget]()
-* [Database & Simulation]()
-* [ML Pipeline]()
+## 📑 Index
 
-
-4. [Getting Started]()
-* [Prerequisites]()
-* [Installation & Setup]()
-
-
-5. [Benchmarks & Diagnostics]()
-6. [Physics-Aided ML Architecture]()
-7. [Data & Model Files]()
-8. [Data Source & Licensing]()
+1. [Project Overview](#-project-overview)
+2. [File Structure & Responsibilities](#️-file-structure--responsibilities)
+3. [Script-by-Script Breakdown](#️-script-by-script-breakdown)
+   - [Orbital Propagation Engine](#propogatepy--orbital-propagation-engine)
+   - [Core Physics Engine](#physicsenginepy--core-physics-engine)
+   - [Orbital Geometry Calculator](#geometrypy--orbital-geometry-calculator)
+   - [Ground Station Class](#groundstationpy--ground-station-class)
+   - [Ground Station Registry](#ground_stationspy--groundstationspy--station-registry)
+   - [RF Link Budget Calculator](#link_qualitypy--rf-link-budget-calculator)
+   - [Database Layer](#databasepy--database-layer)
+   - [Monte Carlo Simulation Engine](#satellite_link_simpy--monte-carlo-simulation-engine)
+   - [ML Training Pipeline](#train_xgboostpy--ml-training-pipeline)
+   - [Streamlit Dashboard](#apppy--streamlit-dashboard)
+4. [Getting Started](#-getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Clone the Repository](#1-clone-the-repository)
+   - [Create and Activate a Virtual Environment](#2-create-and-activate-a-virtual-environment)
+   - [Install Dependencies](#3-install-dependencies)
+   - [Initialise the Databases](#4-initialise-the-databases)
+   - [Generate Training Data](#5-generate-training-data)
+   - [Train the Model](#6-train-the-model)
+   - [Launch the Dashboard](#7-launch-the-dashboard)
+5. [Running Individual Module Benchmarks](#-running-individual-module-benchmarks)
+6. [Physics-Aided ML Architecture](#-physics-aided-ml-architecture)
+7. [Key Physics Features in the ML Model](#-key-physics-features-in-the-ml-model)
+8. [Data & Model Files](#-data--model-files)
+9. [Data Source](#-data-source)
+10. [Licence](#-licence)
 
 ---
 
