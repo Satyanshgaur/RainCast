@@ -76,7 +76,7 @@ Wraps the SGP4/SDP4 propagation standard to ingest Two-Line Element (TLE) data f
 
 The heart of the simulation. Computes all physics quantities that determine link viability:
 
-* **Free-Space Path Loss (FSPL)** using the Friis transmission equation.
+* **Free Space Path Loss (FSPL)** using the Friis transmission equation.
 * **Doppler frequency shift** from satellite radial velocity.
 * **Atmospheric attenuation** (tropospheric, ionospheric absorption models).
 * **Rain fade margin** using ITU-R P.618 approximations.
