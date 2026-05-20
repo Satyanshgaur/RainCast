@@ -95,58 +95,6 @@ source .venv/bin/activate
 pip install streamlit pandas numpy scikit-learn xgboost joblib
 ```
 
-<<<<<<< HEAD
-The heart of the simulation. Computes all physics quantities that determine link viability:
-
-* **Free Space Path Loss (FSPL)** using the Friis transmission equation.
-* **Doppler frequency shift** from satellite radial velocity.
-* **Atmospheric attenuation** (tropospheric, ionospheric absorption models).
-* **Rain fade margin** using ITU-R P.618 approximations.
-
-### `geometry.py` — Orbital Geometry Calculator
-
-Converts ECI/ECEF position vectors from `propogate.py` into observer-relative quantities:
-
-* Elevation angle from ground station to satellite.
-* Azimuth angle for antenna pointing.
-* Slant range (km) for path loss input.
-
-### `groundstation.py` — Ground Station Class
-
-Defines the `GroundStation` object: geodetic coordinates (lat/lon/alt), antenna parameters (gain, frequency, noise temperature), and methods to compute pass windows.
-
-### `ground_stations.py` / `groundstations.py` — Station Registry
-
-Stores a static registry of named ground stations and provides a collection manager for multi-station scenarios (handoff points and concurrent pass overlap).
-
-### `link_quality.py` — RF Link Budget Calculator
-
-Assembles all physics outputs into a complete link budget:
-
-* Transmit EIRP (dBW)
-* Receive G/T (dB/K)
-* Carrier-to-Noise density ratio (C/N₀)
-* Binary `link_viable` label used as the ML training target.
-
-### `database.py` — Database Layer
-
-Defines the SQLite schema for `satellite.db` and `satellites.db` using an ORM-style interface.
-
-### `satellite_link_sim.py` — Monte Carlo Simulation Engine
-
-The data generation pipeline. Runs thousands of simulated satellite passes across all ground stations to generate `link_training_data.csv`.
-
-### `train_xgboost.py` — ML Training Pipeline
-
-Loads training data, applies feature engineering, fits a `StandardScaler`, and trains an XGBoost classifier to predict link quality margin.
-
-### `app.py` — Streamlit Dashboard
-
-The operator-facing interface. Fetches fresh TLE data, propagates current positions, and displays live satellite ground tracks and link quality predictions.
-=======
-No external data files are required. All ITU-R model coefficients are embedded in `satellite_link_sim.py`.
->>>>>>> 2106883 (wrote a much detailed readme)
-
 ---
 
 ## Quick Start
