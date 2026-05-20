@@ -71,7 +71,7 @@ The target use case is pre-deployment link budget analysis and what-if scenario 
 └── README.md
 ```
 
-The canonical files for the current version of the project are `app.py`, `satellite_link_sim.py`, and `ground_stations.py`. The `legacy` files (`groundstation.py`, `groundstations.py`, `ground_station.py`, `geometry.py`) predate the physics upgrade and are retained for reference.
+The canonical files for the current version of the project are `app.py`, `satellite_link_sim.py`, and `ground_stations.py`. 
 
 ---
 
