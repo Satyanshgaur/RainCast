@@ -1,6 +1,6 @@
 # Satellite Link Quality Simulator
 
-A physics-first satellite link budget simulator for GEO Ku-band uplinks, combining ITU-R propagation models, a temporally correlated rain process, and an XGBoost link quality scorer inside a Streamlit dashboard.
+A physics-first satellite link budget simulator that dynamically integrates **SGP4 orbital propagation** with ITU-R atmospheric models. It combines live geometry tracking, temporally correlated rain processes, and an XGBoost link quality scorer inside an interactive Streamlit dashboard.
 
 ---
 
@@ -11,7 +11,7 @@ A physics-first satellite link budget simulator for GEO Ku-band uplinks, combini
 3. [Installation](#installation)
 4. [Quick Start](#quick-start)
 5. [Physics — Detailed Explanation](#physics--detailed-explanation)
-   - [1. GEO Orbital Geometry](#1-geo-orbital-geometry)
+   - [1. Dynamic Orbital Geometry (SGP4)](#1-dynamic-orbital-geometry-sgp4)
    - [2. Free-Space Path Loss](#2-free-space-path-loss)
    - [3. Thermal Noise Power](#3-thermal-noise-power)
    - [4. Rain Statistics — ITU-R P.837-7](#4-rain-statistics--itu-r-p837-7)
@@ -22,10 +22,10 @@ A physics-first satellite link budget simulator for GEO Ku-band uplinks, combini
    - [9. Gaseous Absorption — ITU-R P.676-12](#9-gaseous-absorption--itu-r-p676-12)
    - [10. Tropospheric Scintillation — ITU-R P.618-13 §2.4](#10-tropospheric-scintillation--itu-r-p618-13-24)
    - [11. Temporally Correlated Rain — ITU-R P.1853 / Maseng-Bakken](#11-temporally-correlated-rain--itu-r-p1853--maseng-bakken)
-   - [12. Doppler Shift](#12-doppler-shift)
+   - [12. Dynamic Doppler Shift](#12-dynamic-doppler-shift)
    - [13. The Link Budget Equation](#13-the-link-budget-equation)
    - [14. Packet Loss Model](#14-packet-loss-model)
-6. [The Simulation Loop](#the-simulation-loop)
+6. [The Simulation Loop & Propagation Pipeline](#the-simulation-loop--propagation-pipeline)
 7. [Machine Learning Pipeline](#machine-learning-pipeline)
 8. [File Reference](#file-reference)
 9. [Ground Station Parameters](#ground-station-parameters)
@@ -37,15 +37,15 @@ A physics-first satellite link budget simulator for GEO Ku-band uplinks, combini
 
 ## Project Overview
 
-Satellite communications are degraded by a chain of physical phenomena: geometric path loss, thermal noise in the receiver, rain cells absorbing and scattering microwave energy, water vapour and oxygen absorbing the signal, and small-scale turbulent refraction causing signal amplitude to flicker. Each of these is understood well enough to be modelled from first principles using internationally standardised methods published by the ITU Radiocommunication Sector (ITU-R).
+Satellite communications are degraded by a chain of physical phenomena: geometric path loss, thermal noise, rain attenuation, gaseous absorption, and tropospheric scintillation. While legacy simulators often assume static satellite positions, **real-world links are dynamic**. Even "geostationary" satellites drift in figure-8 patterns, and LEO/MEO constellations move rapidly across the sky.
 
-This project implements those models faithfully and uses them to:
+This project implements a **Time-Aware Simulation Pipeline** that:
 
-- Compute a per-minute time series of signal-to-noise ratio (SNR) for each ground station over a configurable simulation window
-- Model rain as a temporally correlated stochastic process rather than independent per-step sampling, so rain events persist realistically across multiple minutes
-- Derive link quality statistics (mean SNR, 10th-percentile SNR, outage fraction, packet loss) from that time series
-- Feed those statistics into a trained XGBoost model to produce a single link quality score per station
-- Present everything in a Streamlit dashboard where physical parameters (frequency, power, bandwidth, rain intensity) can be varied interactively
+- Uses **SGP4 (Simplified General Perturbations)** propagation to track live ECEF position and velocity vectors for satellites stored in a SQLite database.
+- Recomputes **Elevation**, **Slant Range**, and **Doppler** at every 60-second time step.
+- Dynamically updates atmospheric losses (FSPL, Rain, Gas, Scintillation) as the satellite's geometric relationship to the ground station evolves.
+- Models rain as a temporally correlated stochastic process (AR(1)) for realistic link fade persistence.
+- Scores link quality using a pre-trained **XGBoost model** and visualises time-series data in a Streamlit dashboard.
 
 The target use case is pre-deployment link budget analysis and what-if scenario testing for GEO Ku-band satellite uplinks.
 
@@ -56,15 +56,14 @@ The target use case is pre-deployment link budget analysis and what-if scenario 
 ```
 .
 ├── app.py                    # Streamlit dashboard — UI, scoring, display
-├── satellite_link_sim.py     # ITU-R physics engine — core simulation
+├── satellite_link_sim.py     # ITU-R physics engine & time-aware sim loop
+├── propogate.py              # SGP4 Propagation Layer — ECEF/ENU transformations
 ├── ground_stations.py        # Single source of truth: all station parameters
-├── geometry.py               # Geometry helpers used by legacy app.py
+├── database.py               # Satellite catalogue loader (TLEs to SQLite)
+├── satellites.db             # SQLite database (satellite TLE catalogue)
+├── geometry.py               # Geometry helpers (Legacy GEO formulas)
 ├── physicsengine.py          # Standalone physics utilities
-├── propogate.py              # Orbital propagation helpers
 ├── link_quality.py           # Link quality scoring utilities
-├── database.py               # SQLite interface layer
-├── satellite.db              # SQLite database (link records)
-├── satellites.db             # SQLite database (satellite catalogue)
 ├── train_xgboost.py          # Model training script
 ├── link_training_data.csv    # Training dataset for XGBoost model
 ├── LICENSE
@@ -130,39 +129,23 @@ where every term is in decibels (dB) or dBW. The sections below derive each term
 
 ---
 
-### 1. GEO Orbital Geometry
+### 1. Dynamic Orbital Geometry (SGP4)
 
-A geostationary satellite sits in a circular orbit 35,786 km above the equator at a fixed longitude. The distance from a ground station to the satellite, and the angle above the horizon at which the station must point its antenna, are determined purely by the station's latitude and longitude and the satellite's orbital slot longitude.
+The project has moved beyond static GEO assumptions. While the simulator still supports fixed GEO longitudes, it now prioritises live orbital data via the `propogate.py` layer.
 
-**Central angle γ** is the angular separation at Earth's centre between the ground station and the sub-satellite point (the point on the equator directly below the satellite):
+**SGP4 Propagation**: For any station linked to a `norad_id`, the simulator fetches the latest TLE (Two-Line Element) from `satellites.db` and propagates the orbit to the current simulation epoch.
+- **ECEF State**: Returns (x, y, z) position and velocity in Earth-Centered, Earth-Fixed coordinates.
+- **Topocentric Transformation**: Converts ECEF vectors into **ENU (East-North-Up)** coordinates relative to the ground station's WGS84 geodetic position.
+- **Dynamic Geometry**: Recomputes Elevation (El) and Azimuth (Az) at every step.
 
-```
-cos γ = cos(φ) · cos(Δλ)
-```
+**Why this matters**:
+- **Slant Range Variation**: A satellite drifting or moving closer to the horizon increases the **Free-Space Path Loss** and **Rain Path Length** dynamically.
+- **Doppler Dynamics**: Radial velocity is no longer a static guess; it is derived from the dot product of the relative velocity vector and the range vector.
 
-where φ is the ground station latitude and Δλ is the difference in longitude between the station and the satellite.
-
-**Elevation angle** is the angle above the local horizontal at which the ground station sees the satellite. A low elevation means the signal travels through more atmosphere and more rain, which is why polar stations suffer more than equatorial ones:
-
-```
-sin(El) = (cos γ − R_E / R_GEO) / sqrt(1 − cos²γ)
-```
-
-where R_E = 6,371 km (Earth mean radius) and R_GEO = 42,164 km (GEO orbital radius from Earth's centre, not from the surface).
-
-**Slant range** is the straight-line distance from ground station to satellite, derived from the law of cosines on the Earth-centre / ground-station / satellite triangle:
-
-```
-d = sqrt(R_GEO² + R_E² − 2 · R_GEO · R_E · cos γ)
-```
-
-For a station at the sub-satellite point (directly below), d = R_GEO − R_E = 35,786 km. For a station near the edge of coverage where the elevation angle falls to around 5°, d can reach 41,000–42,000 km. This 15% increase in distance corresponds to an extra 1.3 dB of free-space path loss.
-
-Each ground station in this project uses its own GEO satellite arc:
-- Delhi → INSAT-4A/SES-8 at 83.0°E, elevation ≈ 48°
-- Tokyo → JCSAT-3A at 110.0°E, elevation ≈ 52°
-- Berlin → Astra 1 at 19.2°E, elevation ≈ 35°
-- Sao Paulo → Star One C2 at 70.0°W, elevation ≈ 65°
+If no `norad_id` is provided for a station, it falls back to the **Legacy GEO Geometry**:
+- **Elevation**: `sin(El) = (cos γ − R_E / R_GEO) / sqrt(1 − cos²γ)`
+- **Slant Range**: `d = sqrt(R_GEO² + R_E² − 2 · R_GEO · R_E · cos γ)`
+- *Note: In legacy mode, geometry is constant for the entire simulation window.*
 
 ---
 
@@ -421,23 +404,15 @@ This model correctly reproduces:
 
 ---
 
-### 12. Doppler Shift
+### 12. Dynamic Doppler Shift
 
-A satellite in a geostationary orbit is nominally stationary relative to the ground. In practice, orbital perturbations (solar radiation pressure, lunar/solar gravity, slight orbital eccentricity) cause the satellite to trace a small figure-8 path around its nominal position, giving it a non-zero radial velocity relative to each ground station.
-
-The classical Doppler shift in Hz is:
+With SGP4 integration, the Doppler shift is computed live from the satellite's state vector:
 
 ```
-f_D = (v_r / c) · f_c
+f_D = (v_radial / c) · f_c
 ```
 
-where v_r is the radial velocity of the satellite (negative = receding), c = 2.998 × 10⁸ m/s, and f_c is the carrier frequency. At 14 GHz with a typical radial velocity of −30 m/s:
-
-```
-f_D = (−30 / 2.998×10⁸) × 14×10⁹ ≈ −1,401 Hz
-```
-
-This ~1.4 kHz Doppler offset is constant over the simulation window and is informational only — it is not incorporated into the SNR calculation but is reported in the output for completeness. Modern satellite modems track and compensate for Doppler to well within 1 Hz.
+Where `v_radial` is the projection of the relative velocity vector (Satellite - Ground Station) onto the line-of-sight vector. The ground station velocity includes the component from Earth's rotation (~460 m/s at the equator). This allows the simulator to model the rapid Doppler sweeps characteristic of non-GEO satellites.
 
 ---
 
@@ -493,19 +468,19 @@ This sigmoid is physically motivated: real satellite link performance curves (BE
 
 ---
 
-## The Simulation Loop
+## The Simulation Loop & Propagation Pipeline
 
-For each ground station, `simulate_station()` executes the following sequence once per time step (default: 60 steps of 60 seconds each = 1 hour):
+The simulation in `satellite_link_sim.py` now operates as a stateful time-series engine. For each ground station:
 
-```
-1.  Advance the Markov rain state (CLEAR / RAINING)
-2.  If RAINING: advance the AR(1) lognormal process → rain_rate[t]
-3.  Compute rain attenuation: A_rain[t] = k · rain_rate[t]^α · L_eff
-4.  Sample scintillation: L_scint[t] ~ N(0, σ_s²)
-5.  Compute SNR[t] = EIRP − FSPL − A_gas − A_rain[t] − L_scint[t] + G_rx − N
-6.  Compute packet loss: P_loss[t] = sigmoid(SNR[t] − θ)
-7.  Append all values to time series
-```
+1.  **Initialisation**: Look up `norad_id`. If found, initialise an SGP4 `Satrec` object via `propogate.py`.
+2.  **Time Loop (per minute)**:
+    - **Step A: Propagate.** Fetch (x, y, z) position and velocity at `T_now`.
+    - **Step B: Geometry.** Compute `Elevation`, `Slant Range`, and `v_radial`.
+    - **Step C: Static/Slow Losses.** Re-evaluate FSPL and Gaseous Absorption for the new distance/angle.
+    - **Step D: Stochastic Losses.** Step the AR(1) Rain Process and Scintillation noise.
+    - **Step E: Link Budget.** Calculate `SNR[t] = EIRP - Losses + Gain - Noise`.
+    - **Step F: Clock.** Advance `T_now += 60s`.
+3.  **Aggregation**: Return `StationResult` containing full time-series for SNR, Rain, Elevation, and Range.
 
 After all steps, summary statistics are computed:
 
@@ -605,17 +580,16 @@ All parameters for each ground station are defined in `ground_stations.py`. Ever
 
 ## Known Limitations
 
-**ML model training data**: the XGBoost model was trained on `link_training_data.csv` whose provenance and labelling methodology are not documented in the repository. The link quality score it produces should be treated as a relative ranking signal rather than an absolute quality metric until the model is validated against real link performance data.
+**TLE Age**: The accuracy of SGP4 propagation depends on the age of the TLEs in `satellites.db`. The initial dataset was sourced from **[CelesTrak](https://celestrak.org/)**. 
 
-**3-feature ML schema**: the model only sees `(snr_mean, avg_pkt_loss, load)`. The physics engine computes richer statistics (`snr_p10`, `snr_std`, `outage_fraction`) that would improve discrimination between links with the same average SNR but different temporal variability. Retraining on the 5-feature schema is a clear next step.
+To update the satellite catalogue:
+1.  Visit [CelesTrak](https://celestrak.org/NORAD/elements/) and download the latest TLE data (e.g., for GEO satellites).
+2.  Open `database.py` and replace the `tle_text` string with the new TLE content.
+3.  Run `python3 database.py` to rebuild the `satellites.db` with fresh orbital elements.
 
-**Single-frequency model**: the simulator uses one carrier frequency for all stations simultaneously. Real satellite systems use frequency plans, polarization reuse, and multiple transponders. The single-frequency model is adequate for relative station comparison but not for full system capacity planning.
+**ML Feature Window**: The XGBoost model currently scores based on `snr_mean` and `avg_pkt_loss`. It does not yet "see" the geometric trends (e.g., a link getting progressively worse as a satellite sets).
 
-**Static atmospheric model**: water vapour density and humidity are annual averages. In reality they vary with season and weather. A diurnal or seasonal model would improve accuracy for specific mission planning.
-
-**GEO only**: `propogate.py` suggests LEO/MEO support was intended but the current physics engine and UI are GEO-only. The geometry functions assume a fixed slant range derived from the GEO arc.
-
-**Independent scintillation**: scintillation is modelled as independent Gaussian noise per time step. Real scintillation has a correlation time of a few seconds to minutes. For 1-minute time steps this is a reasonable approximation but would be wrong for sub-minute analysis.
+**Atmospheric Inhomogeneity**: While the path reduction factor `r` accounts for horizontal rain cell size, the model assumes a stratified atmosphere. Complex refraction effects at very low elevation (< 5°) are not fully modelled.
 
 ---
 
