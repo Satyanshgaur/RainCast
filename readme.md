@@ -27,7 +27,7 @@ A physics-first satellite link budget simulator that dynamically integrates **SG
    - [14. Packet Loss Model](#14-packet-loss-model)
 6. [The Simulation Loop & Propagation Pipeline](#the-simulation-loop--propagation-pipeline)
 7. [Machine Learning Pipeline](#machine-learning-pipeline)
-8. [Validation and Correctness](#validation-&-correctness)
+8. [Validation and Correctness](#validation-and-correctness)
 9. [File Reference](#file-reference)
 10. [Ground Station Parameters](#ground-station-parameters)
 11. [UI Controls and What They Change](#ui-controls-and-what-they-change)
@@ -527,7 +527,7 @@ The ML component scores each station's link quality from a single number rather 
 
 ---
 
-## Validation & Correctness
+## Validation and Correctness
 
 The simulator includes an automated validation suite to ensure physical models align with ITU standards and analytical references.
 
