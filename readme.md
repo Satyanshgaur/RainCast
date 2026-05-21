@@ -27,7 +27,7 @@ A physics-first satellite link budget simulator that dynamically integrates **SG
    - [14. Packet Loss Model](#14-packet-loss-model)
 6. [The Simulation Loop & Propagation Pipeline](#the-simulation-loop--propagation-pipeline)
 7. [Machine Learning Pipeline](#machine-learning-pipeline)
-8. [Validation and Correctness] (#Validation-&-Correctness)
+8. [Validation and Correctness](#Validation-&-Correctness)
 9. [File Reference](#file-reference)
 10. [Ground Station Parameters](#ground-station-parameters)
 11. [UI Controls and What They Change](#ui-controls-and-what-they-change)
