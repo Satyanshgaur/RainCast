@@ -66,6 +66,11 @@ The target use case is pre-deployment link budget analysis and what-if scenario 
 ├── link_quality.py           # Link quality scoring utilities
 ├── train_xgboost.py          # Model training script
 ├── link_training_data.csv    # Training dataset for XGBoost model
+├── val_and_bench/            # Validation suite and plots
+│   ├── validation_correctness.py
+│   ├── val_autocorr.png
+│   ├── val_geometry.png
+│   └── val_rain_attenuation.png
 ├── LICENSE
 └── README.md
 ```
@@ -86,7 +91,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
-pip install streamlit pandas numpy scikit-learn xgboost joblib
+pip install streamlit pandas numpy scikit-learn xgboost joblib matplotlib sgp4
 ```
 
 ---
@@ -107,6 +112,12 @@ python3 satellite_link_sim.py
 
 # Force all stations into rain for the entire window
 python3 satellite_link_sim.py --rain
+```
+
+**Run the validation suite:**
+
+```bash
+python3 val_and_bench/validation_correctness.py
 ```
 
 **Retrain the XGBoost model:**
@@ -512,6 +523,36 @@ The ML component scores each station's link quality from a single number rather 
 **`xgb_link_model.pkl`** — a trained XGBoost regressor that maps the scaled 3-feature vector to a link quality score. The model was trained on `link_training_data.csv` using `train_xgboost.py`.
 
 **Important caveat**: the model was trained on a 3-feature schema. The richer statistics computed by the physics engine (`snr_p10`, `snr_std`, `outage_fraction`) are displayed in the UI but not passed to the model. Retraining on the full feature set would allow the model to differentiate between a stable link at 12 dB SNR and a highly variable link that averages 12 dB but dips to 4 dB during rain.
+
+---
+
+## Validation & Correctness
+
+The simulator includes an automated validation suite to ensure physical models align with ITU standards and analytical references.
+
+### 1. Free-Space Path Loss (ITU-R P.525)
+The FSPL implementation is validated against the standard formula: $L_{fs} = 92.45 + 20\log_{10}(f_{GHz}) + 20\log_{10}(d_{km})$.
+- **Result:** Accuracy within $10^{-4}$ dB.
+
+### 2. Rain Attenuation (ITU-R P.838 / P.839)
+- **Coefficients:** Specific attenuation coefficients ($k, \alpha$) are verified via log-linear interpolation of ITU-R P.838-3 tables.
+- **Rain Height:** The latitude-dependent rain height model (P.839-4) is tested for climate zone accuracy (e.g., Delhi at 4.58 km).
+- **Sanity Check:** End-to-end attenuation is verified for standard rates (e.g., 25 mm/h).
+
+![Rain Attenuation Validation](val_and_bench/val_rain_attenuation.png)
+
+### 3. Geometry & SGP4
+- **Slant Range:** Analytical checks for Zenith ($90^\circ$) and Horizon ($0^\circ$) elevations.
+- **SGP4 vs. Analytical:** Cross-validation of SGP4-propagated slant range against spherical Earth analytical models for GEO satellites (e.g., INTELSAT 10).
+
+![Geometry Validation](val_and_bench/val_geometry.png)
+
+### 4. Stochastic Rain Process (ITU-R P.1853)
+The Maseng-Bakken AR(1) process is validated through:
+- **Autocorrelation:** Empirically measuring the decay constant $\rho = e^{-dt/\tau_c}$ to ensure temporal coherence matches the 5-minute ($\sim 300\text{s}$) physical rain cell correlation time.
+- **Stationary Distribution:** Ensuring the process converges to the correct ITU-R P.837 lognormal mean across varying time steps ($10\text{s}$ to $300\text{s}$).
+
+![Autocorrelation Validation](val_and_bench/val_autocorr.png)
 
 ---
 
