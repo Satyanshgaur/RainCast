@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import sqlite3
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from sgp4.api import Satrec, jday
@@ -44,7 +45,10 @@ def ecef_to_enu_matrix(lat_deg, lon_deg):
     ])
 
 class Propagator:
-    def __init__(self, db_path="satellites.db"):
+    def __init__(self, db_path=None):
+        if db_path is None:
+            # Default to satellites.db in the same directory as this file
+            db_path = os.path.join(os.path.dirname(__file__), "satellites.db")
         self.db_path = db_path
         self.cache = {}
 
@@ -109,15 +113,5 @@ class Propagator:
             elevation_deg=math.degrees(el),
             slant_range_km=slant_range,
             radial_velocity_ms=v_radial * 1000.0,
-            azimuth_deg=math.degrees(az) % 360
+            azimuth_deg=math.degrees(az)
         )
-
-if __name__ == "__main__":
-    # Quick test
-    prop = Propagator()
-    dt = datetime.now(timezone.utc)
-    # Test with INTELSAT 10 (26766)
-    geo = prop.get_geometry(26766, dt, 28.6, 77.2, 0.216)
-    if geo:
-        print(f"INTELSAT 10 Geometry: {geo}")
-
