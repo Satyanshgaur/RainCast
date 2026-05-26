@@ -30,11 +30,12 @@ A physics-first satellite link budget simulator that dynamically integrates **SG
 8. [Validation and Benchmarks](#validation-and-benchmarks)
    - [Validation Suite](#validation-suite)
    - [Performance Benchmarks](#performance-benchmarks)
-9. [File Reference](#file-reference)
-10. [Ground Station Parameters](#ground-station-parameters)
-11. [UI Controls and What They Change](#ui-controls-and-what-they-change)
-12. [Known Limitations](#known-limitations)
-13. [References](#references)
+9. [Tests](#tests)
+10. [File Reference](#file-reference)
+11. [Ground Station Parameters](#ground-station-parameters)
+12. [UI Controls and What They Change](#ui-controls-and-what-they-change)
+13. [Known Limitations](#known-limitations)
+14. [References](#references)
 
 ---
 
@@ -69,6 +70,9 @@ The target use case is pre-deployment link budget analysis and what-if scenario 
 ├── link_quality.py           # Link quality scoring utilities
 ├── train_xgboost.py          # Model training script
 ├── link_training_data.csv    # Training dataset for XGBoost model
+├── tests/                    # Pytest-based physics invariant & regression tests
+│   ├── test_physics_invariants.py
+│   └── test_regression.py
 ├── val_and_bench/            # Validation suite and Performance Benchmarks
 │   ├── validation_correctness.py
 │   ├── benchmarks.py         # Performance measurement script
@@ -585,6 +589,30 @@ Tracks the memory footprint of large simulations. A 500,000-step simulation cons
 
 ---
 
+## Tests
+
+The project uses `pytest` for comprehensive physics and regression testing. These tests ensure that any code changes do not violate fundamental physical invariants or break deterministic behavior.
+
+### Running Tests
+```bash
+python3 -m pytest tests/
+```
+
+### Coverage
+- **Physics Invariants:**
+    - **FSPL Monotonicity:** Path loss must strictly increase with distance.
+    - **Thermal Noise:** Noise power must scale correctly with bandwidth.
+    - **Rain Attenuation:** Attenuation must increase with rainfall intensity (mm/h).
+    - **Geometric Slant Path:** Lower elevation angles must result in longer propagation paths through the atmosphere.
+- **Regression & Determinism:**
+    - **Deterministic Seeds:** Using the same seed and start time must produce bit-identical SNR and rain series.
+    - **Stochastic Control:** Verification that the `force_rain` flag correctly overrides probabilistic onset models.
+    - **Statistical Integrity:** Verification of mean, min, and standard deviation calculations.
+- **AR(1) Correlation:** 
+    - Verified that the empirical autocorrelation of the Maseng-Bakken rain process matches the expected decay $\rho = e^{-\Delta t/\tau_c}$.
+
+---
+
 ## File Reference
 
 | File | Role |
@@ -601,6 +629,7 @@ Tracks the memory footprint of large simulations. A 500,000-step simulation cons
 | `satellites.db` | SQLite database of satellite catalogue entries |
 | `train_xgboost.py` | Reads `link_training_data.csv`, fits `feature_scaler.pkl` and `xgb_link_model.pkl` |
 | `link_training_data.csv` | Training dataset with columns `snr_db`, `packet_loss`, `load_factor`, and target label |
+| `tests/` | Directory containing pytest-based physics and regression tests |
 | `feature_scaler.pkl` | Fitted sklearn StandardScaler |
 | `xgb_link_model.pkl` | Trained XGBoost regressor |
 
