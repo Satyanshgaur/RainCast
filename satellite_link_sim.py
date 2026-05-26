@@ -54,7 +54,8 @@ def geo_elevation_deg(lat_deg, lon_deg, sat_lon_deg):
     lat       = math.radians(lat_deg)
     dlon      = math.radians(lon_deg - sat_lon_deg)
     cos_gamma = math.cos(lat) * math.cos(dlon)
-    sin_el    = (cos_gamma - R_E / R_GEO) / math.sqrt(1 - cos_gamma**2 + 1e-12)
+    d         = geo_slant_range_km(lat_deg, lon_deg, sat_lon_deg)
+    sin_el    = (R_GEO * cos_gamma - R_E) / d
     return math.degrees(math.asin(max(min(sin_el, 1.0), -1.0)))
 
 def geo_slant_range_km(lat_deg, lon_deg, sat_lon_deg):
