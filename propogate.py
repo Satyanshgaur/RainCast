@@ -14,31 +14,36 @@ EARTH_OMEGA = 7.292115e-5      # Earth rotation rate (rad/s)
 
 @dataclass
 class SatelliteGeometry:
-    elevation_deg: float
-    slant_range_km: float
-    radial_velocity_ms: float
-    azimuth_deg: float = 0.0
+    elevation_deg: np.ndarray  # Shape: (n_steps,)
+    slant_range_km: np.ndarray # Shape: (n_steps,)
+    radial_velocity_ms: np.ndarray # Shape: (n_steps,)
+    azimuth_deg: np.ndarray = None # Shape: (n_steps,)
 
 def geodetic_to_ecef(lat_deg, lon_deg, alt_km):
-    """Convert geodetic (lat, lon, alt) to ECEF (x, y, z) in km."""
-    lat = math.radians(lat_deg)
-    lon = math.radians(lon_deg)
-    n = WGS84_A / math.sqrt(1 - WGS84_E2 * math.sin(lat)**2)
+    """Convert geodetic (lat, lon, alt) to ECEF (x, y, z) in km. Supports arrays."""
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    n = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
     
-    x = (n + alt_km) * math.cos(lat) * math.cos(lon)
-    y = (n + alt_km) * math.cos(lat) * math.sin(lon)
-    z = (n * (1 - WGS84_E2) + alt_km) * math.sin(lat)
-    return np.array([x, y, z])
+    x = (n + alt_km) * np.cos(lat) * np.cos(lon)
+    y = (n + alt_km) * np.cos(lat) * np.sin(lon)
+    z = (n * (1 - WGS84_E2) + alt_km) * np.sin(lat)
+    return np.stack([x, y, z], axis=-1)
 
 def ecef_to_enu_matrix(lat_deg, lon_deg):
-    """Create a rotation matrix from ECEF to ENU at a given location."""
-    lat = math.radians(lat_deg)
-    lon = math.radians(lon_deg)
+    """Create a rotation matrix from ECEF to ENU. Supports arrays."""
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
     
-    sin_lat, cos_lat = math.sin(lat), math.cos(lat)
-    sin_lon, cos_lon = math.sin(lon), math.cos(lon)
+    sin_lat, cos_lat = np.sin(lat), np.cos(lat)
+    sin_lon, cos_lon = np.sin(lon), np.cos(lon)
     
+    # Return shape (..., 3, 3)
     return np.array([
+        [-sin_lon,           cos_lon,            np.zeros_like(lat)],
+        [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
+        [cos_lat * cos_lon,  cos_lat * sin_lon,  sin_lat]
+    ]).transpose(2, 0, 1) if np.ndim(lat) > 0 else np.array([
         [-sin_lon,           cos_lon,            0],
         [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
         [cos_lat * cos_lon,  cos_lat * sin_lon,  sin_lat]
@@ -59,8 +64,8 @@ class Propagator:
         
         conn = sqlite3.connect(self.db_path)
         cur = conn.cursor()
-        if isinstance(identifier, int):
-            cur.execute("SELECT name, tle_line1, tle_line2 FROM satellites WHERE norad_id=?", (identifier,))
+        if isinstance(identifier, (int, np.integer)):
+            cur.execute("SELECT name, tle_line1, tle_line2 FROM satellites WHERE norad_id=?", (int(identifier),))
         else:
             cur.execute("SELECT name, tle_line1, tle_line2 FROM satellites WHERE name LIKE ?", (f"%{identifier}%",))
         
@@ -74,44 +79,65 @@ class Propagator:
             return name, sat
         return None
 
-    def get_geometry(self, identifier, dt: datetime, gs_lat, gs_lon, gs_alt):
-        """Propagate and compute geometry relative to a ground station."""
+    def get_geometry_batch(self, identifier, dts: list[datetime], gs_lat, gs_lon, gs_alt):
+        """Propagate for a batch of times for a single ground station."""
         res = self.get_sat_rec(identifier)
         if not res: return None
         name, sat = res
         
-        # SGP4 propagation
-        jd, fr = jday(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second + dt.microsecond/1e6)
-        error, sat_pos, sat_vel = sat.sgp4(jd, fr)
-        if error != 0: return None
+        # SGP4 propagation (batched)
+        jds = []
+        frs = []
+        for dt in dts:
+            jd, fr = jday(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second + dt.microsecond/1e6)
+            jds.append(jd)
+            frs.append(fr)
         
-        sat_pos = np.array(sat_pos)
-        sat_vel = np.array(sat_vel)
+        jds = np.array(jds)
+        frs = np.array(frs)
+        
+        # sgp4 array API: sat.sgp4_array(jd, fr) -> error, pos, vel
+        # pos/vel are (n, 3)
+        error, sat_pos, sat_vel = sat.sgp4_array(jds, frs)
+        if np.any(error != 0): 
+            # If any step fails, we might want to handle it more gracefully, 
+            # but for now return None if any error occurs
+            return None
         
         # Ground station ECEF
-        gs_pos = geodetic_to_ecef(gs_lat, gs_lon, gs_alt)
+        gs_pos = geodetic_to_ecef(gs_lat, gs_lon, gs_alt) # (3,)
         
-        # Relative vector
+        # Relative vector (n, 3)
         rho_ecef = sat_pos - gs_pos
-        slant_range = np.linalg.norm(rho_ecef)
+        slant_range = np.linalg.norm(rho_ecef, axis=1) # (n,)
         
         # Topocentric (ENU)
-        m = ecef_to_enu_matrix(gs_lat, gs_lon)
-        rho_enu = m @ rho_ecef
+        m = ecef_to_enu_matrix(gs_lat, gs_lon) # (3, 3)
+        rho_enu = np.einsum('ij,nj->ni', m, rho_ecef) # (n, 3)
         
         # Elevation & Azimuth
-        el = math.atan2(rho_enu[2], math.sqrt(rho_enu[0]**2 + rho_enu[1]**2))
-        az = math.atan2(rho_enu[0], rho_enu[1])
+        el = np.arctan2(rho_enu[:, 2], np.sqrt(rho_enu[:, 0]**2 + rho_enu[:, 1]**2))
+        az = np.arctan2(rho_enu[:, 0], rho_enu[:, 1])
         
         # Radial Velocity (Doppler)
-        # Account for Earth rotation in ground station velocity
         gs_vel = np.array([-EARTH_OMEGA * gs_pos[1], EARTH_OMEGA * gs_pos[0], 0])
-        rel_vel = sat_vel - gs_vel
-        v_radial = np.dot(rel_vel, rho_ecef) / slant_range # km/s
+        rel_vel = sat_vel - gs_vel # (n, 3)
+        v_radial = np.einsum('ni,ni->n', rel_vel, rho_ecef) / slant_range # (n,) km/s
         
         return SatelliteGeometry(
-            elevation_deg=math.degrees(el),
+            elevation_deg=np.degrees(el),
             slant_range_km=slant_range,
             radial_velocity_ms=v_radial * 1000.0,
-            azimuth_deg=math.degrees(az)
+            azimuth_deg=np.degrees(az)
+        )
+
+    def get_geometry(self, identifier, dt: datetime, gs_lat, gs_lon, gs_alt):
+        """Maintains backward compatibility for single-step calls."""
+        res = self.get_geometry_batch(identifier, [dt], gs_lat, gs_lon, gs_alt)
+        if not res: return None
+        return SatelliteGeometry(
+            elevation_deg=res.elevation_deg[0],
+            slant_range_km=res.slant_range_km[0],
+            radial_velocity_ms=res.radial_velocity_ms[0],
+            azimuth_deg=res.azimuth_deg[0]
         )
