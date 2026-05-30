@@ -1,4 +1,7 @@
 # Satellite Link Quality Simulator
+High-fidelity satellite communication simulator combining
+orbital propagation, atmospheric attenuation modeling, and
+stochastic rain fading to evaluate real-world link performance.
 
 Physics-first satellite link simulator integrating:
 - **SGP4 orbital propagation** (via `sgp4`)
