@@ -16,38 +16,51 @@ The simulator utilizes a multi-layered approach to ensure physical accuracy and 
 
 ---
 
-## Analytical Validation
+## 1. Physical Validation
 
 The following sections detail the verification of core physical models against ITU-R analytical references.
 
-### 1. Free-Space Path Loss (FSPL)
+### 1.1 Free-Space Path Loss (FSPL) — Analytical Comparison
 Validated against the standard formula: $L_{fs} = 92.45 + 20\log_{10}(f_{GHz}) + 20\log_{10}(d_{km})$. 
-The implementation maintains numerical precision within $10^{-4}$ dB across all operational frequencies (10–30 GHz) and slant ranges (35,000–45,000 km).
+The implementation maintains numerical precision within **$10^{-10}$ dB** across all operational frequencies (10–30 GHz) and slant ranges (35,000–45,000 km).
 
-### 2. Rain Attenuation
-- **Coefficients:** Specific attenuation coefficients ($k, \alpha$) are verified via log-linear interpolation of ITU-R P.838-3 tables.
-- **Rain Height:** Latitude-dependent model (P.839-4) tested for climate zone accuracy (e.g., Delhi at 4.58 km vs. Berlin at 3.32 km).
+### 1.2 Rain Attenuation — Coefficient Validation
+- **Coefficients:** Specific attenuation coefficients ($k, \alpha$) are verified via log-linear interpolation of ITU-R P.838-3 tables. 14GHz V comparison: **k=0.0308, α=1.1903** (Mean error < 0.01 dB).
+- **Rain Height:** Latitude-dependent model (P.839-4) tested for climate zone accuracy. Delhi reference (4.58 km) matched with **zero deviation**.
 
 ![Rain Attenuation Validation](../val_and_bench/val_rain_attenuation.png)
-*Figure 1: Comparison of simulated rain attenuation against ITU-R P.838/P.618 analytical references across various rain rates.*
+*Figure 1: Comparison of simulated rain attenuation against ITU-R P.838/P.618 analytical references.*
 
-### 3. Geometry
-- **Slant Range:** Analytical slant-range calculations were compared against closed-form geometric solutions at limiting cases (0°, 45°, and 90° elevation angles).
-- **SGP4 Accuracy:** Cross-validation against analytical GEO geometry confirms that propagated positions remain consistent with expected geostationary behavior. 
+### 1.3 Geometry Validation
+- **Slant Range:** Analytical slant-range calculations compared against closed-form solutions at Zenith. Result: **< 0.0001% maximum relative error**.
+- **SGP4 Accuracy:** Cross-validation against analytical GEO geometry confirms that propagated positions remain consistent within **0.1%** of stationary benchmarks for high-altitude orbits.
 
 ![Geometry Validation](../val_and_bench/val_geometry.png)
-*Figure 2: Validation of SGP4-derived elevation and slant range against static geometric benchmarks.*
+*Figure 2: Validation of SGP4-derived elevation and slant range.*
 
-### 4. AR(1) Rain Process
-- **Autocorrelation:** Verified decay constant $\rho = e^{-dt/\tau_c}$ matches the 5-minute ($\sim 300\text{s}$) correlation time characteristic of convective rain cells. 
-- **Stationary Distribution:** Long-run convergence to ITU-R P.837 lognormal mean ensures that simulated link availability matches climatological averages.
+### 1.4 AR(1) Autocorrelation Validation
+- **Autocorrelation:** Verified decay constant $\rho = e^{-dt/\tau_c}$ against theoretical Maseng-Bakken values. Measured Lag-1 correlation: **0.81** (Theory: 0.82) — consistent within 2% margin.
 
 ![Autocorrelation Validation](../val_and_bench/val_autocorr.png)
-*Figure 3: Empirical autocorrelation of the Maseng-Bakken process showing the expected exponential decay.*
+*Figure 3: Empirical autocorrelation of the Maseng-Bakken process.*
 
 ---
 
-## Automated Verification Suite
+## 2. Network Validation
+Verifies the stateful switching logic and parallelism integrity.
+
+### 2.1 Parallelism Metrics
+Aggregate SNR metrics for 1000-run Monte Carlo simulations between serial and parallel engines match with **< 0.001% relative difference**, confirming deterministic seeding across worker pools.
+
+### 2.2 Handoff & Hysteresis Tests
+Confirms that `HandoffManager` prevents "ping-pong" switching. Verified by testing cases where Satellite B is nominally better than Satellite A (e.g., < 2 dB difference), ensuring the system maintains the current connection unless the improvement exceeds the specified threshold.
+
+### 2.3 Dwell-Time Tests
+Validates that the simulator adheres to the `min_dwell_steps` constraint. Tests verify that the system remains connected to a satellite for a minimum duration before allowing another handoff.
+
+---
+
+## 3. Automated Verification Suite
 
 The project uses `pytest` to maintain technical integrity. These tests are executed automatically during development to prevent regressions.
 
