@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from sgp4.api import Satrec, jday
+from typing import List, Optional
 
 # ── WGS84 Constants ──────────────────────────────────────────────────────────
 WGS84_A = 6378.137             # Semi-major axis (km)
@@ -20,6 +21,57 @@ class SatelliteGeometry:
     slant_range_km: np.ndarray # Shape: (n_steps,)
     radial_velocity_ms: np.ndarray # Shape: (n_steps,)
     azimuth_deg: np.ndarray = None # Shape: (n_steps,)
+    sat_name: str | list[str] = None # Name(s) of the satellite(s) providing this geometry
+
+@dataclass
+class Satellite:
+    norad_id: int
+    name: str
+    tle_line1: Optional[str] = None
+    tle_line2: Optional[str] = None
+
+    @property
+    def tle(self):
+        return (self.tle_line1, self.tle_line2)
+
+@dataclass
+class Constellation:
+    name: str
+    satellites: List[Satellite]
+
+    @classmethod
+    def from_norad_ids(cls, name: str, ids: List[int]):
+        """Create a constellation from a list of NORAD IDs (will be fetched from DB)."""
+        return cls(name=name, satellites=[Satellite(norad_id=i, name=str(i)) for i in ids])
+
+    @classmethod
+    def from_tle_file(cls, name: str, file_path: str):
+        """Parse a TLE file (3-line format or 2-line) into a constellation."""
+        sats = []
+        with open(file_path, "r") as f:
+            lines = [l.strip() for l in f.readlines() if l.strip()]
+        
+        # Determine if 2-line or 3-line format
+        if len(lines) >= 3 and not lines[0].startswith("1 ") and not lines[0].startswith("2 "):
+            # 3-line format (Name, L1, L2)
+            for i in range(0, len(lines) - 2, 3):
+                sat_name = lines[i]
+                l1 = lines[i+1]
+                l2 = lines[i+2]
+                try:
+                    norad_id = int(l1[2:7])
+                    sats.append(Satellite(norad_id=norad_id, name=sat_name, tle_line1=l1, tle_line2=l2))
+                except: continue
+        else:
+            # 2-line format
+            for i in range(0, len(lines) - 1, 2):
+                l1 = lines[i]
+                l2 = lines[i+1]
+                try:
+                    norad_id = int(l1[2:7])
+                    sats.append(Satellite(norad_id=norad_id, name=f"SAT-{norad_id}", tle_line1=l1, tle_line2=l2))
+                except: continue
+        return cls(name=name, satellites=sats)
 
 def geodetic_to_ecef(lat_deg, lon_deg, alt_km):
     """Convert geodetic (lat, lon, alt) to ECEF (x, y, z) in km. Supports arrays."""
@@ -61,7 +113,13 @@ class Propagator:
         self._executor = ThreadPoolExecutor(max_workers=os.cpu_count())
 
     def get_sat_rec(self, identifier):
-        """Fetch Satrec by name or norad_id."""
+        """Fetch Satrec by name, norad_id, or Satellite object."""
+        if isinstance(identifier, Satellite):
+            if identifier.tle_line1 and identifier.tle_line2:
+                sat = Satrec.twoline2rv(identifier.tle_line1, identifier.tle_line2)
+                return identifier.name, sat
+            identifier = identifier.norad_id
+
         if identifier in self.cache:
             return self.cache[identifier]
         
@@ -129,7 +187,38 @@ class Propagator:
             elevation_deg=np.degrees(el),
             slant_range_km=slant_range,
             radial_velocity_ms=v_radial * 1000.0,
-            azimuth_deg=np.degrees(az)
+            azimuth_deg=np.degrees(az),
+            sat_name=name
+        )
+
+    def get_constellation_geometry(self, constellation: Constellation, dts: list[datetime], gs_lat, gs_lon, gs_alt):
+        """Pick the best satellite (highest elevation) at each time step."""
+        n_steps = len(dts)
+        best_el = np.full(n_steps, -90.0)
+        best_slant = np.zeros(n_steps)
+        best_v_radial = np.zeros(n_steps)
+        best_az = np.zeros(n_steps)
+        best_name = [None] * n_steps
+
+        for sat in constellation.satellites:
+            geo = self.get_geometry_batch(sat, dts, gs_lat, gs_lon, gs_alt)
+            if geo is None: continue
+            
+            mask = geo.elevation_deg > best_el
+            best_el[mask] = geo.elevation_deg[mask]
+            best_slant[mask] = geo.slant_range_km[mask]
+            best_v_radial[mask] = geo.radial_velocity_ms[mask]
+            best_az[mask] = geo.azimuth_deg[mask]
+            for i in range(n_steps):
+                if mask[i]:
+                    best_name[i] = geo.sat_name
+
+        return SatelliteGeometry(
+            elevation_deg=best_el,
+            slant_range_km=best_slant,
+            radial_velocity_ms=best_v_radial,
+            azimuth_deg=best_az,
+            sat_name=best_name
         )
 
     async def get_geometry_batch_async(self, identifier, dts: list[datetime], gs_lat, gs_lon, gs_alt):
