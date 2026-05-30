@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 
 from ground_stations import GROUND_STATIONS
-from propogate import Propagator
+from propogate import Propagator, Satellite, Constellation
 
 # ── Physical constants ────────────────────────────────────────────────────────
 C     = 2.998e8
@@ -105,13 +105,14 @@ def itu_rain_coefficients(freq_ghz, polarization):
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 def itu_rain_height(lat_deg):
-    a = np.abs(lat_deg)
+    is_scalar = np.isscalar(lat_deg)
+    a = np.atleast_1d(np.abs(lat_deg))
     h = np.full_like(a, 5.0, dtype=float)
     mask1 = (a > 23) & (a < 36)
     h[mask1] = np.maximum(5.0 - 0.075 * (a[mask1] - 23.0), 3.0)
     mask2 = (a >= 36)
     h[mask2] = np.maximum(5.0 - 0.1 * (a[mask2] - 36.0), 2.0)
-    return h
+    return h[0] if is_scalar else h
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -247,6 +248,73 @@ def packet_loss_from_snr(snr_db, threshold_db=SNR_THRESHOLD_DB):
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 @dataclass
+class HandoffEvent:
+    time_step: int
+    old_sat: str
+    new_sat: str
+    reason: str
+    metric_delta: float
+
+class HandoffManager:
+    """
+    Manages satellite selection and switching logic (handoffs).
+    Prevents 'ping-ponging' using hysteresis and minimum dwell time.
+    """
+    def __init__(self, policy="highest_elevation", hysteresis=2.0, min_dwell_steps=2):
+        self.policy = policy  # "highest_elevation" or "highest_snr"
+        self.hysteresis = hysteresis  # degrees if elevation, dB if SNR
+        self.min_dwell_steps = min_dwell_steps
+        
+        self.current_sat_idx = None
+        self.dwell_timer = 0
+        self.events = []
+
+    def select(self, step_idx: int, candidates_names: list, candidates_metrics: np.ndarray) -> int:
+        """
+        Select the best satellite index based on policy and constraints.
+        candidates_metrics: array of values (elevation or SNR) for each candidate.
+        """
+        if len(candidates_metrics) == 0:
+            return None
+        
+        best_idx = np.argmax(candidates_metrics)
+        best_metric = candidates_metrics[best_idx]
+
+        # Initial selection
+        if self.current_sat_idx is None:
+            self.current_sat_idx = best_idx
+            self.dwell_timer = 0
+            return self.current_sat_idx
+
+        curr_metric = candidates_metrics[self.current_sat_idx]
+        
+        # Check if we SHOULD switch
+        # 1. Is there a candidate significantly better than the current one? (Hysteresis)
+        # 2. Have we stayed on the current satellite long enough? (Dwell time)
+        
+        should_switch = False
+        if best_metric > (curr_metric + self.hysteresis):
+            if self.dwell_timer >= self.min_dwell_steps:
+                should_switch = True
+            elif curr_metric < 0: # Emergency switch if link is lost (e.g. elevation < 0)
+                should_switch = True
+
+        if should_switch:
+            self.events.append(HandoffEvent(
+                time_step=step_idx,
+                old_sat=candidates_names[self.current_sat_idx],
+                new_sat=candidates_names[best_idx],
+                reason=self.policy,
+                metric_delta=float(best_metric - curr_metric)
+            ))
+            self.current_sat_idx = best_idx
+            self.dwell_timer = 0
+        else:
+            self.dwell_timer += 1
+
+        return self.current_sat_idx
+
+@dataclass
 class StationResult:
     name:          str
     elevation:     float
@@ -276,6 +344,8 @@ class StationResult:
     avg_rain_db:     float
     avg_pkt_loss:    float
     outage_fraction: float
+    sat_name_series:   list = None
+    handoff_events:    list[HandoffEvent] = None
 
 
 def simulate_all_batched(ground_stations: list[dict],
@@ -289,6 +359,10 @@ def simulate_all_batched(ground_stations: list[dict],
                          bandwidth_hz:    float = DEFAULT_BANDWIDTH_HZ,
                          polarization:    str   = DEFAULT_POLARIZATION,
                          rain_rate_scale: float = 1.0,
+                         constellation:   Constellation | None = None,
+                         handoff_policy:  str = "highest_elevation",
+                         hysteresis:      float = 2.0,
+                         min_dwell_steps: int = 2,
                          ) -> list[StationResult]:
     if seed is not None:
         np.random.seed(seed)
@@ -298,113 +372,153 @@ def simulate_all_batched(ground_stations: list[dict],
     curr_time = start_time or datetime.now(timezone.utc)
     times = [curr_time + timedelta(seconds=i*dt_s) for i in range(n_steps)]
     freq_ghz = freq_hz / 1e9
-    
+
     # 1. Batched Geometry
     propagator = Propagator()
-    el_matrix    = np.zeros((n_stations, n_steps))
-    slant_matrix = np.zeros((n_stations, n_steps))
-    dop_matrix   = np.zeros((n_stations, n_steps))
-    
-    for i, gs in enumerate(ground_stations):
-        sat_id = gs.get("norad_id") or gs.get("sat_name")
-        if sat_id:
-            geo = propagator.get_geometry_batch(sat_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
-            if geo:
-                el_matrix[i]    = geo.elevation_deg
-                slant_matrix[i] = geo.slant_range_km
-                dop_matrix[i]   = doppler_shift_hz(geo.radial_velocity_ms, freq_hz)
-            else:
-                el_matrix[i]    = geo_elevation_deg(gs["latitude"], gs["longitude"], gs["sat_lon_deg"])
-                slant_matrix[i] = geo_slant_range_km(gs["latitude"], gs["longitude"], gs["sat_lon_deg"])
-                dop_matrix[i]   = doppler_shift_hz(gs["v_radial_ms"], freq_hz)
-        else:
-            el_matrix[i]    = geo_elevation_deg(gs["latitude"], gs["longitude"], gs["sat_lon_deg"])
-            slant_matrix[i] = geo_slant_range_km(gs["latitude"], gs["longitude"], gs["sat_lon_deg"])
-            dop_matrix[i]   = doppler_shift_hz(gs["v_radial_ms"], freq_hz)
 
-    # 2. Vectorized ITU Constants & Noise
-    lats = np.array([gs["latitude"] for gs in ground_stations])
-    alts = np.array([gs["altitude_km"] for gs in ground_stations])
-    wvs  = np.array([gs["wv_g_m3"] for gs in ground_stations])
-    hums = np.array([gs["humidity_pct"] for gs in ground_stations])
-    diams = np.array([gs["antenna_diam_m"] for gs in ground_stations])
-    g_rxs = np.array([gs["g_rx_dbi"] for gs in ground_stations])
-    temps = np.array([gs["system_temp_k"] for gs in ground_stations])
-    eirps = np.array([gs["eirp_dbw"] + eirp_offset_db for gs in ground_stations])
-    
-    rain_h = itu_rain_height(lats)
+    # Pre-calculate common factors
     itu_k, itu_a = itu_rain_coefficients(freq_ghz, polarization)
-    noise_dbw = noise_power_dbw(temps, bandwidth_hz)
-
-    # 3. Time-Series Calculations
-    path_loss_matrix = fspl_db(freq_hz, slant_matrix)
-    gas_loss_matrix  = gaseous_absorption_db(freq_ghz, el_matrix, wvs[:, None])
-    eff_path_matrix  = effective_path_length(el_matrix, rain_h[:, None], alts[:, None], itu_k)
-    scint_sig_matrix = scintillation_sigma_db(freq_ghz, el_matrix, diams[:, None], hums[:, None])
     
-    rain_proc = CorrelatedRainProcess(ground_stations, dt_s=dt_s, force_rain=force_rain, 
-                                      rain_rate_scale=rain_rate_scale)
-    rain_rate_matrix = np.zeros((n_stations, n_steps))
-    scint_db_matrix  = np.random.normal(0, scint_sig_matrix)
-    
-    for t in range(n_steps):
-        rain_rate_matrix[:, t] = rain_proc.step()
-        
-    rain_db_matrix = rain_attenuation_db(rain_rate_matrix, itu_k, itu_a, eff_path_matrix)
-    
-    snr_matrix = (eirps[:, None]
-                  - path_loss_matrix
-                  - gas_loss_matrix
-                  - rain_db_matrix
-                  - scint_db_matrix
-                  + g_rxs[:, None]
-                  - noise_dbw[:, None])
-    
-    pkt_loss_matrix = packet_loss_from_snr(snr_matrix)
-    
+    # We will compute results station-by-station if constellation is present
+    # to handle handoff state.
     results = []
+
     for i, gs in enumerate(ground_stations):
-        snr_s = snr_matrix[i].tolist()
-        rain_s = rain_rate_matrix[i].tolist()
-        rain_db_s = rain_db_matrix[i].tolist()
-        scint_s = scint_db_matrix[i].tolist()
-        pkt_s = pkt_loss_matrix[i].tolist()
-        el_s = el_matrix[i].tolist()
-        slant_s = slant_matrix[i].tolist()
-        dop_s = dop_matrix[i].tolist()
-        
-        rainy_dbs = [db for db in rain_db_s if db > 0]
-        sorted_snr = sorted(snr_s)
-        p10_idx = max(0, int(0.10 * n_steps) - 1)
-        
+        noise_dbw = noise_power_dbw(gs["system_temp_k"], bandwidth_hz)
+        eirp = gs["eirp_dbw"] + eirp_offset_db
+        g_rx = gs["g_rx_dbi"]
+        rain_h = itu_rain_height(gs["latitude"])
+
+        # Calculate candidates
+        candidates_geo = []
+        if constellation:
+            for sat in constellation.satellites:
+                geo = propagator.get_geometry_batch(sat, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
+                if geo: candidates_geo.append(geo)
+        else:
+            sat_id = gs.get("norad_id") or gs.get("sat_name")
+            if sat_id:
+                geo = propagator.get_geometry_batch(sat_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
+                if geo: candidates_geo.append(geo)
+
+        if not candidates_geo:
+            # Fallback to GEO fixed parameters
+            el_s = np.full(n_steps, geo_elevation_deg(gs["latitude"], gs["longitude"], gs.get("sat_lon_deg", 0)))
+            slant_s = np.full(n_steps, geo_slant_range_km(gs["latitude"], gs["longitude"], gs.get("sat_lon_deg", 0)))
+            dop_s = np.full(n_steps, doppler_shift_hz(gs.get("v_radial_ms", 0), freq_hz))
+            sat_names = [gs.get("sat_name") or f"SAT-LAT{gs.get('sat_lon_deg',0)}"] * n_steps
+            handoff_events = []
+            rain_rate_s = np.zeros(n_steps)
+            rain_db_s = np.zeros(n_steps)
+            scint_s = np.zeros(n_steps)
+            snr_s = np.full(n_steps, eirp - fspl_db(freq_hz, slant_s[0]) + g_rx - noise_dbw)
+            pkt_s = packet_loss_from_snr(snr_s)
+            sorted_snr = sorted(snr_s.tolist())
+            p10_idx = max(0, int(0.10 * n_steps) - 1)
+        else:
+            # 2. Physics for all candidates
+            # To support "highest_snr" policy, we compute SNR for all candidates first.
+            n_cands = len(candidates_geo)
+            cand_names = [g.sat_name for g in candidates_geo]
+
+            # Correlation Rain Process (shared per station)
+            rain_proc = CorrelatedRainProcess([gs], dt_s=dt_s, force_rain=force_rain, 
+                                              rain_rate_scale=rain_rate_scale)
+            rain_rate_s = np.array([rain_proc.step()[0] for _ in range(n_steps)])
+
+            # Matrix for candidates [n_cands, n_steps]
+            cand_snr_matrix = np.zeros((n_cands, n_steps))
+            cand_el_matrix = np.zeros((n_cands, n_steps))
+            cand_slant_matrix = np.zeros((n_cands, n_steps))
+            cand_dop_matrix = np.zeros((n_cands, n_steps))
+            cand_rain_db_matrix = np.zeros((n_cands, n_steps))
+            cand_scint_db_matrix = np.zeros((n_cands, n_steps))
+            
+            for c_idx, geo in enumerate(candidates_geo):
+                pl = fspl_db(freq_hz, geo.slant_range_km)
+                gl = gaseous_absorption_db(freq_ghz, geo.elevation_deg, gs["wv_g_m3"])
+                ep = effective_path_length(geo.elevation_deg, rain_h, gs["altitude_km"], itu_k)
+                ra = rain_attenuation_db(rain_rate_s, itu_k, itu_a, ep)
+                ss = scintillation_sigma_db(freq_ghz, geo.elevation_deg, gs["antenna_diam_m"], gs["humidity_pct"])
+                scint_db = np.random.normal(0, ss)
+                
+                snr = eirp - pl - gl - ra - scint_db + g_rx - noise_dbw
+                cand_snr_matrix[c_idx] = snr
+                cand_el_matrix[c_idx] = geo.elevation_deg
+                cand_slant_matrix[c_idx] = geo.slant_range_km
+                cand_dop_matrix[c_idx] = doppler_shift_hz(geo.radial_velocity_ms, freq_hz)
+                cand_rain_db_matrix[c_idx] = ra
+                cand_scint_db_matrix[c_idx] = scint_db
+
+            # 3. Handoff Selection
+            hm = HandoffManager(policy=handoff_policy, hysteresis=hysteresis, min_dwell_steps=min_dwell_steps)
+            selected_indices = []
+            for t in range(n_steps):
+                metrics = cand_snr_matrix[:, t] if handoff_policy == "highest_snr" else cand_el_matrix[:, t]
+                idx = hm.select(t, cand_names, metrics)
+                selected_indices.append(idx)
+            
+            # Slice results
+            t_idx = np.arange(n_steps)
+            s_idx = np.array(selected_indices)
+            
+            el_s = cand_el_matrix[s_idx, t_idx]
+            slant_s = cand_slant_matrix[s_idx, t_idx]
+            dop_s = cand_dop_matrix[s_idx, t_idx]
+            snr_s = cand_snr_matrix[s_idx, t_idx]
+            rain_db_s = cand_rain_db_matrix[s_idx, t_idx]
+            scint_db_s = cand_scint_db_matrix[s_idx, t_idx]
+            sat_names = [cand_names[i] for i in s_idx]
+            handoff_events = hm.events
+
+            # Final station metrics
+            pkt_s = packet_loss_from_snr(snr_s).tolist()
+            snr_s = snr_s.tolist()
+            rain_rate_s = rain_rate_s.tolist()
+            rain_db_s = rain_db_s.tolist()
+            scint_s = scint_db_s.tolist()
+            el_s = el_s.tolist()
+            slant_s = slant_s.tolist()
+            dop_s = dop_s.tolist()
+
+            sorted_snr = sorted(snr_s)
+            p10_idx = max(0, int(0.10 * n_steps) - 1)
+
         results.append(StationResult(
             name=gs["name"], elevation=el_s[0], slant_km=slant_s[0], doppler_hz=dop_s[0],
-            path_loss=path_loss_matrix[i, 0],
-            gas_loss=gas_loss_matrix[i, 0],
-            rain_height=rain_h[i],
-            eff_path=eff_path_matrix[i, 0],
-            itu_k=itu_k, itu_alpha=itu_a, scint_sig=scint_sig_matrix[i, 0],
-            noise_floor=noise_dbw[i],
-            snr_series=snr_s, rain_series=rain_s, rain_db_series=rain_db_s,
+            path_loss=fspl_db(freq_hz, slant_s[0]),
+            gas_loss=gaseous_absorption_db(freq_ghz, el_s[0], gs["wv_g_m3"]),
+            rain_height=rain_h,
+            eff_path=effective_path_length(el_s[0], rain_h, gs["altitude_km"], itu_k),
+            itu_k=itu_k, itu_alpha=itu_a,
+            scint_sig=scintillation_sigma_db(freq_ghz, el_s[0], gs["antenna_diam_m"], gs["humidity_pct"]),
+            noise_floor=noise_dbw,
+            snr_series=snr_s, rain_series=rain_rate_s, rain_db_series=rain_db_s,
             scint_series=scint_s, pkt_loss_series=pkt_s,
             elevation_series=el_s, slant_range_series=slant_s, doppler_series=dop_s,
             snr_mean=float(np.mean(snr_s)),
             snr_min=float(np.min(snr_s)),
             snr_std=float(np.std(snr_s, ddof=1)) if len(snr_s) > 1 else 0.0,
             snr_p10=float(sorted_snr[p10_idx]),
-            rain_fraction=float(np.sum(np.array(rain_s) > 0) / n_steps),
-            avg_rain_db=float(np.mean(rainy_dbs)) if rainy_dbs else 0.0,
+            rain_fraction=float(np.sum(np.array(rain_rate_s) > 0) / n_steps),
+            avg_rain_db=float(np.mean([db for db in rain_db_s if db > 0])) if any(db > 0 for db in rain_db_s) else 0.0,
             avg_pkt_loss=float(np.mean(pkt_s)),
             outage_fraction=float(np.mean(pkt_s)),
-        ))
+            sat_name_series=sat_names,
+            handoff_events=handoff_events
+    ))
+
     return results
+
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  J.  Concurrency & Parallelism                                           ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
-async def simulate_all_concurrent(ground_stations: List[Dict], **kwargs) -> List[StationResult]:
+async def simulate_all_concurrent(ground_stations: List[Dict], 
+                                  constellation: Constellation | None = None,
+                                  **kwargs) -> List[StationResult]:
     """
     Concurrent station simulation using asyncio for overlapping propagation.
     """
@@ -414,25 +528,30 @@ async def simulate_all_concurrent(ground_stations: List[Dict], **kwargs) -> List
     start_time = kwargs.get("start_time") or datetime.now(timezone.utc)
     times = [start_time + timedelta(seconds=i*dt_s) for i in range(n_steps)]
     
-    # Run all propagation tasks concurrently
+    # Run all propagation tasks concurrently (or constellation geometry)
     tasks = []
     for gs in ground_stations:
-        sat_id = gs.get("norad_id") or gs.get("sat_name")
-        if sat_id:
-            tasks.append(propagator.get_geometry_batch_async(
-                sat_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"]
-            ))
-        else:
+        if constellation:
+            # We don't have an async version of get_constellation_geometry yet, 
+            # but we can wrap it if needed. For now, we just pass constellation to simulate_all_batched.
             tasks.append(asyncio.sleep(0, result=None))
+        else:
+            sat_id = gs.get("norad_id") or gs.get("sat_name")
+            if sat_id:
+                tasks.append(propagator.get_geometry_batch_async(
+                    sat_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"]
+                ))
+            else:
+                tasks.append(asyncio.sleep(0, result=None))
             
-    geometries = await asyncio.gather(*tasks)
+    await asyncio.gather(*tasks)
     
-    # For now, we still use simulate_all_batched for the link budget 
-    # as it's highly optimized with NumPy. This demonstrates overlapping I/O/CPU.
-    return simulate_all_batched(ground_stations, **kwargs)
+    return simulate_all_batched(ground_stations, constellation=constellation, **kwargs)
 
 
-def run_monte_carlo(n_iterations: int, ground_stations: List[Dict], **kwargs) -> List[List[StationResult]]:
+def run_monte_carlo(n_iterations: int, ground_stations: List[Dict], 
+                    constellation: Constellation | None = None,
+                    **kwargs) -> List[List[StationResult]]:
     """
     Monte Carlo parallelism using multiprocessing.
     Runs multiple full simulation iterations in parallel.
@@ -443,21 +562,22 @@ def run_monte_carlo(n_iterations: int, ground_stations: List[Dict], **kwargs) ->
     
     with ProcessPoolExecutor() as executor:
         futures = [
-            executor.submit(simulate_all_batched, ground_stations, seed=s, **kwargs)
+            executor.submit(simulate_all_batched, ground_stations, seed=s, constellation=constellation, **kwargs)
             for s in seeds
         ]
         results = [f.result() for f in futures]
     return results
 
 
-def simulate_station(gs: dict, **kwargs) -> StationResult:
-    results = simulate_all_batched([gs], **kwargs)
+def simulate_station(gs: dict, constellation: Constellation | None = None, **kwargs) -> StationResult:
+    results = simulate_all_batched([gs], constellation=constellation, **kwargs)
     return results[0]
 
 
 def simulate_all(n_steps=DEFAULT_N_STEPS, dt_s=DEFAULT_DT_S,
-                 force_rain=False, **kwargs) -> list:
-    return simulate_all_batched(GROUND_STATIONS, n_steps=n_steps, dt_s=dt_s, force_rain=force_rain, **kwargs)
+                 force_rain=False, constellation: Constellation | None = None, **kwargs) -> list:
+    return simulate_all_batched(GROUND_STATIONS, n_steps=n_steps, dt_s=dt_s, 
+                                force_rain=force_rain, constellation=constellation, **kwargs)
 
 
 
@@ -467,10 +587,10 @@ def simulate_all(n_steps=DEFAULT_N_STEPS, dt_s=DEFAULT_DT_S,
 
 def _print_station(gs, r):
     W = 92; p = gs["itu_rain"]
-    sat_info = f"NORAD:{gs['norad_id']}" if "norad_id" in gs else f"SatLon:{gs['sat_lon_deg']:+.1f}"
+    sat_info = r.sat_name_series[0] if r.sat_name_series else "N/A"
     print("=" * W)
     print(f"  {r.name}  ({gs['latitude']:+.1f}, {gs['longitude']:+.1f})  "
-          f"{sat_info}  El:{r.elevation:.1f}°  Range:{r.slant_km:.0f}km")
+          f"Sat:{sat_info}  El:{r.elevation:.1f}°  Range:{r.slant_km:.0f}km")
     print(f"  FSPL:{r.path_loss:.2f}dB  Gas:{r.gas_loss:.3f}dB  "
           f"RainH:{r.rain_height:.2f}km  EffPath:{r.eff_path:.2f}km  "
           f"Noise:{r.noise_floor:.1f}dBW")
