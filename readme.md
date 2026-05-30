@@ -1,19 +1,20 @@
-# Satellite Link Quality Simulator
+# Multi-Satellite Constillation Link Quality Simulator
 High-fidelity satellite communication simulator combining
 orbital propagation, atmospheric attenuation modeling, and
-stochastic rain fading to evaluate real-world link performance.
+stochastic rain fading to evaluate  link performance across dynamic constellations.
 
 Physics-first satellite link simulator integrating:
+- **Constellation Management**: Support for multi-satellite systems with dynamic handoff logic.
 - **SGP4 orbital propagation** (via `sgp4`)
 - **ITU-R P.618/P.676/P.837/P.838** atmospheric models
 - **Temporally correlated rain fading** (Maseng-Bakken AR(1))
 - **XGBoost** link quality prediction
 
 ### Highlights
-- **60,000 timesteps/sec** throughput (Vectorized NumPy engine)
-- **<20µs SGP4 propagation latency**
-- **Validation suite** against analytical and ITU references
-- **Interactive Streamlit dashboard** with parallel execution modes
+- **60,000 timesteps/sec** throughput (Constellation-aware vectorized engine)
+- **Dynamic Handoffs**: State-aware switching based on highest elevation or SNR with hysteresis.
+- **Validation suite**: Extensive quantitative reports for physics and network integrity.
+- **Interactive Streamlit dashboard**: Multi-sat selection and real-time handoff visualization.
 
 ---
 
@@ -22,11 +23,12 @@ Physics-first satellite link simulator integrating:
 ```mermaid
 graph TD
     A[TLE Catalog] --> B[SGP4 Propagation]
-    B --> C[Geometry Engine]
-    C --> D[ITU-R Models]
-    D --> E[Link Budget]
-    E --> F[ML Scoring]
-    F --> G[Dashboard]
+    B --> C[Handoff Manager]
+    C --> D[Geometry Engine]
+    D --> E[ITU-R Models]
+    E --> F[Link Budget]
+    F --> G[ML Scoring]
+    G --> H[Dashboard]
 ```
 
 ---
@@ -47,7 +49,9 @@ python3 satellite_link_sim.py
 ---
 
 ### Key Features
-The simulator computes a full high-fidelity link budget at each time step, tracking everything from geometric path loss and gaseous absorption to rapid tropospheric scintillation. It transitions beyond static GEO assumptions by utilizing live TLE data and SGP4 propagation to model dynamic LEO/MEO constellations.
+The simulator computes a full high-fidelity link budget at each time step, tracking everything from geometric path loss and gaseous absorption to rapid tropospheric scintillation. It models dynamic LEO/MEO constellations by utilizing live TLE data and SGP4 propagation.
+
+A dedicated **Handoff Manager** handles stateful satellite switching using configurable policies (Highest SNR or Elevation) with built-in hysteresis and minimum dwell-time constraints to prevent rapid connection toggling.
 
 The simulation engine combines NumPy vectorization, async orbital propagation, and multiprocessing-based Monte Carlo execution to support large-scale availability studies while maintaining interactive performance.
 
