@@ -85,6 +85,38 @@ Verifies correctness of the simulator's concurrency and parallel execution mecha
 
 ---
 
+## 4. Real World Validation Suite
+
+To ensure the simulation engine reflects terrestrial reality, we validate our rain models against high-resolution satellite datasets from the **NASA Global Precipitation Measurement (GPM)** mission.
+
+### 4.1 NASA GPM vs ITU-R Comparison
+Standard ITU-R P.837 climatological maps are known to underestimate peak monsoon intensities in tropical and subtropical regions. We compare our simulator's ITU-based output against GPM IMERG reference statistics for all major ground stations.
+
+#### Global Comparison Table (Annual Statistics)
+
+| Station | ITU $R_{0.01}$ | GPM $R_{0.01}$ | ITU $P_{rain}$ | GPM $P_{rain}$ |
+|:---|:---:|:---:|:---:|:---:|
+| **Delhi** | 25.28 mm/h | 52.90 mm/h | 5.72% | 7.10% |
+| **Tokyo** | 56.84 mm/h | 57.21 mm/h | 7.71% | 8.24% |
+| **Berlin** | 21.61 mm/h | 19.81 mm/h | 7.07% | 6.92% |
+| **Sao Paulo** | 75.36 mm/h | 80.99 mm/h | 10.26% | 10.69% |
+
+*Values represent rain rates (mm/h) exceeded for 0.01% of the year. Data generated over a 1-year (525,600 min) synthetic time series.*
+
+### 4.2 Regional CCDF Analysis
+The CCDF (Complementary Cumulative Distribution Function) plots verify that while the simulator captures the general log-normal distribution, GPM data reveals higher extreme-intensity tails in monsoon regions like Delhi.
+
+![Global Summary](../real_world_validation/global_comparison_summary.png)
+*Figure 4: Summary of peak rain rate discrepancies across climate zones.*
+
+![Delhi Validation](../real_world_validation/plots/val_delhi.png)
+*Figure 5: Exceedance probability comparison for Delhi (Monsoon Zone).*
+
+![Berlin Validation](../real_world_validation/plots/val_berlin.png)
+*Figure 6: Exceedance probability comparison for Berlin (Temperate Zone).*
+
+---
+
 ## Validation Limitations
 - Validation focuses on model correctness rather than field measurements.
 - Atmospheric models are compared against ITU-R analytical references rather than live telemetry.
