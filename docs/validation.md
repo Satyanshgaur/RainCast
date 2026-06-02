@@ -83,14 +83,20 @@ Verifies correctness of the simulator's concurrency and parallel execution mecha
 - **Async Integrity**: Validates that the asynchronous propagation layer returns results identical to the deterministic batched mode.
 - **Concurrency Safety**: Checks for race conditions during simultaneous multi-station simulation runs.
 
+### 4. SGP4 Propagation
+Validates the orbital mechanics engine:
+- **Frame Rotation**: Verifies that the TEME-to-ECEF transformation correctly accounts for Earth's rotation (GMST).
+- **Inertial Stability**: Confirms that GEO satellites remain stationary in the rotating frame with minimal slant-range drift (< 25km/6h).
+- **SatNOGS Regression**: Compares propagation against known historical observations to ensure angular errors remain within 1 degree.
+
 ---
 
 ## 4. Real World Validation Suite
 
-To ensure the simulation engine reflects terrestrial reality, we validate our rain models against high-resolution satellite datasets from the **NASA Global Precipitation Measurement (GPM)** mission.
+To ensure the simulation engine reflects terrestrial reality, we validate our models against high-resolution satellite datasets.
 
-### 4.1 NASA GPM vs ITU-R Comparison
-Standard ITU-R P.837 climatological maps are known to underestimate peak monsoon intensities in tropical and subtropical regions. We compare our simulator's ITU-based output against GPM IMERG reference statistics for all major ground stations.
+### 4.1 NASA GPM vs ITU-R Comparison (Rain Models)
+Standard ITU-R P.837 climatological maps are known to underestimate peak monsoon intensities in tropical and subtropical regions. We compare our simulator's ITU-based output against GPM IMERG reference statistics.
 
 #### Global Comparison Table (Annual Statistics)
 
@@ -101,13 +107,27 @@ Standard ITU-R P.837 climatological maps are known to underestimate peak monsoon
 | **Berlin** | 21.61 mm/h | 19.81 mm/h | 7.07% | 6.92% |
 | **Sao Paulo** | 75.36 mm/h | 80.99 mm/h | 10.26% | 10.69% |
 
-*Values represent rain rates (mm/h) exceeded for 0.01% of the year. Data generated over a 1-year (525,600 min) synthetic time series.*
+### 4.2 SatNOGS Network Comparison (Orbital Geometry)
+We validate the SGP4 propagation layer and ECEF frame transformations against real-world observations from the SatNOGS ground station network.
 
-### 4.2 Regional CCDF Analysis
+*   **Data Acquisition**: Pass metadata (timestamps, ground station coordinates) is retrieved via the SatNOGS Network API for "vetted" (good) observations.
+*   **Measurement**: Predicted topocentric elevation at the observation midpoint is compared against the reported `max_altitude`.
+
+#### Orbital Validation Results
+
+| Reference Target | Source | Metric | Result |
+|:---|:---|:---|:---|
+| **CONNECTA IOT-1** | SatNOGS #14217654 | Peak Elevation Error | **0.49°** |
+| **INTELSAT 10 (GEO)** | TLE Stability | 6-hour ECEF Drift | **< 23 km** |
+
+![SatNOGS Validation](../real_world_validation/plots/val_sgp4_satnogs.png)
+*Figure 4: Predicted vs. observed elevation curve for LEO pass validation.*
+
+### 4.3 Regional CCDF Analysis
 The CCDF (Complementary Cumulative Distribution Function) plots verify that while the simulator captures the general log-normal distribution, GPM data reveals higher extreme-intensity tails in monsoon regions like Delhi.
 
 ![Global Summary](../real_world_validation/global_comparison_summary.png)
-*Figure 4: Summary of peak rain rate discrepancies across climate zones.*
+*Figure 5: Summary of peak rain rate discrepancies across climate zones.*
 
 ![Delhi Validation](../real_world_validation/plots/val_delhi.png)
 *Figure 5: Exceedance probability comparison for Delhi (Monsoon Zone).*
