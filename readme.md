@@ -11,7 +11,8 @@ Physics-first satellite link simulator integrating:
 - **XGBoost** link quality prediction
 
 ### Highlights
-- **60,000 timesteps/sec** throughput (Constellation-aware vectorized engine)
+- **74,000 timesteps/sec** throughput (Constellation-aware vectorized engine)
+- **1,300+ Satellite Database**: Integrated live CelesTrak TLE updates (OneWeb, Iridium, GEO).
 - **Dynamic Handoffs**: State-aware switching based on highest elevation or SNR with hysteresis.
 - **Validation suite**: Extensive quantitative reports for physics and network integrity.
 - **Interactive Streamlit dashboard**: Multi-sat selection and real-time handoff visualization.
@@ -22,7 +23,9 @@ Physics-first satellite link simulator integrating:
 
 ```mermaid
 graph TD
-    A[TLE Catalog] --> B[SGP4 Propagation]
+    I[CelesTrak] --> J[update_tle.py]
+    J --> A[TLE Catalog]
+    A --> B[SGP4 Propagation]
     B --> C[Handoff Manager]
     C --> D[Geometry Engine]
     D --> E[ITU-R Models]
@@ -37,13 +40,13 @@ graph TD
 
 ```bash
 # Install dependencies
-pip install streamlit pandas numpy scikit-learn xgboost joblib matplotlib sgp4 pytest-asyncio
+pip install streamlit pandas numpy scikit-learn xgboost joblib matplotlib sgp4 requests
+
+# Update satellite database with live TLEs
+python3 update_tle.py
 
 # Run the dashboard
 streamlit run app.py
-
-# Run CLI simulation
-python3 satellite_link_sim.py
 ```
 
 ---
@@ -59,9 +62,9 @@ The simulation engine combines NumPy vectorization, async orbital propagation, a
 
 ### Validation & Benchmarks
 - **FSPL accuracy**: <1e-4 dB
-- **Throughput**: 60,000 timesteps/sec
-- **SGP4 latency**: 18µs
-- **Memory**: 122MB @ 500k steps
+- **Throughput**: 74,000 timesteps/sec
+- **SGP4 latency**: 75µs
+- **Memory**: 326MB @ 500k steps
 - **Monte Carlo Speedup**: ~2.5x (12 workers)
 
 ---
@@ -71,6 +74,7 @@ The simulation engine combines NumPy vectorization, async orbital propagation, a
 ├── app.py                  # Dashboard & Parallel UI
 ├── satellite_link_sim.py   # Vectorized Physics Engine
 ├── propogate.py            # Async SGP4 Layer
+├── update_tle.py           # CelesTrak Live Update Tool
 ├── ground_stations.py      # Station Database
 ├── docs/                   # Detailed Documentation
 ├── tests/                  # Physics & Regression Tests
