@@ -1,6 +1,12 @@
 import numpy as np
 import pandas as pd
+import sys
+import os
 from datetime import datetime, timedelta, timezone
+
+# Add parent directory to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from satellite_link_sim import (
     simulate_all_batched, StationResult, HandoffEvent, 
     SNR_THRESHOLD_DB, packet_loss_from_snr
