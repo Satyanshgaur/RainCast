@@ -13,6 +13,11 @@ from satellite_link_sim import simulate_all_batched, GROUND_STATIONS
 def run_profile():
     # Large n_steps to get meaningful profiling data
     n_steps = 10000
+    
+    # Warm-up run to trigger Numba JIT compilation
+    print("Warming up Numba JIT kernel...")
+    simulate_all_batched(GROUND_STATIONS, n_steps=100)
+    
     print(f"Running profile for {len(GROUND_STATIONS)} stations over {n_steps} steps...")
     
     profiler = cProfile.Profile()
@@ -34,10 +39,13 @@ def run_profile():
     # Categorize results
     # We'll map function names to categories
     category_map = {
-        "Rain Process": ["step", "rain_attenuation_db", "itu_rain_height", "where", "normal"],
-        "SGP4": ["get_geometry_batch", "sgp4_array", "get_gmst", "rotate_teme_to_ecef", "jday", "_sgp4"],
-        "Handoff": ["select", "HandoffManager", "argmax"],
-        "Link Budget": ["fspl_db", "gaseous_absorption_db", "scintillation_sigma_db", "effective_path_length", "noise_power_dbw", "packet_loss_from_snr"]
+        "Rain Process": ["step", "rain_attenuation_db", "itu_rain_height", "_simulate_rain_kernel"],
+        "SGP4 & Prop": ["get_geometry_batch", "sgp4_array", "get_gmst", "rotate_teme_to_ecef", "jday", "_sgp4", "geodetic_to_ecef", "ecef_to_enu_matrix"],
+        "Handoff Logic": ["select", "HandoffManager"],
+        "Link Budget": ["fspl_db", "gaseous_absorption_db", "scintillation_sigma_db", "effective_path_length", "noise_power_dbw", "packet_loss_from_snr"],
+        "NumPy Overhead": ["argmax", "where", "normal", "rand", "implement_array_function", "_wrapfunc", "std", "mean", "asanyarray", "fromnumeric", "numpy"],
+        "Data & Results": ["StationResult", "append", "tolist", "dataclasses", "timedelta", "datetime", "copy", "<listcomp>", "<genexpr>"],
+        "Sim Control": ["simulate_all_batched", "run_profile"]
     }
     
     # Get all stats
@@ -48,12 +56,13 @@ def run_profile():
     category_totals = {cat: 0.0 for cat in category_map}
     total_measured_time = 0.0
     
-    for func, (cc, nc, tt, ct, callers) in ps.stats.items():
-        func_name = func[2]
+    for (file_path, line, func_name), (cc, nc, tt, ct, callers) in ps.stats.items():
         total_measured_time += tt
-        for cat, funcs in category_map.items():
-            if any(f in func_name for f in funcs):
+        matched = False
+        for cat, keywords in category_map.items():
+            if any(k in func_name for k in keywords) or any(k in file_path for k in keywords):
                 category_totals[cat] += tt
+                matched = True
                 break
     
     # Create the report
@@ -72,18 +81,21 @@ def run_profile():
         
         for cat, time_s in sorted_cats:
             percentage = (time_s / total_measured_time) * 100 if total_measured_time > 0 else 0
-            f.write(f"| {cat:<12} | {percentage:6.1f}% | {time_s:8.4f}s |\n")
+            f.write(f"| {cat:<14} | {percentage:6.1f}% | {time_s:8.4f}s |\n")
             
         # Add "Other"
         categorized_time = sum(category_totals.values())
         other_time = total_measured_time - categorized_time
         other_percentage = (other_time / total_measured_time) * 100 if total_measured_time > 0 else 0
-        f.write(f"| {'Other':<12} | {other_percentage:6.1f}% | {other_time:8.4f}s |\n\n")
+        if other_time > 0.0001:
+            f.write(f"| {'Misc Other':<14} | {other_percentage:6.1f}% | {other_time:8.4f}s |\n\n")
+        else:
+            f.write("\n")
         
-        f.write("## Top 20 Detailed Stats\n\n")
+        f.write("## Top 50 Detailed Stats\n\n")
         f.write("```\n")
-        # Reuse pstats to print top 20
-        ps.sort_stats("cumtime").print_stats(20)
+        # Reuse pstats to print top 50
+        ps.sort_stats("cumtime").print_stats(50)
         f.write(s.getvalue().split("   ncalls  tottime  percall  cumtime  percall filename:lineno(function)")[-1])
         f.write("```\n")
 
