@@ -43,18 +43,36 @@ The system demonstrates strong speedup for Monte Carlo iterations by distributin
 
 
 ### 1.3 Runtime Breakdown
-Profiling of the full constellation/handoff pipeline (14 GHz, 50k steps) reveals the following computational distribution:
+Profiling of the full constellation/handoff pipeline (14 GHz, 10,000 steps, 4 stations) reveals the following computational distribution:
 
 | Component       | Runtime Share |
 | --------------- | ------------- |
-| SGP4 / Geometry | 24.9%         |
-| Rain Process    | 63.1%         |
-| Link Budget     | 1.2%          |
-| Handoff         | 10.8%         |
+| NumPy Overhead  | 34.7%         |
+| SGP4 / Geometry | 24.1%         |
+| Data & Results  | 12.4%         |
+| Handoff Logic   | 11.0%         |
+| Sim Control     | 7.8%          |
+| Link Budget     | 1.8%          |
+| Rain Process    | 1.8%          |
+| Misc Other      | 6.4%          |
 
-*Note: The Rain Process remains the primary sequential bottleneck due to the AR(1) state dependence, despite station-level vectorization.*
+*Note: After Numba JIT optimization, the Rain Process is no longer a significant bottleneck.*
 
-### 1.4 Memory Scaling
+### 1.4 Runtime Optimization History
+
+A profiling-driven optimization effort was conducted to identify and eliminate simulation bottlenecks.
+
+| Component | Before (Python) | After (Numba JIT) |
+|------------|---------|---------|
+| Rain Process | 50.6% | 0.7% |
+| Runtime | 96.1 ms | 0.5 ms |
+| Speedup | 1× | ~192× |
+
+The rain synthesis engine was migrated from an interpreted Python implementation to a Numba JIT-compiled kernel. The optimization reduced rain generation from the dominant runtime component to a negligible fraction of total execution time while preserving numerical behavior.
+
+For a detailed analysis, see the [Complete Profiling Report](../val_and_bench/profile_report.md).
+
+### 1.5 Memory Scaling
 The simulator is designed for a low memory footprint. A 500,000-step simulation (approx. 1 year of 1-minute data for one station) consumes **326 MB** of RAM.
 
 ![Memory Benchmark](../val_and_bench/bench_memory.png)
