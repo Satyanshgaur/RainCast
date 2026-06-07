@@ -7,16 +7,24 @@ The simulator is designed for scalable simulation workloads through vectorizatio
 ```mermaid
 graph TD
     A[TLE Catalog / satellites.db] --> B[SGP4 Propagation]
-    B --> C[Handoff Manager]
-    C --> D[Geometry Engine]
-    D --> E[ITU-R Models]
-    E --> F[Link Budget Engine]
-    F --> G[Feature Extraction]
-    G --> H[XGBoost Scoring]
-    H --> I[Streamlit Dashboard]
-    
+
+    B --> C[Geometry Engine]
+    C --> D[ITU-R Models]
+    D --> E[Link Budget Engine]
+
+    E --> F[Candidate Link Matrix]
+
+    F --> G[Handoff Manager]
+
+    G --> H[Selected Link Timeline]
+
+    H --> I[Feature Extraction]
+    I --> J[XGBoost Scoring]
+    J --> K[Streamlit Dashboard]
+
     subgraph JIT_ACCELERATED [Performance Layer]
-        E1[Maseng-Bakken Rain Process] -- Numba JIT --> E
+        R[Maseng-Bakken Rain Process]
+        R -- Numba JIT --> D
     end
 ```
 
