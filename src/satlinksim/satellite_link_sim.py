@@ -25,7 +25,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 try:
     from numba import njit
 except ImportError:
@@ -400,15 +400,15 @@ class StationResult:
 def simulate_all_batched(ground_stations: list[dict],
                          n_steps:         int   = DEFAULT_N_STEPS,
                          dt_s:            float = DEFAULT_DT_S,
-                         start_time:      datetime | None = None,
+                         start_time:      Optional[datetime] = None,
                          force_rain:      bool  = False,
-                         seed:            int | None = None,
+                         seed:            Optional[int] = None,
                          freq_hz:         float = DEFAULT_CARRIER_FREQ_HZ,
                          eirp_offset_db:  float = 0.0,
                          bandwidth_hz:    float = DEFAULT_BANDWIDTH_HZ,
                          polarization:    str   = DEFAULT_POLARIZATION,
                          rain_rate_scale: float = 1.0,
-                         constellation:   Constellation | None = None,
+                         constellation:   Optional[Constellation] = None,
                          handoff_policy:  str = "highest_elevation",
                          hysteresis:      float = config.simulation.handoff.hysteresis_db,
                          min_dwell_steps: int = config.simulation.handoff.dwell_steps,
@@ -567,7 +567,7 @@ def simulate_all_batched(ground_stations: list[dict],
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 async def simulate_all_concurrent(ground_stations: List[Dict], 
-                                  constellation: Constellation | None = None,
+                                  constellation: Optional[Constellation] = None,
                                   **kwargs) -> List[StationResult]:
     """
     Concurrent station simulation using asyncio for overlapping propagation.
@@ -600,7 +600,7 @@ async def simulate_all_concurrent(ground_stations: List[Dict],
 
 
 def run_monte_carlo(n_iterations: int, ground_stations: List[Dict], 
-                    constellation: Constellation | None = None,
+                    constellation: Optional[Constellation] = None,
                     **kwargs) -> List[List[StationResult]]:
     """
     Monte Carlo parallelism using multiprocessing.
@@ -619,13 +619,13 @@ def run_monte_carlo(n_iterations: int, ground_stations: List[Dict],
     return results
 
 
-def simulate_station(gs: dict, constellation: Constellation | None = None, **kwargs) -> StationResult:
+def simulate_station(gs: dict, constellation: Optional[Constellation] = None, **kwargs) -> StationResult:
     results = simulate_all_batched([gs], constellation=constellation, **kwargs)
     return results[0]
 
 
 def simulate_all(n_steps=DEFAULT_N_STEPS, dt_s=DEFAULT_DT_S,
-                 force_rain=False, constellation: Constellation | None = None, **kwargs) -> list:
+                 force_rain=False, constellation: Optional[Constellation] = None, **kwargs) -> list:
     return simulate_all_batched(GROUND_STATIONS, n_steps=n_steps, dt_s=dt_s, 
                                 force_rain=force_rain, constellation=constellation, **kwargs)
 

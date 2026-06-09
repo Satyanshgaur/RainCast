@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from sgp4.api import Satrec, jday
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # ── WGS84 Constants ──────────────────────────────────────────────────────────
 WGS84_A = 6378.137             # Semi-major axis (km)
@@ -21,7 +21,7 @@ class SatelliteGeometry:
     slant_range_km: np.ndarray # Shape: (n_steps,)
     radial_velocity_ms: np.ndarray # Shape: (n_steps,)
     azimuth_deg: np.ndarray = None # Shape: (n_steps,)
-    sat_name: str | list[str] = None # Name(s) of the satellite(s) providing this geometry
+    sat_name: Union[str, List[str]] = None # Name(s) of the satellite(s) providing this geometry
 
 @dataclass
 class Satellite:
