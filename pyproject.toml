@@ -21,6 +21,8 @@ dependencies = [
     "sgp4",
     "requests",
     "numba",
+    "pydantic",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
