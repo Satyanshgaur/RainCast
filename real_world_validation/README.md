@@ -37,7 +37,7 @@ python3 real_world_validation/validate_rain_nasa_gpm.py
 ```
 
 ### Outputs
-- `rain_comparison_table.csv`: Comparison of $R_1$, $R_{0.1}$, and $R_{0.01}$ quantiles.
+- `rain_comparison_table.parquet`: Comparison of $R_1$, $R_{0.1}$, and $R_{0.01}$ quantiles.
 - `rain_comparison_graph.png`: 
     - **Top**: CCDF (Exceedance Probability) plot comparing the distributions.
     - **Bottom**: Sample time series showing temporal correlation and peak intensity differences.

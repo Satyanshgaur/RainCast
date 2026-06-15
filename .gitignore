@@ -14,7 +14,7 @@ dist/
 
 # Database
 *.db
-*.csv
+*.parquet
 
 # Environment
 .env

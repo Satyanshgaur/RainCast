@@ -155,25 +155,25 @@ def main():
     summary_df = df[["Station", "ITU_R001", "GPM_R001", "ITU_Pr", "GPM_Pr"]]
     print(summary_df.to_string(index=False))
     
-    df.to_csv("real_world_validation/global_rain_validation.csv", index=False)
-    
+    df.to_parquet("real_world_validation/global_rain_validation.parquet", index=False)
+
     # 6. Global Summary Plot
     plt.figure(figsize=(12, 6))
     x = np.arange(len(df))
     width = 0.35
-    
+
     plt.bar(x - width/2, df["ITU_R001"], width, label='ITU-R P.837 R0.01', color='skyblue')
     plt.bar(x + width/2, df["GPM_R001"], width, label='NASA GPM R0.01', color='salmon')
-    
+
     plt.ylabel('Rain Rate (mm/h)')
     plt.title('R0.01 Comparison across All Stations')
     plt.xticks(x, df["Station"])
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.savefig("real_world_validation/global_comparison_summary.png")
-    
+
     print(f"\nValidation complete.")
-    print(f"Global table: real_world_validation/global_rain_validation.csv")
+    print(f"Global table: real_world_validation/global_rain_validation.parquet")
     print(f"Summary plot: real_world_validation/global_comparison_summary.png")
     print(f"Individual station plots in real_world_validation/plots/")
 

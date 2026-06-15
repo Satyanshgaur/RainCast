@@ -14,23 +14,23 @@ from sklearn.metrics import mean_squared_error, r2_score
 # ==================================================
 # CONFIG
 # ==================================================
-CSV_FILE = os.path.join(os.path.dirname(__file__), "link_training_data.csv")
+PARQUET_FILE = os.path.join(os.path.dirname(__file__), "link_training_data.parquet")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "xgb_link_model.pkl")
 SCALER_PATH = os.path.join(os.path.dirname(__file__), "feature_scaler.pkl")
 
 # ==================================================
 # CHECK FILE
 # ==================================================
-if not os.path.exists(CSV_FILE):
-    print(f"ERROR: {CSV_FILE} not found")
+if not os.path.exists(PARQUET_FILE):
+    print(f"ERROR: {PARQUET_FILE} not found")
     sys.exit(1)
 
 # ==================================================
 # LOAD DATASET
 # ==================================================
-print(f"\nLoading dataset: {CSV_FILE}")
+print(f"\nLoading dataset: {PARQUET_FILE}")
 
-df = pd.read_csv(CSV_FILE)
+df = pd.read_parquet(PARQUET_FILE)
 
 print(f"Original dataset shape: {df.shape}")
 

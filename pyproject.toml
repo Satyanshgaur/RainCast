@@ -23,6 +23,7 @@ dependencies = [
     "numba",
     "pydantic",
     "pyyaml",
+    "pyarrow",
 ]
 
 [project.optional-dependencies]
@@ -35,7 +36,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.pkl", "*.csv", "*.db", "**/*.pkl", "**/*.csv", "**/*.db"]
+"*" = ["*.pkl", "*.parquet", "*.db", "**/*.pkl", "**/*.parquet", "**/*.db"]
 
 [project.scripts]
 satlinksim-ui = "satlinksim.cli:main"
