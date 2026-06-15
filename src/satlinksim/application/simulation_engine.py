@@ -1,6 +1,8 @@
 import random
 import numpy as np
 import asyncio
+import pickle
+import os
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Union, Callable
@@ -33,6 +35,14 @@ class SimulationEngine:
     def __init__(self, propagator: Optional[Propagator] = None):
         self.propagator = propagator or SGP4Propagator()
 
+    def resume(self, checkpoint_file: str = "checkpoint.pkl") -> list[StationResult]:
+        """Resume a simulation from a saved checkpoint."""
+        if not os.path.exists(checkpoint_file):
+            raise FileNotFoundError(f"Checkpoint file {checkpoint_file} not found.")
+        with open(checkpoint_file, "rb") as f:
+            state = pickle.load(f)
+        return self.simulate_all_batched(**state["kwargs"], _resume_state=state)
+
     def simulate_all_batched(self, ground_stations: list[dict],
                              n_steps:         int   = DEFAULT_N_STEPS,
                              dt_s:            float = DEFAULT_DT_S,
@@ -49,19 +59,49 @@ class SimulationEngine:
                              hysteresis:      float = config.simulation.handoff.hysteresis_db,
                              min_dwell_steps: int = config.simulation.handoff.dwell_steps,
                              rain_model_factory: Optional[Callable[[dict], RainModel]] = None,
+                             checkpoint_interval: int = 10000,
+                             checkpoint_file: str = "checkpoint.pkl",
+                             _resume_state: dict = None
                              ) -> list[StationResult]:
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
+
+        if _resume_state:
+            results = _resume_state["results"]
+            start_gs_idx = _resume_state["gs_idx"]
+            start_chunk_idx = _resume_state["chunk_idx"]
+            rain_proc = _resume_state.get("rain_proc")
+            hm = _resume_state.get("hm")
+            acc_state = _resume_state.get("acc_state")
+            kwargs_to_save = _resume_state["kwargs"]
+        else:
+            results = []
+            start_gs_idx = 0
+            start_chunk_idx = 0
+            rain_proc = None
+            hm = None
+            acc_state = None
+            # Exclude callables from kwargs
+            kwargs_to_save = {
+                "ground_stations": ground_stations, "n_steps": n_steps, "dt_s": dt_s, 
+                "start_time": start_time, "force_rain": force_rain, "seed": seed, 
+                "freq_hz": freq_hz, "eirp_offset_db": eirp_offset_db, 
+                "bandwidth_hz": bandwidth_hz, "polarization": polarization, 
+                "rain_rate_scale": rain_rate_scale, "constellation": constellation, 
+                "handoff_policy": handoff_policy, "hysteresis": hysteresis, 
+                "min_dwell_steps": min_dwell_steps, "checkpoint_interval": checkpoint_interval,
+                "checkpoint_file": checkpoint_file
+            }
 
         curr_time = start_time or datetime.now(timezone.utc)
         times = [curr_time + timedelta(seconds=i*dt_s) for i in range(n_steps)]
         freq_ghz = freq_hz / 1e9
 
         itu_k, itu_a = itu_rain_coefficients(freq_ghz, polarization)
-        results = []
 
-        for i, gs in enumerate(ground_stations):
+        for i in range(start_gs_idx, len(ground_stations)):
+            gs = ground_stations[i]
             noise_dbw = noise_power_dbw(gs["system_temp_k"], bandwidth_hz)
             eirp = gs["eirp_dbw"] + eirp_offset_db
             g_rx = gs["g_rx_dbi"]
@@ -85,81 +125,120 @@ class SimulationEngine:
                 dop_s = np.full(n_steps, doppler_shift_hz(gs.get("v_radial_ms", 0), freq_hz))
                 sat_names = [gs.get("sat_name") or f"SAT-LAT{gs.get('sat_lon_deg',0)}"] * n_steps
                 handoff_events = []
-                rain_rate_s = np.zeros(n_steps)
-                rain_db_s = np.zeros(n_steps)
-                scint_s = np.zeros(n_steps)
+                rain_rate_s = np.zeros(n_steps).tolist()
+                rain_db_s = np.zeros(n_steps).tolist()
+                scint_s = np.zeros(n_steps).tolist()
                 snr_s = np.full(n_steps, eirp - fspl_db(freq_hz, slant_s[0]) + g_rx - noise_dbw)
-                pkt_s = packet_loss_from_snr(snr_s, SNR_THRESHOLD_DB)
-                sorted_snr = sorted(snr_s.tolist())
+                pkt_s = packet_loss_from_snr(snr_s, SNR_THRESHOLD_DB).tolist()
+                snr_s = snr_s.tolist()
+                el_s = el_s.tolist()
+                slant_s = slant_s.tolist()
+                dop_s = dop_s.tolist()
+                sorted_snr = sorted(snr_s)
                 p10_idx = max(0, int(0.10 * n_steps) - 1)
             else:
                 n_cands = len(candidates_geo)
                 cand_names = [g.sat_name for g in candidates_geo]
 
-                if rain_model_factory:
-                    rain_proc = rain_model_factory(gs)
-                else:
-                    rain_proc = CorrelatedRainProcess([gs], dt_s=dt_s, force_rain=force_rain, 
-                                                      rain_rate_scale=rain_rate_scale)
-                rain_rate_s = rain_proc.generate_batch(n_steps)[:, 0]
-
-                cand_snr_matrix = np.zeros((n_cands, n_steps))
-                cand_el_matrix = np.zeros((n_cands, n_steps))
-                cand_slant_matrix = np.zeros((n_cands, n_steps))
-                cand_dop_matrix = np.zeros((n_cands, n_steps))
-                cand_rain_db_matrix = np.zeros((n_cands, n_steps))
-                cand_scint_db_matrix = np.zeros((n_cands, n_steps))
-                
-                for c_idx, geo in enumerate(candidates_geo):
-                    pl = fspl_db(freq_hz, geo.slant_range_km)
-                    gl = gaseous_absorption_db(freq_ghz, geo.elevation_deg, gs["wv_g_m3"])
-                    ep = effective_path_length(geo.elevation_deg, rain_h, gs["altitude_km"], itu_k)
-                    ra = rain_attenuation_db(rain_rate_s, itu_k, itu_a, ep)
-                    ss = scintillation_sigma_db(freq_ghz, geo.elevation_deg, gs["antenna_diam_m"], gs["humidity_pct"])
-                    scint_db = np.random.normal(0, ss)
-                    
-                    snr = eirp - pl - gl - ra - scint_db + g_rx - noise_dbw
-                    cand_snr_matrix[c_idx] = snr
-                    cand_el_matrix[c_idx] = geo.elevation_deg
-                    cand_slant_matrix[c_idx] = geo.slant_range_km
-                    cand_dop_matrix[c_idx] = doppler_shift_hz(geo.radial_velocity_ms, freq_hz)
-                    cand_rain_db_matrix[c_idx] = ra
-                    cand_scint_db_matrix[c_idx] = scint_db
-
-                if isinstance(handoff_policy, str):
-                    if handoff_policy == "highest_snr":
-                        policy_obj = HighestSNRPolicy()
+                if rain_proc is None:
+                    if rain_model_factory:
+                        rain_proc = rain_model_factory(gs)
                     else:
-                        policy_obj = HighestElevationPolicy()
-                else:
-                    policy_obj = handoff_policy
-                
-                hm = HandoffManager(policy=policy_obj, hysteresis=hysteresis, min_dwell_steps=min_dwell_steps)
-                selected_indices = []
-                for t in range(n_steps):
-                    idx = hm.select(t, cand_names, cand_snr_matrix[:, t], cand_el_matrix[:, t])
-                    selected_indices.append(idx)
-                
-                t_idx = np.arange(n_steps)
-                s_idx = np.array(selected_indices)
-                
-                el_s = cand_el_matrix[s_idx, t_idx]
-                slant_s = cand_slant_matrix[s_idx, t_idx]
-                dop_s = cand_dop_matrix[s_idx, t_idx]
-                snr_s = cand_snr_matrix[s_idx, t_idx]
-                rain_db_s = cand_rain_db_matrix[s_idx, t_idx]
-                scint_db_s = cand_scint_db_matrix[s_idx, t_idx]
-                sat_names = [cand_names[i] for i in s_idx]
+                        rain_proc = CorrelatedRainProcess([gs], dt_s=dt_s, force_rain=force_rain, 
+                                                          rain_rate_scale=rain_rate_scale)
+
+                if hm is None:
+                    if isinstance(handoff_policy, str):
+                        if handoff_policy == "highest_snr":
+                            policy_obj = HighestSNRPolicy()
+                        else:
+                            policy_obj = HighestElevationPolicy()
+                    else:
+                        policy_obj = handoff_policy
+                    hm = HandoffManager(policy=policy_obj, hysteresis=hysteresis, min_dwell_steps=min_dwell_steps)
+
+                if acc_state is None:
+                    acc_state = {
+                        "el_s": [], "slant_s": [], "dop_s": [], "snr_s": [],
+                        "rain_db_s": [], "scint_db_s": [], "sat_names": [],
+                        "rain_rate_s": []
+                    }
+
+                for chunk_start in range(start_chunk_idx * checkpoint_interval, n_steps, checkpoint_interval):
+                    chunk_end = min(n_steps, chunk_start + checkpoint_interval)
+                    c_steps = chunk_end - chunk_start
+                    
+                    rain_rate_chunk = rain_proc.generate_batch(c_steps)[:, 0]
+                    acc_state["rain_rate_s"].extend(rain_rate_chunk.tolist())
+
+                    cand_snr_matrix = np.zeros((n_cands, c_steps))
+                    cand_el_matrix = np.zeros((n_cands, c_steps))
+                    cand_slant_matrix = np.zeros((n_cands, c_steps))
+                    cand_dop_matrix = np.zeros((n_cands, c_steps))
+                    cand_rain_db_matrix = np.zeros((n_cands, c_steps))
+                    cand_scint_db_matrix = np.zeros((n_cands, c_steps))
+                    
+                    for c_idx, geo in enumerate(candidates_geo):
+                        g_slant = geo.slant_range_km[chunk_start:chunk_end]
+                        g_el = geo.elevation_deg[chunk_start:chunk_end]
+                        g_rad = geo.radial_velocity_ms[chunk_start:chunk_end]
+                        
+                        pl = fspl_db(freq_hz, g_slant)
+                        gl = gaseous_absorption_db(freq_ghz, g_el, gs["wv_g_m3"])
+                        ep = effective_path_length(g_el, rain_h, gs["altitude_km"], itu_k)
+                        ra = rain_attenuation_db(rain_rate_chunk, itu_k, itu_a, ep)
+                        ss = scintillation_sigma_db(freq_ghz, g_el, gs["antenna_diam_m"], gs["humidity_pct"])
+                        scint_db = np.random.normal(0, ss)
+                        
+                        snr = eirp - pl - gl - ra - scint_db + g_rx - noise_dbw
+                        cand_snr_matrix[c_idx] = snr
+                        cand_el_matrix[c_idx] = g_el
+                        cand_slant_matrix[c_idx] = g_slant
+                        cand_dop_matrix[c_idx] = doppler_shift_hz(g_rad, freq_hz)
+                        cand_rain_db_matrix[c_idx] = ra
+                        cand_scint_db_matrix[c_idx] = scint_db
+
+                    selected_indices = []
+                    for t in range(c_steps):
+                        idx = hm.select(chunk_start + t, cand_names, cand_snr_matrix[:, t], cand_el_matrix[:, t])
+                        selected_indices.append(idx)
+                    
+                    t_idx = np.arange(c_steps)
+                    s_idx = np.array(selected_indices)
+                    
+                    acc_state["el_s"].extend(cand_el_matrix[s_idx, t_idx].tolist())
+                    acc_state["slant_s"].extend(cand_slant_matrix[s_idx, t_idx].tolist())
+                    acc_state["dop_s"].extend(cand_dop_matrix[s_idx, t_idx].tolist())
+                    acc_state["snr_s"].extend(cand_snr_matrix[s_idx, t_idx].tolist())
+                    acc_state["rain_db_s"].extend(cand_rain_db_matrix[s_idx, t_idx].tolist())
+                    acc_state["scint_db_s"].extend(cand_scint_db_matrix[s_idx, t_idx].tolist())
+                    acc_state["sat_names"].extend([cand_names[j] for j in s_idx])
+                    
+                    # CHECKPOINTING
+                    if chunk_end < n_steps:
+                        state = {
+                            "kwargs": kwargs_to_save,
+                            "results": results,
+                            "gs_idx": i,
+                            "chunk_idx": (chunk_start // checkpoint_interval) + 1,
+                            "rain_proc": rain_proc,
+                            "hm": hm,
+                            "acc_state": acc_state
+                        }
+                        with open(checkpoint_file, "wb") as f:
+                            pickle.dump(state, f)
+
+                el_s = acc_state["el_s"]
+                slant_s = acc_state["slant_s"]
+                dop_s = acc_state["dop_s"]
+                snr_s = acc_state["snr_s"]
+                rain_db_s = acc_state["rain_db_s"]
+                scint_s = acc_state["scint_db_s"]
+                sat_names = acc_state["sat_names"]
+                rain_rate_s = acc_state["rain_rate_s"]
                 handoff_events = hm.events
 
-                pkt_s = packet_loss_from_snr(snr_s, SNR_THRESHOLD_DB).tolist()
-                snr_s = snr_s.tolist()
-                rain_rate_s = rain_rate_s.tolist()
-                rain_db_s = rain_db_s.tolist()
-                scint_s = scint_db_s.tolist()
-                el_s = el_s.tolist()
-                slant_s = slant_s.tolist()
-                dop_s = dop_s.tolist()
+                pkt_s = packet_loss_from_snr(np.array(snr_s), SNR_THRESHOLD_DB).tolist()
 
                 sorted_snr = sorted(snr_s)
                 p10_idx = max(0, int(0.10 * n_steps) - 1)
@@ -187,6 +266,33 @@ class SimulationEngine:
                 sat_name_series=sat_names,
                 handoff_events=handoff_events
             ))
+            
+            # Reset state for next station
+            rain_proc = None
+            hm = None
+            acc_state = None
+            start_chunk_idx = 0
+
+            # Checkpoint at end of station
+            if i < len(ground_stations) - 1:
+                state = {
+                    "kwargs": kwargs_to_save,
+                    "results": results,
+                    "gs_idx": i + 1,
+                    "chunk_idx": 0,
+                    "rain_proc": None,
+                    "hm": None,
+                    "acc_state": None
+                }
+                with open(checkpoint_file, "wb") as f:
+                    pickle.dump(state, f)
+
+        # Cleanup checkpoint if finished successfully
+        if os.path.exists(checkpoint_file):
+            try:
+                os.remove(checkpoint_file)
+            except OSError:
+                pass
 
         return results
 
