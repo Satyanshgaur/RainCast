@@ -120,7 +120,7 @@ def validate_rain_autocorrelation():
     random.seed(42)
     for _ in range(n_samples):
         rate = proc.step()
-        samples.append(proc.ln_R)
+        samples.append(proc.ln_R_val)
     
     samples = np.array(samples)
     samples -= np.mean(samples)
@@ -230,7 +230,7 @@ def generate_validation_plots():
     for _ in range(5000):
         proc.raining = True
         proc.step()
-        samples.append(proc.ln_R)
+        samples.append(proc.ln_R_val)
     samples = np.array(samples) - np.mean(samples)
     acf = np.correlate(samples, samples, mode='full')
     acf = acf[acf.size // 2:]
