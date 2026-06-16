@@ -29,31 +29,32 @@ Physics-first satellite link simulator integrating:
 
 ```mermaid
 graph TD
-    A[TLE Catalog / satellites.db] --> B[SGP4 Propagation]
+    M[CLI] --> F
+    N[Streamlit] --> F
+    O[REST Client] --> F
 
-    B --> C[Geometry Engine]
-    C --> D[ITU-R Models]
-    D --> E[Link Budget Engine]
-
-    subgraph Service Layer [FastAPI Layer]
-        F[Simulation REST API]
-        F --> G[Simulation Engine]
+    subgraph API [FastAPI Layer]
+        F[Simulation API]
     end
 
-    G --> H[Candidate Link Matrix]
-    H --> I[Handoff Manager]
-    I --> J[Selected Link Timeline]
+    F --> G[Simulation Engine]
 
-    J --> K[Feature Extraction]
-    K --> L[XGBoost Scoring]
-    
-    M[CLI / REST Client] --> F
-    N[Streamlit / REST Client] --> F
+    G --> A[TLE Catalog]
+    A --> B[SGP4]
+    B --> C[Geometry]
+    C --> D[ITU-R Models]
 
-    subgraph JIT_ACCELERATED [Performance Layer]
-        R[Maseng-Bakken Rain Process]
+    subgraph Performance [Performance Layer]
+        R[Maseng-Bakken Rain]
         R -- Numba JIT --> D
     end
+
+    D --> E[Link Budget]
+    E --> H[Candidate Links]
+    H --> I[Handoff Manager]
+    I --> J[Selected Timeline]
+    J --> K[Feature Extraction]
+    K --> L[XGBoost]
 ```
 
 ---
