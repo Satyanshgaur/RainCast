@@ -7,23 +7,23 @@ The simulator is designed for scalable simulation workloads through vectorizatio
 ```mermaid
 graph TD
     A[TLE Catalog / satellites.db] --> B[SGP4 Propagation]
-
     B --> C[Geometry Engine]
     C --> D[ITU-R Models]
     D --> E[Link Budget Engine]
 
-    subgraph Service Layer [FastAPI Layer]
+    subgraph Service_Layer [FastAPI Layer]
         F[Simulation REST API]
         F --> G[Simulation Engine]
     end
 
-    G --> H[Candidate Link Matrix]
-    H --> I[Handoff Manager]
+    G --> B
+    E --> H[Candidate Link Matrix]
+
+    H --> K[Feature Extraction]
+    K --> L[XGBoost Scoring]
+    L --> I[Handoff Manager]
     I --> J[Selected Link Timeline]
 
-    J --> K[Feature Extraction]
-    K --> L[XGBoost Scoring]
-    
     M[CLI / REST Client] --> F
     N[Streamlit / REST Client] --> F
 
