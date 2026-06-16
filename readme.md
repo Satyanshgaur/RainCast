@@ -35,15 +35,20 @@ graph TD
     C --> D[ITU-R Models]
     D --> E[Link Budget Engine]
 
-    E --> F[Candidate Link Matrix]
+    subgraph Service Layer [FastAPI Layer]
+        F[Simulation REST API]
+        F --> G[Simulation Engine]
+    end
 
-    F --> G[Handoff Manager]
+    G --> H[Candidate Link Matrix]
+    H --> I[Handoff Manager]
+    I --> J[Selected Link Timeline]
 
-    G --> H[Selected Link Timeline]
-
-    H --> I[Feature Extraction]
-    I --> J[XGBoost Scoring]
-    J --> K[Streamlit Dashboard]
+    J --> K[Feature Extraction]
+    K --> L[XGBoost Scoring]
+    
+    M[CLI / REST Client] --> F
+    N[Streamlit / REST Client] --> F
 
     subgraph JIT_ACCELERATED [Performance Layer]
         R[Maseng-Bakken Rain Process]
@@ -62,15 +67,19 @@ pip install -e .
 # 2. Update satellite database with live TLEs
 satlinksim-update
 
-# 3. Run the interactive Streamlit dashboard
-satlinksim-ui
+# 3. RUN AS A SERVICE (Recommended)
+# Terminal 1: Start the API server
+satlinksim api
 
-# 4. Run tests
+# Terminal 2: Start the UI and select "REST API (Remote)" execution mode
+satlinksim ui
+
+# 4. Terminal 2: Or run a simulation directly via REST CLI
+satlinksim simulate --steps 3600 --freq 28e9 --output results.json
+
+# 5. Run tests & validation
 python3 -m pytest
-
-# 5. Run validation and benchmarks
 python3 val_and_bench/validation_correctness.py
-python3 val_and_bench/benchmarks.py
 ```
 
 ---
