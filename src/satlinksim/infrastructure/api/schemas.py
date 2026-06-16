@@ -93,3 +93,15 @@ class StationResultSchema(BaseModel):
 
 class SimulationResponse(BaseModel):
     results: List[StationResultSchema]
+
+class SummarySimulationRequest(BaseModel):
+    station: str
+    constellation: str
+    duration_min: int = Field(default=1440, alias="duration")
+
+    class Config:
+        populate_by_name = True
+
+class SummarySimulationResponse(BaseModel):
+    availability: float
+    handoffs: int

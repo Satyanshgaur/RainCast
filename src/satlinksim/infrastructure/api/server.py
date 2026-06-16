@@ -1,13 +1,59 @@
 from fastapi import FastAPI, HTTPException
 from satlinksim.application.simulation_engine import SimulationEngine
-from satlinksim.infrastructure.api.schemas import SimulationRequest, SimulationResponse, StationResultSchema, HandoffEventSchema
+from satlinksim.infrastructure.api.schemas import (
+    SimulationRequest, SimulationResponse, StationResultSchema, HandoffEventSchema,
+    SummarySimulationRequest, SummarySimulationResponse
+)
+from satlinksim.ground_stations import GROUND_STATIONS
+from satlinksim.domain.models import Constellation, Satellite
 from typing import List
 import uvicorn
 
 app = FastAPI(title="SatLinkSim API")
 engine = SimulationEngine()
 
-from satlinksim.domain.models import Constellation, Satellite
+NAMED_CONSTELLATIONS = {
+    "Starlink": [44057, 44059, 44061],
+    "OneWeb": [45131, 45132],
+    "Iridium": [43569, 43570]
+}
+
+@app.post("/simulate/summary", response_model=SummarySimulationResponse)
+async def simulate_summary(request: SummarySimulationRequest):
+    # 1. Look up station
+    gs = next((g for g in GROUND_STATIONS if g["name"].lower() == request.station.lower()), None)
+    if not gs:
+        raise HTTPException(status_code=404, detail=f"Station '{request.station}' not found")
+
+    # 2. Look up constellation
+    ids = NAMED_CONSTELLATIONS.get(request.constellation)
+    if not ids:
+        # Fallback to case-insensitive check
+        ids = next((v for k, v in NAMED_CONSTELLATIONS.items() if k.lower() == request.constellation.lower()), None)
+
+    if not ids:
+        raise HTTPException(status_code=404, detail=f"Constellation '{request.constellation}' not found. Available: {list(NAMED_CONSTELLATIONS.keys())}")
+
+    constellation = Constellation.from_norad_ids(request.constellation, ids)
+
+    try:
+        results = engine.simulate_all_batched(
+            ground_stations=[gs],
+            n_steps=request.duration_min * 60,
+            dt_s=1.0,
+            constellation=constellation
+        )
+
+        if not results:
+            raise HTTPException(status_code=500, detail="Simulation failed to produce results")
+
+        res = results[0]
+        return SummarySimulationResponse(
+            availability=round((1.0 - res.outage_fraction) * 100, 2),
+            handoffs=len(res.handoff_events)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/simulate", response_model=SimulationResponse)
 async def simulate(request: SimulationRequest):
