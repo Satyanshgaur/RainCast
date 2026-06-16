@@ -6,31 +6,32 @@ The simulator is designed for scalable simulation workloads through vectorizatio
 
 ```mermaid
 graph TD
-    A[TLE Catalog / satellites.db] --> B[SGP4 Propagation]
-    B --> C[Geometry Engine]
-    C --> D[ITU-R Models]
-    D --> E[Link Budget Engine]
+    M[CLI] --> F
+    N[Streamlit] --> F
+    O[REST Client] --> F
 
-    subgraph Service_Layer [FastAPI Layer]
-        F[Simulation REST API]
-        F --> G[Simulation Engine]
+    subgraph API [FastAPI Layer]
+        F[Simulation API]
     end
 
-    G --> B
-    E --> H[Candidate Link Matrix]
+    F --> G[Simulation Engine]
 
-    H --> K[Feature Extraction]
-    K --> L[XGBoost Scoring]
-    L --> I[Handoff Manager]
-    I --> J[Selected Link Timeline]
+    G --> A[TLE Catalog]
+    A --> B[SGP4]
+    B --> C[Geometry]
+    C --> D[ITU-R Models]
 
-    M[CLI / REST Client] --> F
-    N[Streamlit / REST Client] --> F
-
-    subgraph JIT_ACCELERATED [Performance Layer]
-        R[Maseng-Bakken Rain Process]
+    subgraph Performance [Performance Layer]
+        R[Maseng-Bakken Rain]
         R -- Numba JIT --> D
     end
+
+    D --> E[Link Budget]
+    E --> H[Candidate Links]
+    H --> I[Handoff Manager]
+    I --> J[Selected Timeline]
+    J --> K[Feature Extraction]
+    K --> L[XGBoost]
 ```
 
 ## Core Modules (Clean Architecture)
