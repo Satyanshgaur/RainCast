@@ -28,11 +28,19 @@ from satlinksim.infrastructure.api.schemas import SimulationRequest, GroundStati
 @st.cache_resource
 def load_model():
     try:
-        ml_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ml")
+        # Use absolute paths relative to this file
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        ml_dir = os.path.join(os.path.dirname(current_dir), "ml")
         model_path = os.path.join(ml_dir, "xgb_link_model.pkl")
         scaler_path = os.path.join(ml_dir, "feature_scaler.pkl")
+        
+        if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+            st.warning(f"ML assets not found in {ml_dir}. Run the trainer script first.")
+            return None, None
+            
         return joblib.load(model_path), joblib.load(scaler_path)
-    except:
+    except Exception as e:
+        st.error(f"Error loading ML models: {e}")
         return None, None
 
 model, scaler = load_model()
@@ -144,6 +152,19 @@ with st.sidebar:
     api_url = "http://localhost:8000"
     if sim_mode == "REST API (Remote)":
         api_url = st.text_input("API URL", value="http://localhost:8000")
+        client = SatLinkSimClient(base_url=api_url)
+        if client.health_check():
+            st.sidebar.success("● API Connected")
+        else:
+            st.sidebar.error("○ API Disconnected")
+            st.info(
+                "### 🛰️ Setup Required\n"
+                "To use the Remote API mode, you must start the simulation service in a separate terminal:\n\n"
+                "```bash\n"
+                "satlinksim api\n"
+                "```\n"
+                "Once the server is running, the status above will turn green."
+            )
 
     window_minutes = st.slider(
         "Window (minutes)", min_value=1, max_value=180, value=10, step=1,
@@ -220,10 +241,46 @@ def run_simulation(sim_mode, mc_iterations, n_steps, force_rain, freq_hz,
         
         try:
             response = client.simulate(request)
-            return [response.results]
+            # Convert StationResultSchema (Pydantic) back to StationResult (Dataclass)
+            # so the rest of the app logic (plotting, scoring) works seamlessly.
+            results = []
+            for r in response.results:
+                results.append(StationResult(
+                    name=r.name,
+                    elevation=r.elevation,
+                    slant_km=r.slant_km,
+                    doppler_hz=r.doppler_hz,
+                    path_loss=r.path_loss,
+                    gas_loss=r.gas_loss,
+                    rain_height=r.rain_height,
+                    eff_path=r.eff_path,
+                    itu_k=r.itu_k,
+                    itu_alpha=r.itu_alpha,
+                    scint_sig=r.scint_sig,
+                    noise_floor=r.noise_floor,
+                    snr_series=r.snr_series,
+                    rain_series=r.rain_series,
+                    rain_db_series=r.rain_db_series,
+                    scint_series=r.scint_series,
+                    pkt_loss_series=r.pkt_loss_series,
+                    elevation_series=r.elevation_series,
+                    slant_range_series=r.slant_range_series,
+                    doppler_series=r.doppler_series,
+                    snr_mean=r.snr_mean,
+                    snr_min=r.snr_min,
+                    snr_std=r.snr_std,
+                    snr_p10=r.snr_p10,
+                    rain_fraction=r.rain_fraction,
+                    avg_rain_db=r.avg_rain_db,
+                    avg_pkt_loss=r.avg_pkt_loss,
+                    outage_fraction=r.outage_fraction,
+                    sat_name_series=r.sat_name_series,
+                    handoff_events=r.handoff_events
+                ))
+            return [results]
         except Exception as e:
             st.error(f"API Error: {e}")
-            return [[]]
+            return []
 
     kwargs = dict(
         n_steps         = n_steps,
@@ -265,7 +322,11 @@ all_iterations_results = run_simulation(
     api_url         = api_url
 )
 
-sim_results = all_iterations_results[0]
+sim_results = all_iterations_results[0] if all_iterations_results else []
+
+if not sim_results:
+    st.error("No simulation results available. Check your API server or settings.")
+    st.stop()
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗

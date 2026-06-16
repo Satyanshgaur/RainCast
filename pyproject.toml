@@ -26,6 +26,11 @@ dependencies = [
     "pyarrow",
     "fastapi",
     "uvicorn",
+    "toml",
+    "cycler",
+    "fonttools",
+    "kiwisolver",
+    "scipy",
 ]
 
 [project.optional-dependencies]
