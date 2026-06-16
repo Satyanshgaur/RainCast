@@ -1,7 +1,9 @@
 import numpy as np
+import time
 
 from satlinksim.config import config
 from satlinksim.domain.interfaces import RainModel
+from satlinksim.infrastructure.metrics import RAIN_GENERATION_TIME
 
 TAU_COHERENCE_S = config.rain.tau_c
 
@@ -9,6 +11,7 @@ def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear,
     """
     Pure NumPy implementation of Maseng-Bakken rain process.
     """
+    start_time = time.time()
     rates = np.zeros((n_steps, n_stations))
     
     # Work with arrays internally
@@ -36,6 +39,7 @@ def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear,
         current_rates[current_rates > 150.0] = 150.0
         rates[t] = np.where(curr_raining, current_rates, 0.0)
                 
+    RAIN_GENERATION_TIME.observe(time.time() - start_time)
     return rates, curr_ln_R, curr_raining
 
 class CorrelatedRainProcess(RainModel):

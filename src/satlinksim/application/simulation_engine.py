@@ -22,6 +22,7 @@ from satlinksim.domain.handoff.manager import HandoffManager, HandoffPolicy, Hig
 from satlinksim.infrastructure.tle.service import SGP4Propagator
 from satlinksim.config import config
 from satlinksim.ground_stations import GROUND_STATIONS
+from satlinksim.infrastructure.metrics import STEPS_PROCESSED, HANDOFFS_TOTAL
 
 # Defaults
 DEFAULT_CARRIER_FREQ_HZ = config.simulation.link.carrier_freq_hz
@@ -63,6 +64,7 @@ class SimulationEngine:
                              checkpoint_file: str = "checkpoint.pkl",
                              _resume_state: dict = None
                              ) -> list[StationResult]:
+        STEPS_PROCESSED.inc(n_steps * len(ground_stations))
         if seed is not None:
             np.random.seed(seed)
             random.seed(seed)
@@ -237,6 +239,7 @@ class SimulationEngine:
                 sat_names = acc_state["sat_names"]
                 rain_rate_s = acc_state["rain_rate_s"]
                 handoff_events = hm.events
+                HANDOFFS_TOTAL.inc(len(handoff_events))
 
                 pkt_s = packet_loss_from_snr(np.array(snr_s), SNR_THRESHOLD_DB).tolist()
 

@@ -105,3 +105,12 @@ class SummarySimulationRequest(BaseModel):
 class SummarySimulationResponse(BaseModel):
     availability: float
     handoffs: int
+
+class JobResponse(BaseModel):
+    job_id: str
+
+class JobStatus(BaseModel):
+    job_id: str
+    status: str  # pending, running, completed, failed
+    result: Optional[SimulationResponse] = None
+    error: Optional[str] = None
