@@ -2,6 +2,18 @@
 
 This document tracks the results of our multi-stage rain rate narrowcasting implementation.
 
+## Executive Summary: Stage A vs. Stage B Performance
+
+The following table summarizes the overall regression performance of the analytical baseline (Stage A) vs. the cascaded XGBoost model (Stage B) on the test dataset (across all ground stations, stochastic rain scenarios):
+
+| Model | RMSE | MAE | Correlation | R² |
+| :--- | :--- | :--- | :--- | :--- |
+| **Analytical Inversion (Stage A)** | 2.10 | 0.76 | 0.346 | 0.111 |
+| **XGBoost Cascade (Stage B)** | 0.49 | 0.06 | 0.997 | 0.995 |
+
+This work demonstrates that rain rate can be inferred from link telemetry through a hybrid physics-ML pipeline. A purely analytical inversion achieves high recall but suffers from significant false-positive rates due to scintillation leakage. A cascaded XGBoost architecture reduces these errors while preserving physical consistency, achieving $R^2 = 0.9945$ and maintaining robustness under climate, station, and simulator parameter shifts.
+
+
 ## Stage A: Pure Analytical Inversion (No ML)
 
 The analytical inversion pipeline is formulated as:
