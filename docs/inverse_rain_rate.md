@@ -87,3 +87,79 @@ Stage B frames the inverse problem as a cascaded supervised model to address the
 * **XGBoost Distribution Comparison**: ![XGBoost Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_saopaulo_stochastic_rain_hist.png)
 * **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_saopaulo_pr_comparison.png)
 
+
+## Stage B Generalization and Robustness Validation
+
+Following the Stage B Validation checklist, this section documents the generalization, leakage, and cross-domain validation testing:
+
+### 1. Feature Importance Analysis
+
+Below are the top 10 most important features for the XGBoost Regressor model:
+
+| Feature | Importance |
+|---|---|
+| excess_attn | 0.7663 |
+| rolling_max_30s | 0.0764 |
+| lag_excess_attn_10s | 0.0373 |
+| rolling_max_300s | 0.0292 |
+| rolling_mean_30s | 0.0266 |
+| rolling_mean_60s | 0.0087 |
+| elevation | 0.0085 |
+| rolling_max_60s | 0.0075 |
+| L_eff | 0.0066 |
+| rolling_min_300s | 0.0054 |
+
+### 2. Feature Leakage & Ablation Study
+
+Evaluating the model after stripping groups of features to ensure it is not overly reliant on raw/direct simulator attenuation mapping:
+
+| Ablation Group | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 (0.1 mm/h) |
+|---|---|---|---|---|---|
+| All Features | 0.4934 | 0.0647 | 0.9973 | 0.9945 | 0.9992 |
+| No Rolling Stats | 0.8430 | 0.0875 | 0.9921 | 0.9841 | 0.9986 |
+| No Excess Attn & L_eff | 6.3290 | 3.8117 | 0.3270 | 0.1011 | 0.6891 |
+| No Climatology | 0.4934 | 0.0647 | 0.9973 | 0.9945 | 0.9992 |
+
+### 3. Leave-One-Station-Out (LOSO) Generalization
+
+Evaluating how well the narrowcaster generalizes to a completely unseen geographic location (cross-climate validation):
+
+| Excluded Ground Station | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 Score (0.1 mm/h) |
+|---|---|---|---|---|---|
+| Delhi | 0.0241 | 0.0041 | 0.9998 | 0.9986 | 0.9960 |
+| Sao Paulo | 0.8529 | 0.1180 | 0.9930 | 0.9504 | 1.0000 |
+| Tokyo | 0.0975 | 0.0192 | 0.9988 | 0.9976 | 1.0000 |
+| Berlin | 0.1754 | 0.0272 | 0.9816 | 0.9148 | 0.9913 |
+
+### 4. Cross-Frequency Generalization
+
+Testing the model pre-trained at 14 GHz on unseen high-frequency channels (12 GHz, 20 GHz, 30 GHz) without retraining:
+
+| Test Channel Frequency | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 Score (0.1 mm/h) |
+|---|---|---|---|---|---|
+| 12 GHz | 2.1962 | 1.0292 | 0.9956 | 0.8978 | 0.9967 |
+| 20 GHz | 3.6022 | 1.9971 | 0.9745 | 0.7250 | 0.9994 |
+| 30 GHz | 7.7491 | 4.7598 | 0.9293 | -0.2727 | 0.9993 |
+
+### 5. Distribution Matching
+
+To verify that the model produces physically realistic distributions rather than simply smoothing outliers:
+
+* **Jensen-Shannon (JS) Divergence** ($P(R) \parallel P(\widehat{R})$) for Sao Paulo Stochastic Rain: **0.08297** *(where 0.0 is a perfect match)*.
+
+### 6. Simulator Parameter Modification (Noise Shifts)
+
+Testing robustness when evaluated against a simulator run with modified dynamics (Rain coherence time tau_c = 600s, rain scale 1.5x, and injected 2.0x nominal scintillation power):
+
+* **RMSE**: 2.3367 mm/h
+* **Correlation ($R$)**: 0.9766
+* **R² Score**: 0.9384
+* **F1 Score**: 0.9998
+
+### Stage B Conclusions
+- **Architecture Superiority**: The cascaded XGBoost architecture substantially outperforms analytical inversion across all evaluated stochastic-rain scenarios.
+- **Geographic Generalization**: Leave-One-Station-Out validation demonstrates strong geographic generalization, indicating that the model is learning attenuation-to-rain relationships rather than station-specific climatology.
+- **Parametric Robustness**: Robustness testing under modified scintillation power, rain coherence times, and rain severity shows that the model remains stable under significant simulator parameter shifts.
+- **Statistical Fidelity**: Distribution matching analysis (JS divergence = 0.083) indicates that the model reproduces realistic rain-rate statistics rather than simply minimizing regression error.
+- **Frequency Transferability Limit**: The primary limitation is frequency transferability. Models trained at 14 GHz exhibit significant degradation at higher frequencies, particularly 30 GHz, suggesting that attenuation-frequency coupling must be explicitly incorporated into training.
+
