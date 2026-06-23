@@ -175,3 +175,27 @@ Testing robustness when evaluated against a simulator run with modified dynamics
 - **Statistical Fidelity**: Distribution matching analysis (JS divergence = 0.083) indicates that the model reproduces realistic rain-rate statistics rather than simply minimizing regression error.
 - **Frequency Transferability Limit**: The primary limitation is frequency transferability. Models trained at 14 GHz exhibit significant degradation at higher frequencies, particularly 30 GHz, suggesting that attenuation-frequency coupling must be explicitly incorporated into training.
 
+
+## Stage B.5: Frequency-Aware XGBoost Narrowcaster
+
+Stage B.5 introduces explicit physical carrier frequency parameters into the feature set to solve the bottleneck of cross-frequency transferability:
+1. **Multi-Frequency Training**: Models trained on simulated datasets spanning $10$, $12$, $14$, $20$, and $30\text{ GHz}$.
+2. **Explicit Attenuation Coupling Features**: Features now explicitly include the carrier frequency ($f_c$), along with the ITU-R P.838 coefficients $k$ and $\alpha$, and the dynamic effective path length $L_{\text{eff}}$.
+
+### Cross-Frequency Performance Comparison (R² and RMSE)
+
+Evaluating the generalization of the $14\text{ GHz}$ trained model (Stage B) vs. the multi-frequency trained model (Stage B.5):
+
+| Frequency | Stage B (Unaware) R² | Stage B.5 (Aware) R² | Stage B (Unaware) RMSE | Stage B.5 (Aware) RMSE | Stage B.5 F1 |
+|---|---|---|---|---|---|
+| 10 GHz | N/A | 0.9990 | N/A | 0.2105 | 0.9982 |
+| 12 GHz | 0.8978 | 0.9990 | 2.1962 | 0.2087 | 0.9992 |
+| 14 GHz | 0.9945 | 0.9982 | 0.4934 | 0.2847 | 0.9996 |
+| 20 GHz | 0.7250 | 0.9943 | 3.6022 | 0.5046 | 0.9998 |
+| 30 GHz | -0.2727 | 0.9804 | 7.7491 | 0.9349 | 0.9999 |
+
+### Visual Validation
+
+#### Cross-Frequency Generalization Improvement Plot
+![Cross Frequency Generalization Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b5_frequency_generalization.png)
+
