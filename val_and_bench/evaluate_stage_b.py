@@ -202,7 +202,7 @@ def run_stage_b():
     thresholds = [0.1, 0.5, 1.0, 2.0, 5.0]
     
     # Directories for saving artifacts
-    artifact_dir = "/home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b"
+    artifact_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs", "plots"))
     os.makedirs(artifact_dir, exist_ok=True)
     
     results_by_station = {}
@@ -368,9 +368,9 @@ def run_stage_b():
         for name in ["Delhi", "Sao Paulo"]:
             name_low = name.lower().replace(" ", "")
             f.write(f"#### {name} Stage B Plots\n")
-            f.write(f"* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_{name_low}_stochastic_rain.png)\n")
-            f.write(f"* **XGBoost Distribution Comparison**: ![XGBoost Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_{name_low}_stochastic_rain_hist.png)\n")
-            f.write(f"* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_{name_low}_pr_comparison.png)\n\n")
+            f.write(f"* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](plots/stage_b_{name_low}_stochastic_rain.png)\n")
+            f.write(f"* **XGBoost Distribution Comparison**: ![XGBoost Histogram](plots/stage_b_{name_low}_stochastic_rain_hist.png)\n")
+            f.write(f"* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](plots/stage_b_{name_low}_pr_comparison.png)\n\n")
             
     print(f"\nCompleted Stage B. Report appended to {docs_path}")
 

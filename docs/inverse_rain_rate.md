@@ -48,14 +48,14 @@ Tropospheric scintillation noise mimics low-rate rain, introducing massive False
 ### Visual Validation & PR Analysis
 
 #### Delhi
-* **Stochastic Rain Time-Series**: ![Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_delhi_stochastic_rain.png)
-* **Histogram Distribution Comparison**: ![Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_delhi_stochastic_rain_hist.png)
-* **Precision-Recall Analysis**: ![PR Analysis](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_delhi_pr_analysis.png)
+* **Stochastic Rain Time-Series**: ![Time Series](plots/stage_a_delhi_stochastic_rain.png)
+* **Histogram Distribution Comparison**: ![Histogram](plots/stage_a_delhi_stochastic_rain_hist.png)
+* **Precision-Recall Analysis**: ![PR Analysis](plots/stage_a_delhi_pr_analysis.png)
 
 #### Sao Paulo
-* **Stochastic Rain Time-Series**: ![Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_saopaulo_stochastic_rain.png)
-* **Histogram Distribution Comparison**: ![Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_saopaulo_stochastic_rain_hist.png)
-* **Precision-Recall Analysis**: ![PR Analysis](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_saopaulo_pr_analysis.png)
+* **Stochastic Rain Time-Series**: ![Time Series](plots/stage_a_saopaulo_stochastic_rain.png)
+* **Histogram Distribution Comparison**: ![Histogram](plots/stage_a_saopaulo_stochastic_rain_hist.png)
+* **Precision-Recall Analysis**: ![PR Analysis](plots/stage_a_saopaulo_pr_analysis.png)
 
 
 ## Stage B: Feature Engineered XGBoost
@@ -90,14 +90,14 @@ Stage B frames the inverse problem as a cascaded supervised model to address the
 ### Visual Validation & PR Comparisons
 
 #### Delhi Stage B Plots
-* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_delhi_stochastic_rain.png)
-* **XGBoost Distribution Comparison**: ![XGBoost Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_delhi_stochastic_rain_hist.png)
-* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_delhi_pr_comparison.png)
+* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](plots/stage_b_delhi_stochastic_rain.png)
+* **XGBoost Distribution Comparison**: ![XGBoost Histogram](plots/stage_b_delhi_stochastic_rain_hist.png)
+* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](plots/stage_b_delhi_pr_comparison.png)
 
 #### Sao Paulo Stage B Plots
-* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_saopaulo_stochastic_rain.png)
-* **XGBoost Distribution Comparison**: ![XGBoost Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_saopaulo_stochastic_rain_hist.png)
-* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b_saopaulo_pr_comparison.png)
+* **XGBoost Predicted Time-Series**: ![XGBoost Time Series](plots/stage_b_saopaulo_stochastic_rain.png)
+* **XGBoost Distribution Comparison**: ![XGBoost Histogram](plots/stage_b_saopaulo_stochastic_rain_hist.png)
+* **PR Curve Comparison (Stage A vs Stage B)**: ![PR Curve Comparison](plots/stage_b_saopaulo_pr_comparison.png)
 
 
 ## Stage B Generalization and Robustness Validation
@@ -197,5 +197,5 @@ Evaluating the generalization of the $14\text{ GHz}$ trained model (Stage B) vs.
 ### Visual Validation
 
 #### Cross-Frequency Generalization Improvement Plot
-![Cross Frequency Generalization Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b5_frequency_generalization.png)
+![Cross Frequency Generalization Comparison](plots/stage_b5_frequency_generalization.png)
 

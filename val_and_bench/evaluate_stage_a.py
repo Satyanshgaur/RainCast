@@ -45,7 +45,7 @@ def run_evaluation():
     itu_k, itu_alpha = itu_rain_coefficients(freq_ghz, polarization)
     
     # Directory to save plot artifacts
-    artifact_dir = "/home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b"
+    artifact_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs", "plots"))
     os.makedirs(artifact_dir, exist_ok=True)
     
     thresholds_to_test = [0.1, 0.5, 1.0, 2.0, 5.0]
@@ -269,9 +269,9 @@ def run_evaluation():
         for gs in stations_to_test:
             gs_low = gs["name"].lower().replace(" ", "")
             f.write(f"#### {gs['name']}\n")
-            f.write(f"* **Stochastic Rain Time-Series**: ![Time Series](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_{gs_low}_stochastic_rain.png)\n")
-            f.write(f"* **Histogram Distribution Comparison**: ![Histogram](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_{gs_low}_stochastic_rain_hist.png)\n")
-            f.write(f"* **Precision-Recall Analysis**: ![PR Analysis](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_a_{gs_low}_pr_analysis.png)\n\n")
+            f.write(f"* **Stochastic Rain Time-Series**: ![Time Series](plots/stage_a_{gs_low}_stochastic_rain.png)\n")
+            f.write(f"* **Histogram Distribution Comparison**: ![Histogram](plots/stage_a_{gs_low}_stochastic_rain_hist.png)\n")
+            f.write(f"* **Precision-Recall Analysis**: ![PR Analysis](plots/stage_a_{gs_low}_pr_analysis.png)\n\n")
             
     print(f"\nCompleted Stage A. Report written to {docs_path}")
 

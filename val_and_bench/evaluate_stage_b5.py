@@ -254,7 +254,8 @@ def run_stage_b5():
     plt.legend(loc='lower left')
     plt.tight_layout()
     
-    artifact_dir = "/home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b"
+    artifact_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs", "plots"))
+    os.makedirs(artifact_dir, exist_ok=True)
     plot_path = os.path.join(artifact_dir, "stage_b5_frequency_generalization.png")
     plt.savefig(plot_path)
     plt.close()
@@ -279,7 +280,7 @@ def run_stage_b5():
         
         f.write("\n### Visual Validation\n\n")
         f.write("#### Cross-Frequency Generalization Improvement Plot\n")
-        f.write("![Cross Frequency Generalization Comparison](file:///home/satyansh/.gemini/antigravity-cli/brain/b30d89ad-2cb9-4e00-a92c-0ae53cdb775b/stage_b5_frequency_generalization.png)\n\n")
+        f.write("![Cross Frequency Generalization Comparison](plots/stage_b5_frequency_generalization.png)\n\n")
         
     print(f"Completed Stage B.5 evaluation. Report updated in {report_path}")
 
