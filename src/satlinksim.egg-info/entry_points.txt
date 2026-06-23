@@ -1,3 +1,5 @@
 [console_scripts]
-satlinksim-ui = satlinksim.cli:main
-satlinksim-update = satlinksim.update_tle:main
+satlinksim = satlinksim.cli:main
+satlinksim-api = satlinksim.infrastructure.api.server:main
+satlinksim-ui = satlinksim.cli:main_ui
+satlinksim-update = satlinksim.infrastructure.tle.updater:main

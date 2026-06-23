@@ -18,6 +18,16 @@ Requires-Dist: requests
 Requires-Dist: numba
 Requires-Dist: pydantic
 Requires-Dist: pyyaml
+Requires-Dist: pyarrow
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: toml
+Requires-Dist: cycler
+Requires-Dist: fonttools
+Requires-Dist: kiwisolver
+Requires-Dist: scipy
+Requires-Dist: structlog
+Requires-Dist: prometheus-client
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
@@ -54,26 +64,32 @@ Physics-first satellite link simulator integrating:
 
 ```mermaid
 graph TD
-    A[TLE Catalog / satellites.db] --> B[SGP4 Propagation]
+    M[CLI] --> F
+    N[Streamlit] --> F
+    O[REST Client] --> F
 
-    B --> C[Geometry Engine]
+    subgraph API [FastAPI Layer]
+        F[Simulation API]
+    end
+
+    F --> G[Simulation Engine]
+
+    G --> A[TLE Catalog]
+    A --> B[SGP4]
+    B --> C[Geometry]
     C --> D[ITU-R Models]
-    D --> E[Link Budget Engine]
 
-    E --> F[Candidate Link Matrix]
-
-    F --> G[Handoff Manager]
-
-    G --> H[Selected Link Timeline]
-
-    H --> I[Feature Extraction]
-    I --> J[XGBoost Scoring]
-    J --> K[Streamlit Dashboard]
-
-    subgraph JIT_ACCELERATED [Performance Layer]
-        R[Maseng-Bakken Rain Process]
+    subgraph Performance [Performance Layer]
+        R[Maseng-Bakken Rain]
         R -- Numba JIT --> D
     end
+
+    D --> E[Link Budget]
+    E --> H[Candidate Links]
+    H --> I[Handoff Manager]
+    I --> J[Selected Timeline]
+    J --> K[Feature Extraction]
+    K --> L[XGBoost]
 ```
 
 ---
@@ -87,15 +103,19 @@ pip install -e .
 # 2. Update satellite database with live TLEs
 satlinksim-update
 
-# 3. Run the interactive Streamlit dashboard
-satlinksim-ui
+# 3. RUN AS A SERVICE (Recommended)
+# Terminal 1: Start the API server
+satlinksim api
 
-# 4. Run tests
+# Terminal 2: Start the UI and select "REST API (Remote)" execution mode
+satlinksim ui
+
+# 4. Terminal 2: Or run a simulation directly via REST CLI
+satlinksim simulate --steps 3600 --freq 28e9 --output results.json
+
+# 5. Run tests & validation
 python3 -m pytest
-
-# 5. Run validation and benchmarks
 python3 val_and_bench/validation_correctness.py
-python3 val_and_bench/benchmarks.py
 ```
 
 ---
@@ -142,16 +162,15 @@ The simulation engine combines NumPy vectorization, Numba JIT compilation, async
 ---
 
 ### Repository Structure
-The project follows a standard `src`-layout for Python packages:
+The project follows a Clean Architecture layout to strictly separate domain physics from external integrations:
 
 ```text
 ├── docs/                   # Detailed physics and architecture docs
 ├── src/
 │   └── satlinksim/         # Core Python package
-│       ├── app.py          # Streamlit Dashboard UI
-│       ├── satellite_link_sim.py  # Vectorized Physics Engine
-│       ├── propogate.py     # SGP4 & Constellation Management
-│       ├── update_tle.py    # Live TLE Update Tool
+│       ├── application/    # Orchestration and Simulation Engine
+│       ├── domain/         # Physics, ITU models, Link Budget, and Geometry
+│       ├── infrastructure/ # External services (Streamlit UI, TLE, DB, ML)
 │       └── ground_stations.py # Station Database
 ├── tests/                  # Unit, physics, and regression tests
 ├── real_world_validation/   # Comparison against external datasets

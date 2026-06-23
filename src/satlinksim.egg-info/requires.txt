@@ -10,6 +10,16 @@ requests
 numba
 pydantic
 pyyaml
+pyarrow
+fastapi
+uvicorn
+toml
+cycler
+fonttools
+kiwisolver
+scipy
+structlog
+prometheus-client
 
 [dev]
 pytest
