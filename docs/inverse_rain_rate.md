@@ -199,3 +199,82 @@ Evaluating the generalization of the $14\text{ GHz}$ trained model (Stage B) vs.
 #### Cross-Frequency Generalization Improvement Plot
 ![Cross Frequency Generalization Comparison](plots/stage_b5_frequency_generalization.png)
 
+## Scientific Findings
+
+* **Finding 1**: Pure analytical inversion is insufficient for realistic rain-rate estimation. Tropospheric scintillation creates significant false-positive rain detections.
+* **Finding 2**: Temporal attenuation statistics contain enough information to distinguish rain from scintillation.
+* **Finding 3**: Rain attenuation inversion is fundamentally frequency-dependent. Single-frequency models do not generalize across communication bands.
+* **Finding 4**: Embedding physical attenuation parameters directly into the learning process restores cross-frequency generalization.
+
+---
+
+## Real-World GPM/IMERG Validation & Simulator Analytic Flaws
+
+### Key Findings
+
+#### Finding 1: ITU-R P.837-7 underestimates extreme rainfall for Delhi.
+
+| Source | $R_{0.01}$ |
+| :--- | :---: |
+| **ITU-R** | 42 mm/h |
+| **NASA GPM** | 90 mm/h |
+
+#### Finding 2: The original simulator under-produced extreme rain rates.
+
+| Station | Target | Original |
+| :--- | :---: | :---: |
+| **Delhi** | 42 | 22 |
+| **Tokyo** | 80 | 60 |
+| **Berlin** | 28 | 19 |
+| **Sao Paulo** | 95 | 80 |
+
+#### Finding 3: Two independent biases were identified:
+1. **Quantile fitting bias** (Static $P_{\text{rain}}$ quantiles in probit calculation)
+2. **Event reset bias** (Lognormal temporal Markov chain initialization reset to the median)
+
+#### Finding 4: Correcting the quantile fitting significantly improves tail reproduction.
+
+| Station | Original | Corrected |
+| :--- | :---: | :---: |
+| **Delhi** | 22 | 28 |
+| **Tokyo** | 60 | 66 |
+| **Berlin** | 19 | 22 |
+| **Sao Paulo** | 80 | 81 |
+
+### 1. The NASA GPM IMERG vs. ITU-R Discrepancy
+Real-world validation using NASA's Global Precipitation Measurement (GPM) Integrated Multi-satellitE Retrievals (IMERG) data indicates a significant gap between theoretical ITU-R P.837-7 climatological statistics and actual precipitation intensities. For instance, in subtropical monsoon zones like Delhi, GPM data reveals:
+* **GPM $R_{0.01}$**: **$90.0\text{ mm/h}$**
+* **ITU-R P.837-7 $R_{0.01}$**: **$42.0\text{ mm/h}$**
+
+This discrepancy indicates that standard ITU-R climatology maps underestimate extreme convective rainfall tails by **over $110\%$** in monsoon-heavy areas.
+
+### 2. Discovering Simulator Rain Rate Analytic Flaws
+A rigorous comparison of the simulator's output against its database configurations revealed **two critical analytical/mathematical flaws** in the simulation's rain rate generation:
+
+#### Flaw A: Quantile Probit Fitting Error (Static $P_{\text{rain}}$ Assumption)
+* **Flaw**: The simulator fits lognormal parameters ($\mu$, $\sigma$) using static normal quantiles ($z_{0.001} = 3.0902$ and $z_{0.01} = 2.3263$). These quantiles mathematically assume that the probability of rain ($P_{\text{rain}}$) is exactly $10\%$ ($0.1$) for all locations.
+* **Impact**: Ground stations with lower rain fractions (e.g., Delhi, where $P_{\text{rain}} = 0.053$) suffer from distorted mapping. By ignoring $P_{\text{rain}}$ in the probit fitting, the generator spreads rainfall across too much clear sky, underestimating the $R_{0.01}$ peak.
+* **Correction**: Percentiles must be computed dynamically using the inverse standard normal cumulative distribution function (probit function $Q^{-1}$):
+  $$z_{0.001} = Q^{-1}\left(\frac{0.0001}{P_{\text{rain}}}\right) \quad \text{and} \quad z_{0.01} = Q^{-1}\left(\frac{0.001}{P_{\text{rain}}}\right)$$
+
+#### Flaw B: Temporal Markov Reset (Tail Truncation Bias)
+* **Flaw**: When a rain event starts, the simulator initializes the log-normal rain rate `ln_R` to the median value $\mu$ ($z=0.0$). Because average rain event durations are short (coherence time $\tau_c = 300\text{ s}$), the AR(1) random walk gets cut off and resets to the median before it can walk up to the extreme upper tail of the distribution ($z > 3.0$).
+* **Impact**: This creates a severe tail truncation bias, underestimating peak rainfall rates.
+
+#### Quantitative Verification
+By running the original vs. corrected models, we isolate the impact of both flaws:
+
+| Ground Station | Target $R_{0.01}$ | Simulated $R_{0.01}$ (Flawed) | Simulated $R_{0.01}$ (Corrected) | Total Generator Underestimation |
+| :--- | :---: | :---: | :---: | :---: |
+| **Delhi** | $42.00\text{ mm/h}$ | $22.07\text{ mm/h}$ | $27.80\text{ mm/h}$ | **$47.4\%$** ($47.4\%$ from Flaw A+B, leaving $33.8\%$ to Flaw B) |
+| **Tokyo** | $80.00\text{ mm/h}$ | $60.17\text{ mm/h}$ | $65.86\text{ mm/h}$ | **$24.8\%$** |
+| **Berlin** | $28.00\text{ mm/h}$ | $19.40\text{ mm/h}$ | $22.08\text{ mm/h}$ | **$30.7\%$** |
+| **Sao Paulo** | $95.00\text{ mm/h}$ | $80.51\text{ mm/h}$ | $81.46\text{ mm/h}$ | **$15.2\%$** *(Sao Paulo $P_{rain}=0.095 \approx 0.1$, hence low Flaw A impact)* |
+
+### 3. Real-World GPM IMERG Online Data Sources
+Programmatic and manual access to GPM/IMERG validation data is available via:
+1. **NASA GES DISC**: Goddard Earth Sciences Data and Information Services Center (provides HDF5/NetCDF files).
+2. **Google Earth Engine**: Programmatic access to the daily or 30-minute IMERG dataset via GEE ID: `NASA/GPM_L3/IMERG_V06`.
+3. **NASA Earthdata Search**: UI portal for downloading spatial-temporal IMERG grids.
+
+
