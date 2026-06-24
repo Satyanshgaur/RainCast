@@ -8,7 +8,7 @@ from satlinksim.infrastructure.metrics import RAIN_GENERATION_TIME
 
 TAU_COHERENCE_S = config.rain.tau_c
 
-def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear, force_rain, ln_R, raining):
+def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear, force_rain, ln_R, raining, use_random_onset_init=False):
     """
     Pure NumPy implementation of Maseng-Bakken rain process.
     """
@@ -26,7 +26,14 @@ def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear,
             
             onset_mask = (~curr_raining) & (onset_roll < p_onset)
             curr_raining[onset_mask] = True
-            curr_ln_R[onset_mask] = mu[onset_mask]
+            
+            if use_random_onset_init:
+                n_onsets = np.sum(onset_mask)
+                if n_onsets > 0:
+                    onset_noise = np.random.standard_normal(n_onsets)
+                    curr_ln_R[onset_mask] = mu[onset_mask] + onset_noise * sigma[onset_mask]
+            else:
+                curr_ln_R[onset_mask] = mu[onset_mask]
             
             clear_mask = (curr_raining) & (clear_roll < p_clear)
             curr_raining[clear_mask] = False
@@ -45,13 +52,17 @@ def _simulate_rain_kernel(n_steps, n_stations, rho, mu, sigma, p_onset, p_clear,
 
 class CorrelatedRainProcess(RainModel):
     def __init__(self, gs, dt_s, tau_c=TAU_COHERENCE_S,
-                 force_rain=False, rain_rate_scale=1.0):
+                 force_rain=False, rain_rate_scale=1.0,
+                 use_corrected_quantiles=True,
+                 use_random_onset_init=False):
         if isinstance(gs, dict):
             gs = [gs]
         
         self.n_stations = len(gs)
         self.dt_s = dt_s
         self.force_rain = force_rain
+        self.use_corrected_quantiles = use_corrected_quantiles
+        self.use_random_onset_init = use_random_onset_init
         
         self.sigma = np.zeros(self.n_stations)
         self.mu = np.zeros(self.n_stations)
@@ -65,11 +76,15 @@ class CorrelatedRainProcess(RainModel):
             R01  = max(p["R01"]  * rain_rate_scale, 0.05)
             P_rain = p["P_rain"]
             
-            # Dynamic quantiles mapped correctly to P_rain exceedance probabilities
-            p_cond_001 = np.clip(0.0001 / max(P_rain, 1e-6), 1e-9, 0.9999)
-            p_cond_01  = np.clip(0.001 / max(P_rain, 1e-6), 1e-9, 0.9999)
-            _z001 = norm.ppf(1.0 - p_cond_001)
-            _z01  = norm.ppf(1.0 - p_cond_01)
+            if self.use_corrected_quantiles:
+                # Dynamic quantiles mapped correctly to P_rain exceedance probabilities
+                p_cond_001 = np.clip(0.0001 / max(P_rain, 1e-6), 1e-9, 0.9999)
+                p_cond_01  = np.clip(0.001 / max(P_rain, 1e-6), 1e-9, 0.9999)
+                _z001 = norm.ppf(1.0 - p_cond_001)
+                _z01  = norm.ppf(1.0 - p_cond_01)
+            else:
+                _z001 = 3.0902
+                _z01  = 2.3263
             
             self.sigma[i] = (np.log(R001) - np.log(R01)) / (_z001 - _z01)
             self.mu[i]    = np.log(R01) - _z01 * self.sigma[i]
@@ -89,7 +104,8 @@ class CorrelatedRainProcess(RainModel):
         rates, new_ln_R, new_raining = _simulate_rain_kernel(
             n_steps, self.n_stations, self.rho, self.mu, self.sigma, 
             self._p_onset, self._p_clear, self.force_rain,
-            self.ln_R, self.raining
+            self.ln_R, self.raining,
+            use_random_onset_init=self.use_random_onset_init
         )
         self.ln_R = new_ln_R
         self.raining = new_raining

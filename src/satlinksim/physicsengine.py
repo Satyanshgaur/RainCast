@@ -18,13 +18,16 @@ from satlinksim.domain.geometry.physics import geo_elevation_deg, geo_slant_rang
 from satlinksim.application.simulation_engine import run_simulation
 
 class CorrelatedRainProcess(_DomainRainProcess):
-    def __init__(self, gs=None, dt_s=1.0, tau_c=300.0, force_rain=False, rain_rate_scale=1.0):
+    def __init__(self, gs=None, dt_s=1.0, tau_c=300.0, force_rain=False, rain_rate_scale=1.0,
+                 use_corrected_quantiles=True, use_random_onset_init=False):
         if gs is None:
             # Stats to match mu ~ 0.5, sigma ~ 0.5 (Delhi-like)
             gs = {
                 "itu_rain": {"R001": 50.0, "R01": 25.0, "R1": 10.0, "P_rain": 0.01}
             }
-        super().__init__(gs, dt_s, tau_c, force_rain, rain_rate_scale)
+        super().__init__(gs, dt_s, tau_c, force_rain, rain_rate_scale,
+                         use_corrected_quantiles=use_corrected_quantiles,
+                         use_random_onset_init=use_random_onset_init)
 
 # Legacy constants
 CARRIER_FREQ_HZ = 14.0e9
