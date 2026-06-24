@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/badge/version-v2.0.0--Physics--Informed--Rain--Rate--Narrowcasting-blue)
+![Version](https://img.shields.io/badge/version-v2.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
