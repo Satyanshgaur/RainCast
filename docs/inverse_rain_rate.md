@@ -4,21 +4,29 @@ This document tracks the results of our multi-stage rain rate narrowcasting impl
 
 ## Executive Summary: Comparative Model Performance
 
-This work demonstrates that rain rate can be inferred from link telemetry through a hybrid physics-ML pipeline. A purely analytical inversion (Stage A) suffers from significant false-positive rates due to scintillation leakage. Introducing a machine learning cascade (Stage B) resolves this leakage, and embedding explicit carrier frequency physics (Stage B.5) achieves robust generalization across communication bands.
+This work demonstrates that rain rate can be inferred from link telemetry through a hybrid physics-ML pipeline. A purely analytical inversion (Stage A) suffers from significant false-positive rates due to scintillation leakage. Introducing a machine learning cascade (Stage B) resolves this leakage, and embedding explicit carrier frequency physics (Stage C) achieves robust generalization across communication bands.
 
 ### Rain Detection Performance (Classification at 0.1 mm/h threshold)
 | Model | Precision | Recall | F1 Score |
 | :--- | :---: | :---: | :---: |
 | **Analytical Inversion (Stage A)** | 9.0% | 86.7% | 0.163 |
 | **XGBoost Cascade (Stage B)** | 99.96% | 99.82% | 0.999 |
-| **Frequency-Aware XGBoost (Stage B.5)** | 99.98% | 99.92% | 0.999 |
+| **Frequency-Aware XGBoost (Stage C)** | 99.98% | 99.92% | 0.999 |
 
 ### Rain Rate Estimation Performance (Regression during rain)
 | Model | RMSE (mm/h) | MAE (mm/h) | Correlation | R² |
 | :--- | :---: | :---: | :---: | :---: |
 | **Analytical Inversion (Stage A)** | 2.10 | 0.76 | 0.346 | 0.111 |
 | **XGBoost Cascade (Stage B)** | 0.49 | 0.06 | 0.997 | 0.995 |
-| **Frequency-Aware XGBoost (Stage B.5)** | 0.28 | 0.04 | 0.999 | 0.998 |
+| **Frequency-Aware XGBoost (Stage C)** | 0.28 | 0.04 | 0.999 | 0.998 |
+
+### Consolidated Model Comparison
+| Metric | Stage A | Stage B | Stage C |
+| :--- | :---: | :---: | :---: |
+| **F1 Score** | 0.163 | 0.999 | 0.999 |
+| **R²** | 0.111 | 0.995 | 0.998 |
+| **RMSE (mm/h)** | 2.10 | 0.49 | 0.28 |
+| **Correlation** | 0.346 | 0.997 | 0.999 |
 
 > [!WARNING]
 > **Simulation Dependency & Generalization Limits**
@@ -204,14 +212,18 @@ Testing robustness when evaluated against a simulator run with modified dynamics
 - **Frequency Transferability Limit**: The primary limitation is frequency transferability. Models trained at 14 GHz exhibit significant degradation at higher frequencies, particularly 30 GHz, suggesting that attenuation-frequency coupling must be explicitly incorporated into training.
 
 
-## Stage B.5: Frequency-Aware XGBoost Narrowcaster (Final Model)
+## Stage C: Frequency-Aware Narrowcaster (Final Model)
 
-Stage B.5 introduces explicit physical carrier frequency parameters and attenuation physics coefficients into the learning process to solve the bottleneck of cross-frequency generalization:
+Stage C introduces explicit physical carrier frequency parameters and attenuation physics coefficients into the learning process to solve the bottleneck of cross-frequency generalization:
 1. **Multi-Frequency Training**: Models are trained on simulated datasets spanning a wide band of carrier frequencies: $10$, $12$, $14$, $20$, and $30\text{ GHz}$.
 2. **Explicit Attenuation Coupling Features**: Physical factors driving frequency-dependent specific attenuation are embedded directly into the machine learning models.
 
+> [!NOTE]
+> **Real-World Generalization Limits**
+> The frequency-aware model demonstrates strong generalization within the simulator domain. Real-world transfer remains future work and will require validation against beacon attenuation measurements and NASA GPM aligned observations.
+
 ### Full Feature Vector
-The Stage B.5 model utilizes the following complete feature set for training and inference:
+The Stage C model utilizes the following complete feature set for training and inference:
 - **`excess_attn`**: Instanstaneous excess path attenuation (dB) after FSPL and gas loss removal.
 - **`rolling_mean_30s`**: 30-second rolling average of excess attenuation (dB).
 - **`rolling_mean_60s`**: 60-second rolling average of excess attenuation (dB).
@@ -225,9 +237,9 @@ The Stage B.5 model utilizes the following complete feature set for training and
 
 ### Cross-Frequency Performance Comparison (R² and RMSE)
 
-Evaluating the generalization of the $14\text{ GHz}$ trained model (Stage B) vs. the multi-frequency trained model (Stage B.5):
+Evaluating the generalization of the $14\text{ GHz}$ trained model (Stage B) vs. the multi-frequency trained model (Stage C):
 
-| Frequency | Stage B (Unaware) R² | Stage B.5 (Aware) R² | Stage B (Unaware) RMSE | Stage B.5 (Aware) RMSE | Stage B.5 F1 |
+| Frequency | Stage B (Unaware) R² | Stage C (Aware) R² | Stage B (Unaware) RMSE | Stage C (Aware) RMSE | Stage C F1 |
 |---|---|---|---|---|---|
 | 10 GHz | N/A | 0.9990 | N/A | 0.2105 | 0.9982 |
 | 12 GHz | 0.8978 | 0.9990 | 2.1962 | 0.2087 | 0.9992 |
@@ -251,7 +263,7 @@ Real-world validation using NASA's Global Precipitation Measurement (GPM) Integr
 | **ITU-R P.837-7** | 42 mm/h |
 | **NASA GPM IMERG** | 90 mm/h |
 
-This discrepancy indicates that standard ITU-R climatology maps underestimate extreme convective rainfall tails by **over 110%** in monsoon-heavy areas.
+For Delhi, NASA GPM IMERG estimates suggest substantially higher extreme rainfall rates than those represented in ITU-R P.837-7 climatology.
 
 ### Real-World GPM IMERG Online Data Sources
 Programmatic and manual access to GPM/IMERG validation data is available via:
@@ -264,6 +276,10 @@ Programmatic and manual access to GPM/IMERG validation data is available via:
 
 An investigation was conducted to understand why the simulator was under-producing extreme rain rates compared to database config files. We identified two independent generator biases.
 
+> [!IMPORTANT]
+> **Rain Rate Clipping Limitation**
+> Rain rates above 150 mm/h are currently clipped by the simulator. This may underestimate the upper tail of extreme convective rainfall distributions and could affect comparisons against NASA GPM climatology.
+
 ### Diagnostic of Simulator Rain Rate Analytic Flaws
 
 #### Bug A: Quantile Probit Fitting Error (Static $P_{\text{rain}}$ Assumption)
@@ -273,12 +289,12 @@ An investigation was conducted to understand why the simulator was under-produci
   $$z_{0.001} = Q^{-1}\left(\frac{0.0001}{P_{\text{rain}}}\right) \quad \text{and} \quad z_{0.01} = Q^{-1}\left(\frac{0.001}{P_{\text{rain}}}\right)$$
 
 #### Bug B: Temporal Markov Reset (Tail Truncation Bias)
-- **Flaw**: When a rain event starts, the simulator initializes the log-normal rain rate `ln_R` to the median value $\mu$ ($z=0.0$). Because average rain event durations are short (coherence time $\tau_c = 300\text{ s}$), the AR(1) random walk gets cut off and resets to the median before it can walk up to the extreme upper tail of the distribution ($z > 3.0$).
-- **Impact**: This creates a severe tail truncation bias, underestimating peak rainfall rates.
+- **Flaw**: When a rain event starts, the simulator initializes the log-normal rain rate `ln_R` to the median value $\mu$.
+- **Impact**: Because rain events terminate before the AR(1) process fully explores its stationary distribution, repeatedly resetting event onset to the median introduces a finite-duration sampling bias toward lower rain intensities.
 - **Correction**: Initialize the log-normal rain rate using a random draw scaled by the station's variance parameter on event onset:
   $$\ln R_{\text{onset}} = \mu + \text{noise} \times \sigma$$
 
-### Quantitative Impact of Biases on Tail Reproduction
+### Validation Against ITU Station Parameters (Target: 42 mm/h for Delhi)
 
 By running original and corrected models, we isolate the impact of both generator biases on extreme rain rates ($R_{0.01}$):
 
@@ -289,12 +305,9 @@ By running original and corrected models, we isolate the impact of both generato
 | **Berlin** | $28.00\text{ mm/h}$ | $19.40\text{ mm/h}$ | $22.08\text{ mm/h}$ | **$30.7\%$** |
 | **Sao Paulo** | $95.00\text{ mm/h}$ | $80.51\text{ mm/h}$ | $81.46\text{ mm/h}$ | **$15.2\%$** *(Sao Paulo $P_{\text{rain}}=0.095 \approx 0.1$, hence low Flaw A impact)* |
 
-### Comparative Evaluation of Simulator Flaw Corrections (Delhi Station)
+### Validation Against NASA GPM Climatology (Target: 90 mm/h for Delhi)
 
-To evaluate the isolated and combined impact of the corrections for **Bug A** and **Bug B**, we simulated the Delhi ground station for $1,000,000$ minutes (approx. 1.9 years) under three simulator configurations:
-1. **Original**: Both Bug A and Bug B present (legacy simulation engine behavior).
-2. **Bug A only**: Quantile fitting corrected via dynamic standard normal probit mapping, but event onset values still reset to the median rain rate $\mu$.
-3. **Bug A + Bug B**: Both quantile fitting corrected and event onset values initialized using standard normal scaling (Full Correction).
+To evaluate the isolated and combined impact of the corrections for **Bug A** and **Bug B** against NASA GPM targets, we simulated the Delhi ground station for $1,000,000$ minutes (approx. 1.9 years) under three simulator configurations.
 
 The table below compares these runs against a reference series simulated directly from the **NASA GPM Target parameters** for Delhi ($R_{0.01}=90.0\text{ mm/h}$, $R_{0.1}=35.0\text{ mm/h}$, $P_{\text{rain}}=0.065$):
 
@@ -315,14 +328,15 @@ The table below compares these runs against a reference series simulated directl
 
 ## Scientific Conclusions
 
-1. Analytical inversion is insufficient due to scintillation leakage.
+### Current Simulator Findings
+1. Two generator biases suppressed extreme rainfall statistics.
+2. Correcting these biases restored expected exceedance behavior.
 
-2. Temporal attenuation statistics contain enough information to separate rain from scintillation.
+### Inverse Modeling Findings
+3. Analytical inversion suffers from scintillation leakage.
+4. Temporal attenuation statistics contain sufficient information to separate rain from scintillation.
+5. Rain-rate inversion is fundamentally frequency dependent.
+6. Explicit attenuation physics restores cross-frequency generalization.
 
-3. Rain-rate inversion is fundamentally frequency dependent.
-
-4. Explicit attenuation physics restores cross-frequency generalization.
-
-5. Standard ITU climatology substantially underestimates extreme monsoon rainfall compared with NASA GPM.
-
-6. Two independent generator biases suppressed simulator rainfall extremes by nearly 50%.
+### Real-World Findings
+7. NASA GPM suggests substantially higher rainfall extremes than ITU climatology for Delhi.
