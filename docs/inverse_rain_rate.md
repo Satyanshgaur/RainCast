@@ -263,7 +263,7 @@ Real-world validation using NASA's Global Precipitation Measurement (GPM) Integr
 | **ITU-R P.837-7** | 42 mm/h |
 | **NASA GPM IMERG** | 90 mm/h |
 
-For Delhi, NASA GPM IMERG estimates suggest substantially higher extreme rainfall rates than those represented in ITU-R P.837-7 climatology.
+For Delhi, NASA GPM IMERG estimates indicate substantially higher extreme rainfall intensities than represented in ITU-R P.837-7. The observed discrepancy exceeds 110% for the Delhi study region.
 
 ### Real-World GPM IMERG Online Data Sources
 Programmatic and manual access to GPM/IMERG validation data is available via:
@@ -294,49 +294,58 @@ An investigation was conducted to understand why the simulator was under-produci
 - **Correction**: Initialize the log-normal rain rate using a random draw scaled by the station's variance parameter on event onset:
   $$\ln R_{\text{onset}} = \mu + \text{noise} \times \sigma$$
 
-### Validation Against ITU Station Parameters (Target: 42 mm/h for Delhi)
+### Validation Targets
+To evaluate the simulation corrections accurately and prevent target confusion, we explicitly split our validation results into two different evaluation targets:
+1. **Validation Against ITU Station Parameters**: Evaluates whether the simulator successfully reproduces its configured database parameters (Target: $R_{0.01} = 42\text{ mm/h}$ for Delhi).
+2. **Validation Against NASA GPM Climatology**: Evaluates whether the simulator successfully reproduces observed real-world precipitation statistics when configured with NASA GPM parameters (Target: $R_{0.01} = 90\text{ mm/h}$ for Delhi).
 
-By running original and corrected models, we isolate the impact of both generator biases on extreme rain rates ($R_{0.01}$):
+### 1. Validation Against ITU Station Parameters (Target: 42 mm/h for Delhi)
 
-| Ground Station | Target $R_{0.01}$ | Simulated $R_{0.01}$ (Original) | Simulated $R_{0.01}$ (Corrected) | Total Generator Underestimation |
-| :--- | :---: | :---: | :---: | :---: |
-| **Delhi** | $42.00\text{ mm/h}$ | $22.07\text{ mm/h}$ | $27.80\text{ mm/h}$ | **$47.4\%$** (47.4% from Flaw A+B, leaving 33.8% to Flaw B) |
-| **Tokyo** | $80.00\text{ mm/h}$ | $60.17\text{ mm/h}$ | $65.86\text{ mm/h}$ | **$24.8\%$** |
-| **Berlin** | $28.00\text{ mm/h}$ | $19.40\text{ mm/h}$ | $22.08\text{ mm/h}$ | **$30.7\%$** |
-| **Sao Paulo** | $95.00\text{ mm/h}$ | $80.51\text{ mm/h}$ | $81.46\text{ mm/h}$ | **$15.2\%$** *(Sao Paulo $P_{\text{rain}}=0.095 \approx 0.1$, hence low Flaw A impact)* |
+The table below shows the simulated rain rate statistics when the generator is configured with the standard ITU database parameters for Delhi (Target $R_{0.01} = 42.00\text{ mm/h}$, $P_{\text{rain}} = 0.053$):
 
-### Validation Against NASA GPM Climatology (Target: 90 mm/h for Delhi)
-
-To evaluate the isolated and combined impact of the corrections for **Bug A** and **Bug B** against NASA GPM targets, we simulated the Delhi ground station for $1,000,000$ minutes (approx. 1.9 years) under three simulator configurations.
-
-The table below compares these runs against a reference series simulated directly from the **NASA GPM Target parameters** for Delhi ($R_{0.01}=90.0\text{ mm/h}$, $R_{0.1}=35.0\text{ mm/h}$, $P_{\text{rain}}=0.065$):
-
-| Configuration | $R_{0.01}$ (mm/h) | $R_{0.001}$ (mm/h) | Mean Rain Rate (mm/h) | Average Rain Duration (s) | JS Divergence (vs GPM Target) |
+| Configuration | $R_{0.01}$ (mm/h) | $R_{0.001}$ (mm/h) | Mean Rain Rate (mm/h) | Average Rain Duration | Exceedance Accuracy |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **NASA GPM Target** | 89.85 | 150.00* | 0.3239 | 330.0 | 0.0000 |
-| **Original (Bug A + B present)** | 23.37 | 42.48 | 0.1211 | 337.6 | 0.0520 |
-| **Bug A only (Bug B present)** | 32.53 | 58.54 | 0.1762 | 333.1 | 0.0441 |
-| **Bug A + Bug B (Fully Corrected)** | 41.64 | 81.28 | 0.1931 | 329.5 | 0.0315 |
+| **ITU Target** | **42.00** | — | — | — | **100.0%** |
+| **Original (Bug A + B present)** | 24.13 | 55.89 | 0.1226 | 337.6s | 57.5% |
+| **Bug A only (Bug B present)** | 31.18 | 60.69 | 0.1734 | 333.5s | 74.2% |
+| **Bug A + Bug B (Fully Corrected)** | 41.16 | 74.87 | 0.1927 | 337.4s | **98.0%** |
 
-*\* Note: The simulator truncates peak rain rates to $150.0\text{ mm/h}$ by default.*
+### 2. Validation Against NASA GPM Climatology (Target: 90 mm/h for Delhi)
+
+The table below shows the simulated rain rate statistics when the generator is configured with Delhi's NASA GPM parameters (Target $R_{0.01} = 90.00\text{ mm/h}$, $R_{0.1} = 35.00\text{ mm/h}$, $P_{\text{rain}} = 0.065$):
+
+| Configuration | $R_{0.01}$ (mm/h) | $R_{0.001}$ (mm/h) | Mean Rain Rate (mm/h) | Average Rain Duration | JS Divergence (vs GPM Target) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **NASA GPM Target Reference** | 87.59 | 150.00 | 0.3096 | 323.8s | 0.0000 |
+| **Original (Bug A + B present)** | 55.65 | 122.86 | 0.2087 | 335.0s | 0.0316 |
+| **Bug A only (Bug B present)** | 64.65 | 115.27 | 0.2712 | 333.2s | 0.0242 |
+| **Bug A + Bug B (Fully Corrected)** | 90.78 | 150.00 | 0.3190 | 326.2s | **0.0167** |
 
 #### Analysis and Key Takeaways:
-- **Exceedance Reproduction ($R_{0.01}$)**: The Delhi ITU target is $R_{0.01} = 42.0\text{ mm/h}$. The fully corrected simulator (**Bug A + Bug B**) achieves $R_{0.01} = 41.64\text{ mm/h}$ (almost a perfect match), whereas the Original simulator was severely under-producing extreme rainfall at $23.37\text{ mm/h}$ ($44.4\%$ underestimation).
-- **Distribution Distance (JS Divergence)**: Correcting both biases continuously reduces the Jensen-Shannon divergence relative to the GPM Target from $0.0520$ down to $0.0315$. This confirms a significantly higher statistical fidelity across the entire precipitation distribution.
-- **Rain Event Duration**: Average event durations remain extremely stable across configurations (ranging between $329\text{ s}$ and $337\text{ s}$), showing that the onset initialization fix successfully restores variance without distorting temporal autocorrelation.
+- **Exceedance Reproduction**: With both biases corrected, the simulator reproduces configured targets with high fidelity, achieving $41.16\text{ mm/h}$ against the $42.0\text{ mm/h}$ ITU target, and $90.78\text{ mm/h}$ against the $90.0\text{ mm/h}$ GPM target.
+- **Distribution Distance (JS Divergence)**: Correcting both biases continuously reduces the Jensen-Shannon divergence relative to the GPM Target from $0.0316$ down to $0.0167$. This confirms a significantly higher statistical fidelity across the entire precipitation distribution.
+- **Rain Event Duration**: Average event durations remain extremely stable across configurations, showing that the onset initialization fix successfully restores variance without distorting temporal autocorrelation.
+
+
+## Limitations
+
+- All ML models are trained on simulator-generated data.
+- Real-world beacon attenuation validation remains future work.
+- Rain rates above 150 mm/h are clipped by the simulator.
+- Multi-cell rain structures are not explicitly modeled.
+- Cross-satellite transfer learning has not yet been evaluated.
 
 
 ## Scientific Conclusions
 
-### Current Simulator Findings
-1. Two generator biases suppressed extreme rainfall statistics.
-2. Correcting these biases restored expected exceedance behavior.
+1. Analytical inversion suffers from scintillation leakage.
 
-### Inverse Modeling Findings
-3. Analytical inversion suffers from scintillation leakage.
-4. Temporal attenuation statistics contain sufficient information to separate rain from scintillation.
-5. Rain-rate inversion is fundamentally frequency dependent.
-6. Explicit attenuation physics restores cross-frequency generalization.
+2. Temporal attenuation statistics contain sufficient information to recover rain rate.
 
-### Real-World Findings
-7. NASA GPM suggests substantially higher rainfall extremes than ITU climatology for Delhi.
+3. Frequency-aware learning restores cross-frequency generalization.
+
+4. Two generator biases suppressed simulated rainfall extremes by up to 50%.
+
+5. Correcting these biases substantially improves agreement with target exceedance statistics.
+
+6. NASA GPM observations suggest substantially higher extreme rainfall rates than represented by ITU-R climatology for Delhi.
