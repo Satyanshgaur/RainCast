@@ -12,14 +12,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from satlinksim.satellite_link_sim import simulate_station
 from satlinksim.ground_stations import GROUND_STATIONS
-from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_height, effective_path_length, gaseous_absorption_db
-from satlinksim.domain.link.budget import fspl_db, noise_power_dbw
-from satlinksim.domain.rain.engine import CorrelatedRainProcess
 from evaluate_stage_b5 import extract_features_and_targets_b5
 
 def main():
     print("======================================================================")
-    print("STAGE C ROBUSTNESS AND GENERALIZATION VALIDATION SUITE")
+    print("STAGE C COMPLETE ROBUSTNESS AND GENERALIZATION SUITE")
     print("======================================================================")
     
     gs_delhi = [s for s in GROUND_STATIONS if s["name"] == "Delhi"][0].copy()
@@ -123,21 +120,18 @@ def main():
     for i, test_station in enumerate(stations):
         name = test_station["name"]
         
-        # Train on other 3
         train_idx = (train_meta["station"] != name)
         test_idx = (test_meta["station"] != name)
         
         X_tr_loso = pd.concat([X_train[train_idx], X_test[test_idx]], ignore_index=True)
         y_tr_loso = np.concatenate([y_train[train_idx.values], y_test[test_idx.values]])
         
-        # Test on the excluded station (all frequencies, test split only)
         val_idx = (test_meta["station"] == name) & (test_meta["force_rain"] == False)
         X_te_loso = X_test[val_idx]
         y_te_loso = y_test[val_idx.values]
         
         l_rmse, _, _, l_r2, l_f1, _ = evaluate_cascade(X_tr_loso, y_tr_loso, X_te_loso, y_te_loso)
         print(f"  Excluded: {name:12s} | RMSE: {l_rmse:.4f} | R²: {l_r2:.4f} | F1: {l_f1:.4f}")
-        loso_results[name] = {"rmse": l_rmse, "r2": l_r2, "f1": l_f1}
         
     # 2. Simulator Parameter Modification (Noise shift)
     print("\nRunning Parameter Noise Shift for Stage C...")
@@ -146,6 +140,7 @@ def main():
         for i, gs in enumerate(stations):
             for force_rain in [True, False]:
                 start_time = datetime(2026, months[i], 15, 12, 0, 0, tzinfo=timezone.utc)
+                from satlinksim.domain.rain.engine import CorrelatedRainProcess
                 res = simulate_station(
                     gs, n_steps=n_steps, seed=400, freq_hz=f_hz,
                     bandwidth_hz=bandwidth_hz, polarization=polarization,
@@ -154,7 +149,6 @@ def main():
                 )
                 X_df, y_df, _ = extract_features_and_targets_b5(res, gs, f_hz, bandwidth_hz, polarization, start_time)
                 
-                # Double the standard scintillation
                 from satlinksim.domain.link.itu_models import scintillation_sigma_db
                 ss = scintillation_sigma_db(f_hz/1e9, np.array(res.elevation_series), gs["antenna_diam_m"], gs["humidity_pct"])
                 additional_noise = np.random.normal(0, ss)
@@ -186,6 +180,18 @@ def main():
     
     js_div = jensenshannon(p_true, p_pred)
     print(f"  Sao Paulo JS Divergence: {js_div:.4f}")
+    
+    # 4. Feature Ablation Study for Stage C
+    print("\nRunning Feature Ablation Study for Stage C...")
+    feature_groups = {
+        "All Features": list(X_train.columns),
+        "No Rolling Stats": [c for c in X_train.columns if not c.startswith("rolling_")],
+        "No Excess Attn & L_eff": [c for c in X_train.columns if c != "excess_attn" and c != "L_eff" and not c.startswith("rolling_") and not c.startswith("lag_")],
+        "No Climatology": [c for c in X_train.columns if not c.startswith("gs_") and not c.startswith("itu_")]
+    }
+    for name, cols in feature_groups.items():
+        r_rmse, _, _, r_r2, r_f1, _ = evaluate_cascade(X_train[cols], y_train, X_test[cols], y_test)
+        print(f"  Ablation: {name:25s} | RMSE: {r_rmse:.4f} | R²: {r_r2:.4f} | F1: {r_f1:.4f}")
 
 if __name__ == "__main__":
     main()
