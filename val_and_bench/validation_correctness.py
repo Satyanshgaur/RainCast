@@ -173,8 +173,9 @@ def timestep_convergence_test():
     
     # Means should be roughly equal (anchored to _mu_ln)
     # E[R] = exp(mu + sigma^2/2) for lognormal
-    mu = physicsengine._mu_ln
-    sigma = physicsengine._sigma_ln
+    # Use the actual parameters from the generator to compute the expected mean
+    mu = proc.mu[0]
+    sigma = proc.sigma[0]
     expected_mean = math.exp(mu + (sigma**2)/2.0)
     print(f"\nExpected Lognormal Mean: {expected_mean:.4f}")
     

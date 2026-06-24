@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from scipy.stats import norm
 
 from satlinksim.config import config
 from satlinksim.domain.interfaces import RainModel
@@ -64,7 +65,12 @@ class CorrelatedRainProcess(RainModel):
             R01  = max(p["R01"]  * rain_rate_scale, 0.05)
             P_rain = p["P_rain"]
             
-            _z001, _z01 = 3.0902, 2.3263
+            # Dynamic quantiles mapped correctly to P_rain exceedance probabilities
+            p_cond_001 = np.clip(0.0001 / max(P_rain, 1e-6), 1e-9, 0.9999)
+            p_cond_01  = np.clip(0.001 / max(P_rain, 1e-6), 1e-9, 0.9999)
+            _z001 = norm.ppf(1.0 - p_cond_001)
+            _z01  = norm.ppf(1.0 - p_cond_01)
+            
             self.sigma[i] = (np.log(R001) - np.log(R01)) / (_z001 - _z01)
             self.mu[i]    = np.log(R01) - _z01 * self.sigma[i]
             self.rho[i]   = np.exp(-dt_s / tau_c)
