@@ -11,10 +11,13 @@ dist/
 
 # Models
 *.pkl
+!src/satlinksim/infrastructure/ml/xgb_link_model.pkl
+!src/satlinksim/infrastructure/ml/feature_scaler.pkl
 
 # Database
 *.db
 *.parquet
+!src/satlinksim/infrastructure/ml/link_training_data.parquet
 
 # Environment
 .env
