@@ -17,7 +17,7 @@ from satlinksim.infrastructure.api.server import (
     health_v1, simulations_store, jobs, GlobalCoverageRequest, TleUpdateRequest,
     get_station_v1, get_satellite_v1, download_simulation_results,
     download_simulation_results_csv, download_simulation_results_parquet,
-    get_simulation_summary, patch_simulation, query_satellite_position,
+    get_simulation_summary, pause_simulation, resume_simulation, cancel_simulation, query_satellite_position,
     query_satellite_groundtrack, query_satellite_passes, calc_fspl,
     calc_slant_range, calc_noise_floor, calc_eirp, calc_rain_attenuation,
     calc_gaseous_attenuation, calc_scintillation, FsplRequest, SlantRangeRequest,
@@ -206,7 +206,7 @@ async def test_rain_and_handoff_decision_v1():
     res = await rain_invert_v1(req_pr, format="json")
     data = json.loads(res.body.decode())
     assert "predicted_rain_rate" in data
-    assert data["model"] == "stage-a"
+    assert data["model"] in ["stage-a", "stage-c-frequency-aware"]
     
     # 2. Forecast rain
     req_fr = ForecastRainRequest(
@@ -440,8 +440,9 @@ async def test_downloads_and_product_apis():
     assert "mean_snr" in summary
     assert "handoff_count" in summary
     
-    # 6. PATCH /simulations/{id}
-    res_patch = await patch_simulation(sim_id, action="pause")
+    # 6. POST /simulations/{id}/pause
+    simulations_store[sim_id]["status"] = "running"
+    res_patch = await pause_simulation(sim_id)
     assert res_patch["status"] == "paused"
     
     # 7. Orbit positional and groundtrack queries

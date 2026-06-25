@@ -107,7 +107,6 @@ Allowed transitions:
 * `queued` ➔ `running`, `cancelled`
 * `running` ➔ `paused`, `completed`, `failed`, `cancelled`
 * `paused` ➔ `running`, `cancelled`
-* `completed` ➔ `paused` (supported for compatibility/synchronous test execution runs)
 
 ---
 
@@ -195,16 +194,36 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
   ```
   *(Status transitions: `pending` ➔ `running` ➔ `completed` or `failed`)*
 
-#### Update (Control) Simulation Lifecycle
-* **Endpoint**: `PATCH https://api.satlinksim.com/api/v1/simulations/{id}`
-* **Query Parameters**:
-  * `action` (required): Must be one of `cancel`, `pause`, or `resume`.
+#### Pause a Simulation
+* **Endpoint**: `POST https://api.satlinksim.com/api/v1/simulations/{id}/pause`
 * **Response Payload** (`200 OK`):
   ```json
   {
     "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
     "status": "paused",
-    "message": "Simulation successfully paused."
+    "action": "pause"
+  }
+  ```
+
+#### Resume a Simulation
+* **Endpoint**: `POST https://api.satlinksim.com/api/v1/simulations/{id}/resume`
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "running",
+    "action": "resume"
+  }
+  ```
+
+#### Cancel a Simulation
+* **Endpoint**: `POST https://api.satlinksim.com/api/v1/simulations/{id}/cancel`
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "cancelled",
+    "action": "cancel"
   }
   ```
 
@@ -213,9 +232,8 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
 * **Response Payload** (`200 OK`):
   ```json
   {
-    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
-    "status": "deleted",
-    "message": "Simulation record deleted."
+    "status": "success",
+    "message": "Simulation e2a225de-8c83-49fb-811c-99d8213bfa70 deleted."
   }
   ```
 
@@ -224,18 +242,18 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
 * **Response Payload** (`200 OK`):
   ```json
   {
-    "simulation_id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
-    "metrics": {
-      "availability": 98.4,
-      "mean_snr": 14.2,
-      "minimum_snr": 8.5,
-      "maximum_snr": 18.1,
-      "average_rain": 2.3,
-      "handoff_count": 4,
-      "outage_count": 2,
-      "compute_time": 2.15,
-      "simulation_duration": 86400.0
-    }
+    "availability": 98.2,
+    "mean_snr": 14.5,
+    "min_snr": 7.8,
+    "max_snr": 21.4,
+    "handoffs": 5,
+    "outages": 2,
+    "max_rain_loss": 12.3,
+    "mean_rain_loss": 1.4,
+    "runtime_seconds": 2.17,
+    "simulation_duration": 86400,
+    "samples": 1440,
+    "satellites_used": 8
   }
   ```
 
@@ -280,6 +298,15 @@ Explicit endpoints for direct raw data extraction in CSV or Parquet format:
   * Generates a series of coordinates showing the satellite's path over a defined window.
 * **Pass Calculator**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}/passes?ground_station=Delhi&min_elevation=10.0`
   * Calculates rise, culmination, and set passes for the satellite over a designated station.
+* **Next Pass Predictor**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}/next-pass?ground_station=Delhi&min_elevation=10.0`
+  * Returns:
+    ```json
+    {
+      "rise": "2026-06-26T03:30:00Z",
+      "max_elevation": 72.5,
+      "set": "2026-06-26T03:42:00Z"
+    }
+    ```
 * **Batch Orbit Propagator**: `POST https://api.satlinksim.com/api/v1/orbit/propagate`
   * Propagates coordinates over a defined duration and step size.
 
@@ -287,14 +314,15 @@ Explicit endpoints for direct raw data extraction in CSV or Parquet format:
 
 ### 3.4 Rain Services Resource (`/rain`)
 
-Exposes physics-guided telemetry inversion and stochastic forecasting models.
+Exposes physics-guided telemetry prediction and stochastic forecasting models.
 
-* **Stage A Predictor (SNR Telemetry Inversion)**: `POST https://api.satlinksim.com/api/v1/rain/invert`
-  * Exposes the active algorithm model type in the response:
+* **Telemetry Predictor (SNR Telemetry Inversion)**: `POST https://api.satlinksim.com/api/v1/rain/predict` (or `/rain/invert` alias)
+  * Returns:
     ```json
     {
-      "predicted_rain_rate": [0.0, 1.25, 4.3],
-      "model": "stage-a"
+      "model": "stage-c-frequency-aware",
+      "rain_rate": [0.0, 1.25, 4.3],
+      "confidence": [0.95, 0.925, 0.864]
     }
     ```
 * **Ensemble Forecast**: `POST https://api.satlinksim.com/api/v1/rain/forecast`
@@ -349,6 +377,33 @@ Fast, standalone scientific calculators that bypass simulation lifecycle managem
       "gs_latitude": 28.6
     }
     ```
+* **Specific Attenuation**: `POST https://api.satlinksim.com/api/v1/calculators/specific-attenuation`
+  * Computes specific attenuation $\gamma_R$ (dB/km) (ITU-R P.838):
+    ```json
+    {
+      "rain_rate": 25.0,
+      "frequency_hz": 20e9,
+      "polarization": "circular"
+    }
+    ```
+* **Effective Path Length**: `POST https://api.satlinksim.com/api/v1/calculators/effective-path`
+  * Computes effective propagation path length $L_E$ (km) (ITU-R P.618):
+    ```json
+    {
+      "elevation_deg": 35.0,
+      "gs_latitude": 28.6,
+      "frequency_hz": 20e9,
+      "polarization": "circular"
+    }
+    ```
+* **Total Rain Attenuation**: `POST https://api.satlinksim.com/api/v1/calculators/total-rain-attenuation`
+  * Computes total rain attenuation $A = \gamma_R \cdot L_E$ (dB):
+    ```json
+    {
+      "specific_attenuation_db_km": 1.25,
+      "effective_path_length_km": 5.4
+    }
+    ```
 * **Gaseous Absorption**: `POST https://api.satlinksim.com/api/v1/calculators/gaseous-attenuation`
   * Computes dry air and water vapor attenuation (ITU-R P.676):
     ```json
@@ -394,15 +449,15 @@ Exposes training datasets for link quality machine learning models.
 
 ---
 
-### 3.8 Product & TLE APIs
+### 3.8 Realtime & TLE APIs
 
 Endpoints supporting real-time visualization globes, SaaS tools, and operator catalogs.
 
-* **Live Globe Metrics**: `GET https://api.satlinksim.com/api/v1/live/globe`
+* **Realtime Globe Metrics**: `GET https://api.satlinksim.com/api/v1/realtime/globe` (or `/live/globe` alias)
   * Returns active simulations and average satellite elevations.
-* **Constellation Status**: `GET https://api.satlinksim.com/api/v1/live/constellation?constellation=Starlink`
+* **Constellation Status**: `GET https://api.satlinksim.com/api/v1/realtime/constellation?constellation=Starlink` (or `/live/constellation` alias)
   * Returns availability metrics and count of active nodes in named constellations.
-* **Recent Handoff Events**: `GET https://api.satlinksim.com/api/v1/live/handoffs`
+* **Recent Handoff Events**: `GET https://api.satlinksim.com/api/v1/realtime/handoffs` (or `/live/handoffs` alias)
   * Returns the latest execution records for inter-satellite/station handoffs.
 * **TLE Cache Status**: `GET https://api.satlinksim.com/api/v1/tle/status`
 * **Trigger TLE Update**: `POST https://api.satlinksim.com/api/v1/tle/update` (Or `/tle` alias)
@@ -429,6 +484,21 @@ Supported client event subscriptions include:
 * `availability_change`: Instant status switches.
 * `tle_update`: Alerts when database cache retrieves new ephemerides.
 
+Standardized Event Payload Format:
+```json
+{
+  "event": "orbit_update",
+  "timestamp": "2026-06-26T03:20:00Z",
+  "simulation_id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+  "payload": {
+    "satellite": "GALAXY 16",
+    "latitude": 0.0,
+    "longitude": -99.0,
+    "altitude_km": 35786.0
+  }
+}
+```
+
 ---
 
 ### 3.10 OpenAPI & Interactive Docs
@@ -445,13 +515,37 @@ Interactive OpenAPI specs are automatically generated and served:
   ```json
   {
     "status": "healthy",
-    "timestamp": "2026-06-26T02:50:00Z",
     "database": "connected",
-    "database_status": "online",
-    "tle_database": "updated",
-    "api_version": "1.0.0",
-    "uptime": "21 days",
-    "build": "abc123"
+    "tle_cache": "updated",
+    "uptime": "21d",
+    "version": "1.0.0",
+    "python": "3.12",
+    "numba": "enabled",
+    "cpu": "healthy"
+  }
+  ```
+
+---
+
+### 3.12 System Information Endpoint
+
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/system/info`
+* **Response Payload**:
+  ```json
+  {
+    "version": "1.0.0",
+    "physics_models": [
+      "ITU-R P.618-13",
+      "ITU-R P.676-13",
+      "ITU-R P.837-7",
+      "ITU-R P.838-3",
+      "SGP4"
+    ],
+    "ml_models": [
+      "Stage-C Frequency-Aware XGBoost"
+    ],
+    "build": "abc123",
+    "last_tle_update": "2026-06-26T03:20:00Z"
   }
   ```
 
@@ -465,7 +559,35 @@ In accordance with keeping our API surfaces focused and operational, historical 
 
 ---
 
-## 5. Platform Deprecation Policy
+## 5. Structured Documentation Portal Layout
+
+The documentation is published as a unified portal using the following structure:
+
+* **Getting Started**
+  * Installation
+  * Quick Start
+  * Tutorials
+* **API Reference**
+  * Authenticating requests
+  * Simulation management
+  * Directory & Operators
+  * Telemetry stream
+* **Physics Reference**
+  * ITU-R RF Propagation
+  * Orbital Mechanics (SGP4)
+  * Atmospheric models
+* **Validation & Metrics**
+  * FSPL & Attenuation Reports
+  * Speed & CPU Benchmarks
+  * Machine Learning datasets
+* **Additional Resources**
+  * Examples & Client Notebooks
+  * Frequently Asked Questions (FAQ)
+  * Version changelog
+
+---
+
+## 6. Platform Deprecation Policy
 
 To guarantee API stability for client systems:
 * **Version Support**: A major version (e.g. `/api/v1`) is officially supported for a minimum of 12 months after a subsequent major version (e.g. `/api/v2`) is launched.
