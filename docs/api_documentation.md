@@ -401,6 +401,335 @@ Queries the local SQLite database for cached satellites TLEs.
 
 ---
 
+## 8. POST `/batch`
+Runs a batched simulation for multiple ground stations concurrently.
+
+* **Path:** `/batch`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `satellites` (List, required): List of satellite names or NORAD IDs.
+  * `ground_stations` (List of strings or objects, required): Predefined ground station names or custom specs.
+  * `frequency`, `duration`, `step`, `rain`, `handoff` (same as `/simulate`).
+
+* **Example JSON Request:**
+  ```json
+  {
+    "satellites": ["GALAXY 16"],
+    "ground_stations": ["Delhi", "Tokyo"],
+    "duration": 3600,
+    "step": 60
+  }
+  ```
+
+* **Example JSON Response:**
+  ```json
+  {
+    "Delhi": {
+      "snr": [15.2, 14.8],
+      "availability": [1, 1],
+      "rain_loss": [0.0, 0.0],
+      "handoffs": 0
+    },
+    "Tokyo": {
+      "snr": [18.1, 18.2],
+      "availability": [1, 1],
+      "rain_loss": [0.0, 0.0],
+      "handoffs": 0
+    }
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `station`, `time_step`, `snr`, `availability`, `rain_loss`.
+
+---
+
+## 9. GET `/benchmarks`
+Runs a live simulation throughput and propagation latency benchmark on the server, returning system performance statistics.
+
+* **Path:** `/benchmarks`
+* **Method:** `GET` or `POST`
+* **Example JSON Response:**
+  ```json
+  {
+    "throughput_timesteps_per_second": 32154.5,
+    "avg_latency_per_step_ms": 0.031,
+    "propagation_latency_ms": 0.0042,
+    "memory_rss_mb": 112.4
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `throughput_timesteps_per_second`, `avg_latency_per_step_ms`, `propagation_latency_ms`, `memory_rss_mb`.
+
+---
+
+## 10. GET `/validation`
+Validates physical invariants calculated by the simulator (FSPL, Rain Height, Slant Range) against their standard theoretical formulations.
+
+* **Path:** `/validation`
+* **Method:** `GET` or `POST`
+* **Example JSON Response:**
+  ```json
+  [
+    {
+      "test_name": "Free Space Path Loss (FSPL) Correctness",
+      "calculated": 207.3941,
+      "reference": 207.3941,
+      "difference": 0.0,
+      "status": "passed"
+    },
+    {
+      "test_name": "ITU-R P.839-4 Rain Height Correctness",
+      "calculated": 4.58,
+      "reference": 4.58,
+      "difference": 0.0,
+      "status": "passed"
+    }
+  ]
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `test_name`, `calculated`, `reference`, `difference`, `status`.
+
+---
+
+## 11. GET `/datasets`
+Provides details and descriptive statistics of the machine learning training datasets inside the project.
+
+* **Path:** `/datasets`
+* **Method:** `GET`
+* **Example JSON Response:**
+  ```json
+  {
+    "dataset_name": "link_training_data.parquet",
+    "file_size_bytes": 35029,
+    "total_rows": 1000,
+    "columns": ["snr_db", "packet_loss", "load_factor", "link_quality"],
+    "features": ["snr_db", "packet_loss", "load_factor"],
+    "target": "link_quality",
+    "summary_statistics": {
+      "snr_db": { "mean": 14.2, "std": 3.1 },
+      ...
+    }
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Returns flattened statistical metrics:
+  Columns: `metric` (count, mean, std, min, max), `snr_db`, `packet_loss`, `load_factor`, `link_quality`.
+
+---
+
+## 12. POST `/tle`
+Triggers TLE database updates for starlink, oneweb, geo, iridium, and globalstar groups from CelesTrak.
+
+* **Path:** `/tle`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `groups` (List of strings, optional): Groups to update (`"starlink"`, `"oneweb"`, `"geo"`, `"iridium"`, `"globalstar"`). If omitted, all groups are updated.
+* **Example JSON Response:**
+  ```json
+  {
+    "status": "success",
+    "message": "TLE database updated successfully",
+    "total_satellites": 1342
+  }
+  ```
+
+*Note: You can query the TLE database using `GET /tle?query=STARLINK`.*
+
+---
+
+## 13. POST `/predict-rain`
+Utilizes physics-guided Stage A analytical inversion to reconstruct rainfall intensity (mm/h) directly from link telemetry.
+
+* **Path:** `/predict-rain`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `snr` (float or List, required): Observed link SNR values in dB.
+  * `elevation` (float or List, required): Elevation angles in degrees.
+  * `slant_range_km` (float or List, required): Slant ranges in km.
+  * `ground_station` (string/object, required): Ground station name or profile.
+  * `frequency` (float, optional, default: `14e9`): Link frequency in Hz.
+  * `polarization` (string, optional, default: `"vertical"`): polarization.
+  * `bandwidth_hz` (float, optional, default: `36e6`): Carrier bandwidth.
+
+* **Example JSON Request:**
+  ```json
+  {
+    "snr": [15.0, 10.0, 5.0],
+    "elevation": [30.0, 30.0, 30.0],
+    "slant_range_km": [38000.0, 38000.0, 38000.0],
+    "ground_station": "Delhi",
+    "frequency": 14e9
+  }
+  ```
+
+* **Example JSON Response:**
+  ```json
+  {
+    "predicted_rain_rate": [0.0, 1.25, 12.4]
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `time_step`, `observed_snr`, `excess_attenuation`, `filtered_attenuation`, `predicted_rain_rate`.
+
+---
+
+## 14. POST `/forecast-rain`
+Generates stochastic forward forecasts of future rain rates utilizing the Maseng-Bakken first-order autoregressive process.
+
+* **Path:** `/forecast-rain`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `current_rain_rate` (float, required): Initial rain rate in mm/h.
+  * `ground_station` (string/object, required): Ground station name or profile.
+  * `steps` (integer, optional, default: `10`): Number of future steps to forecast.
+  * `step_size` (float, optional, default: `60.0`): Time-step in seconds.
+  * `n_realizations` (integer, optional, default: `10`): Number of ensemble members.
+
+* **Example JSON Response:**
+  ```json
+  {
+    "mean_forecast": [4.8, 4.5, 4.2],
+    "p90_forecast": [5.2, 5.5, 5.9],
+    "p10_forecast": [4.0, 3.8, 3.5],
+    "ensemble_members": [
+      [4.9, 4.8, 4.6],
+      [4.7, 4.2, 3.8]
+    ]
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Returns the long-format ensemble forecast:
+  Columns: `realization_id`, `time_step`, `predicted_rain_rate`.
+
+---
+
+## 15. POST `/handoff/live`
+Evaluates a live handoff decision against candidate satellites.
+
+* **Path:** `/handoff/live`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `current_satellite` (string, optional): Currently connected satellite.
+  * `candidates_names` (List of strings, required): Candidate satellites.
+  * `snr_metrics` (List of floats, required): SNR values of candidate satellites.
+  * `el_metrics` (List of floats, required): Elevation angles of candidate satellites.
+  * `dwell_timer` (integer, optional, default: `0`): Current dwell timer in steps.
+  * `handoff_policy` (string, optional, default: `"highest_elevation"`): `"highest_elevation"` or `"highest_snr"`.
+  * `hysteresis` (float, optional, default: `0.5`): Hysteresis margin in dB.
+  * `min_dwell_steps` (integer, optional, default: `10`): Minimum dwell threshold.
+
+* **Example JSON Request:**
+  ```json
+  {
+    "current_satellite": "SAT-1",
+    "candidates_names": ["SAT-1", "SAT-2"],
+    "snr_metrics": [15.0, 20.0],
+    "el_metrics": [20.0, 25.0],
+    "dwell_timer": 15,
+    "handoff_policy": "highest_snr"
+  }
+  ```
+
+* **Example JSON Response:**
+  ```json
+  {
+    "should_switch": true,
+    "target_satellite": "SAT-2",
+    "reason": "highest_snr",
+    "metric_delta": 5.0
+  }
+  ```
+
+---
+
+## 16. POST `/orbit`
+Predicts high-fidelity orbital geometry (slant range, azimuth, elevation, Doppler radial velocity) for a satellite over a target ground station.
+
+* **Path:** `/orbit`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `satellite` (string/int, required): NORAD ID or name.
+  * `ground_station` (string/object, required): Ground station coordinates/name.
+  * `time` (datetime string, optional): Start timestamp.
+  * `duration` (integer, optional): Duration in seconds.
+  * `step` (float, optional, default: `60.0`): Time-step in seconds.
+
+* **Example JSON Response:**
+  ```json
+  {
+    "satellite": "STARLINK-1008",
+    "time_step": [0, 1],
+    "elevation": [45.2, 45.8],
+    "slant_range_km": [850.4, 845.2],
+    "radial_velocity_ms": [-120.4, -98.1],
+    "azimuth": [12.4, 12.8]
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `time_step`, `satellite`, `elevation`, `slant_range_km`, `radial_velocity_ms`, `azimuth`.
+
+---
+
+## 17. POST `/coverage`
+Computes visibility coverage fractions for a satellite constellation across multiple ground stations.
+
+* **Path:** `/coverage`
+* **Method:** `POST`
+* **Request Body (JSON):**
+  * `satellites` (List, required): Targets constellation satellites.
+  * `ground_stations` (List, required): List of ground stations.
+  * `duration`, `step` (same as `/simulate`).
+  * `min_elevation` (float, optional, default: `10.0`): Minimum elevation angle.
+
+* **Example JSON Response:**
+  ```json
+  {
+    "Delhi": {
+      "coverage_fraction": 0.85,
+      "visible_duration_seconds": 3060.0,
+      "total_duration_seconds": 3600.0
+    },
+    "Tokyo": {
+      "coverage_fraction": 0.95,
+      "visible_duration_seconds": 3420.0,
+      "total_duration_seconds": 3600.0
+    }
+  }
+  ```
+
+* **Tabular Schema (CSV/Parquet):**
+  Columns: `station`, `coverage_fraction`, `visible_duration_seconds`, `total_duration_seconds`.
+
+---
+
+## 18. GET/POST `/constellation`
+Registers or retrieves satellite constellation layouts.
+
+* **Path:** `/constellation`
+* **Methods:**
+  * `GET`: Lists all defined constellations.
+  * `POST`: Registers a new constellation.
+* **POST Request Body (JSON):**
+  * `name` (string, required): Name of constellation.
+  * `satellites` (List, required): NORAD IDs or names.
+* **Example JSON Response (POST):**
+  ```json
+  {
+    "status": "success",
+    "constellation": "CustomConst",
+    "satellites": [44057, 44059]
+  }
+  ```
+
+---
+
 ## Python Integration Example
 
 Here is a short Python script using the `requests` library to query the API and load the results into a Pandas DataFrame:

@@ -160,3 +160,56 @@ class AvailabilityRequest(BaseModel):
     rain: bool = True
     handoff: bool = True
     snr_threshold: float = 5.0
+
+class BatchSimulationRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_stations: List[Union[str, Dict[str, Any]]]
+    frequency: float = 14e9
+    duration: int = 86400
+    step: float = 60.0
+    rain: bool = True
+    handoff: bool = True
+
+class PredictRainRequest(BaseModel):
+    snr: Union[float, List[float]]
+    elevation: Union[float, List[float]]
+    slant_range_km: Union[float, List[float]]
+    ground_station: Union[str, Dict[str, Any]]
+    frequency: float = 14e9
+    polarization: str = "vertical"
+    bandwidth_hz: float = 36e6
+
+class ForecastRainRequest(BaseModel):
+    current_rain_rate: float
+    ground_station: Union[str, Dict[str, Any]]
+    steps: int = 10
+    step_size: float = 60.0
+    n_realizations: int = 10
+
+class LiveHandoffRequest(BaseModel):
+    current_satellite: Optional[str] = None
+    candidates_names: List[str]
+    snr_metrics: List[float]
+    el_metrics: List[float]
+    dwell_timer: int = 0
+    handoff_policy: str = "highest_elevation"
+    hysteresis: float = 0.5
+    min_dwell_steps: int = 10
+
+class OrbitRequest(BaseModel):
+    satellite: Union[str, int]
+    ground_station: Union[str, Dict[str, Any]]
+    time: Optional[datetime] = None
+    duration: int = 0
+    step: float = 60.0
+
+class CoverageRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_stations: List[Union[str, Dict[str, Any]]]
+    duration: int = 86400
+    step: float = 60.0
+    min_elevation: float = 10.0
+
+class ConstellationRequest(BaseModel):
+    name: str
+    satellites: List[Union[str, int]]
