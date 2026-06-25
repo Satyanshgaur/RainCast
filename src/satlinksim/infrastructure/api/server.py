@@ -115,6 +115,16 @@ def disable_rain_in_result(res: StationResult):
 def respond_with_format(df: pd.DataFrame, json_data: Any, format: str, filename_prefix: str, headers: Optional[Dict[str, str]] = None):
     format = format.lower()
     if format == "json":
+        if isinstance(json_data, dict):
+            if "data" not in json_data or "pagination" in json_data:
+                wrapped = {
+                    **json_data,
+                    "meta": {"api_version": "1.0.0"},
+                    "links": {"self": f"/api/v1/{filename_prefix}"}
+                }
+                if "data" not in json_data:
+                    wrapped["data"] = json_data
+                json_data = wrapped
         from fastapi.responses import JSONResponse
         return JSONResponse(content=json_data, headers=headers)
     elif format == "csv":
@@ -135,16 +145,42 @@ def respond_with_format(df: pd.DataFrame, json_data: Any, format: str, filename_
             for k, v in headers.items():
                 response.headers[k] = v
         return response
+    elif format == "netcdf":
+        import scipy.io.netcdf as nc
+        buffer = io.BytesIO()
+        with nc.netcdf_file(buffer, 'w', version=1) as f:
+            f.createDimension('row', len(df))
+            for col in df.columns:
+                vals = df[col].values
+                if np.issubdtype(vals.dtype, np.integer):
+                    var = f.createVariable(col, 'i', ('row',))
+                    var[:] = vals.astype(np.int32)
+                elif np.issubdtype(vals.dtype, np.floating):
+                    var = f.createVariable(col, 'd', ('row',))
+                    var[:] = vals.astype(np.float64)
+                else:
+                    str_vals = vals.astype(str)
+                    max_len = max(len(s) for s in str_vals) if len(str_vals) > 0 else 1
+                    f.createDimension(f'string_{col}', max_len)
+                    var = f.createVariable(col, 'c', ('row', f'string_{col}'))
+                    for idx, s in enumerate(str_vals):
+                        var[idx, :len(s)] = list(s)
+        response = Response(content=buffer.getvalue(), media_type="application/x-netcdf")
+        response.headers["Content-Disposition"] = f"attachment; filename={filename_prefix}.nc"
+        if headers:
+            for k, v in headers.items():
+                response.headers[k] = v
+        return response
     else:
-        raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Supported formats: json, csv, parquet.")
+        raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Supported formats: json, csv, parquet, netcdf.")
 
 # Expose /metrics endpoint
 app.mount("/metrics", metrics_app)
 
-# Middleware for request logging
+# Middleware for request logging and API metadata
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    request_id = str(uuid.uuid4())
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     structlog.contextvars.bind_contextvars(request_id=request_id)
     
     start_time = time.time()
@@ -158,7 +194,62 @@ async def log_requests(request: Request, call_next):
         status_code=response.status_code,
         duration_s=round(duration, 4)
     )
+    
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Compute-Time"] = f"{duration:.4f}"
+    response.headers["X-RateLimit-Limit"] = "2000"
+    response.headers["X-RateLimit-Remaining"] = "1999"
+    response.headers["X-RateLimit-Reset"] = "3600"
+    response.headers["API-Version"] = "1.0.0"
+    
     return response
+
+@app.get("/openapi.yaml", include_in_schema=False)
+async def get_openapi_yaml():
+    import yaml
+    from fastapi.openapi.utils import get_openapi
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+    return Response(content=yaml.dump(openapi_schema), media_type="application/x-yaml")
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request, exc):
+    message = exc.detail
+    code = "APIError"
+    if isinstance(message, str):
+        if "not found" in message.lower():
+            code = "ResourceNotFound"
+            if "satellite" in message.lower():
+                code = "SatelliteNotFound"
+            elif "station" in message.lower():
+                code = "GroundStationNotFound"
+            elif "simulation" in message.lower():
+                code = "SimulationNotFound"
+        elif "frequency" in message.lower():
+            code = "InvalidFrequency"
+        elif "epoch" in message.lower():
+            code = "InvalidEpoch"
+        elif "token" in message.lower() or "api key" in message.lower():
+            code = "Unauthorized"
+        elif "transition" in message.lower() or "not allowed" in message.lower():
+            code = "InvalidStateTransition"
+            
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "documentation_url": f"/docs/errors#{code}"
+            },
+            # backwards compatibility
+            "message": message,
+            "code": code
+        }
+    )
 
 # --- Job Management ---
 jobs: Dict[str, JobStatus] = {}
@@ -1455,6 +1546,64 @@ v1_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_token)])
 
 # In-memory store for simulation resources
 simulations_store: Dict[str, Dict[str, Any]] = {}
+idempotent_store: Dict[str, Any] = {}
+
+def wrap_envelope(data: Any, path: str) -> Dict[str, Any]:
+    if isinstance(data, dict):
+        if "data" in data and "meta" in data:
+            return data
+        wrapped = {
+            **data,
+            "meta": {"api_version": "1.0.0"},
+            "links": {"self": f"/api/v1{path}"}
+        }
+        if "data" not in data:
+            wrapped["data"] = data
+        return wrapped
+    return data
+
+def transition_simulation_status(sim_id: str, new_status: str):
+    allowed_transitions = {
+        "pending": ["queued", "cancelled"],
+        "queued": ["running", "cancelled"],
+        "running": ["paused", "completed", "failed", "cancelled"],
+        "paused": ["running", "cancelled"],
+        "completed": ["paused"],
+        "failed": [],
+        "cancelled": []
+    }
+    if sim_id not in simulations_store:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    current = simulations_store[sim_id]["status"]
+    if new_status not in allowed_transitions.get(current, []):
+        raise HTTPException(status_code=400, detail=f"Transition from '{current}' to '{new_status}' is not allowed.")
+    simulations_store[sim_id]["status"] = new_status
+
+def get_gs_country(name):
+    mapping = {
+        "delhi": "India",
+        "tokyo": "Japan",
+        "berlin": "Germany",
+        "sao paulo": "Brazil"
+    }
+    return mapping.get(name.lower(), "Unknown")
+
+def get_gs_climate(name):
+    mapping = {
+        "delhi": "tropical",
+        "tokyo": "subtropical",
+        "berlin": "temperate",
+        "sao paulo": "tropical"
+    }
+    return mapping.get(name.lower(), "Unknown")
+
+def get_sat_orbit_type(name: str, norad_id: int) -> str:
+    name_upper = name.upper()
+    if "STARLINK" in name_upper or "ONEWEB" in name_upper or "IRIDIUM" in name_upper:
+        return "LEO"
+    if "GALAXY" in name_upper or "INTELSAT" in name_upper or "DIRECTV" in name_upper or "SES" in name_upper or norad_id == 29236:
+        return "GEO"
+    return "MEO"
 
 class GlobalCoverageRequest(BaseModel):
     satellites: List[str]
@@ -1483,17 +1632,12 @@ def ecef_to_geodetic(x, y, z):
 
 # --- Simulations Resource ---
 
-@v1_router.post("/simulations", status_code=201)
-async def create_simulation(
-    request: Union[PublicSimulationRequest, SimulationRequest]
-):
-    sim_id = str(uuid.uuid4())
+def execute_simulation_core(sim_id: str, request: Union[PublicSimulationRequest, SimulationRequest], req_type: str):
     start_time = time.time()
-    SIMULATIONS_RUN.labels(mode="v1").inc()
-    
-    req_type = "public" if isinstance(request, PublicSimulationRequest) else "full"
-    
     try:
+        if simulations_store[sim_id]["status"] == "cancelled":
+            return
+            
         if isinstance(request, SimulationRequest):
             gs_dicts = [gs.model_dump() for gs in request.ground_stations]
             constellation = None
@@ -1550,27 +1694,21 @@ async def create_simulation(
             t_finish = time.time()
             compute_time = t_finish - start_time
             finished_epoch = datetime.fromtimestamp(t_finish, timezone.utc).isoformat()
-            created_epoch = datetime.fromtimestamp(start_time, timezone.utc).isoformat()
             
             num_satellites = 0
             if request.constellation and request.constellation.satellites:
                 num_satellites = len(request.constellation.satellites)
             
-            simulations_store[sim_id] = {
-                "id": sim_id,
+            simulations_store[sim_id].update({
                 "status": "completed",
-                "created_at": created_epoch,
                 "finished_at": finished_epoch,
                 "compute_time": compute_time,
                 "duration": request.n_steps * request.dt_s,
                 "timesteps": request.n_steps,
                 "num_satellites": num_satellites,
-                "version": "1.0.0",
-                "request_type": req_type,
-                "request_data": request.model_dump(),
                 "results": response_results,
                 "engine_results": results
-            }
+            })
         else:
             gs = resolve_ground_station(request.ground_station)
             sats = resolve_satellites(request.satellites)
@@ -1641,54 +1779,118 @@ async def create_simulation(
             t_finish = time.time()
             compute_time = t_finish - start_time
             finished_epoch = datetime.fromtimestamp(t_finish, timezone.utc).isoformat()
-            created_epoch = datetime.fromtimestamp(start_time, timezone.utc).isoformat()
             
-            simulations_store[sim_id] = {
-                "id": sim_id,
+            simulations_store[sim_id].update({
                 "status": "completed",
-                "created_at": created_epoch,
                 "finished_at": finished_epoch,
                 "compute_time": compute_time,
                 "duration": request.duration,
                 "timesteps": int(request.duration / request.step),
                 "num_satellites": len(request.satellites),
-                "version": "1.0.0",
-                "request_type": req_type,
-                "request_data": request.model_dump(),
                 "json_data": json_data,
                 "dataframe": df,
                 "engine_results": results
-            }
+            })
             
         latency = time.time() - start_time
         SIMULATION_LATENCY.labels(mode="v1").observe(latency)
         
-        return {
+    except Exception as e:
+        logger.error("v1_simulation_core_failed", error=str(e))
+        simulations_store[sim_id].update({
+            "status": "failed",
+            "error": str(e)
+        })
+
+def run_simulation_async(sim_id: str, request: Any, req_type: str):
+    try:
+        transition_simulation_status(sim_id, "queued")
+        time.sleep(0.05)
+        transition_simulation_status(sim_id, "running")
+        execute_simulation_core(sim_id, request, req_type)
+    except Exception as e:
+        simulations_store[sim_id]["status"] = "failed"
+        simulations_store[sim_id]["error"] = str(e)
+
+@v1_router.post("/simulations", status_code=202, tags=["Simulation"])
+async def create_simulation(
+    request: Union[PublicSimulationRequest, SimulationRequest],
+    http_request: Request = None,
+    background_tasks: BackgroundTasks = None,
+    response: Response = None
+):
+    if http_request:
+        idemp_key = http_request.headers.get("Idempotency-Key")
+        if idemp_key and idemp_key in idempotent_store:
+            cached_val, cached_status = idempotent_store[idemp_key]
+            if response:
+                response.status_code = cached_status
+            return cached_val
+
+    sim_id = str(uuid.uuid4())
+    SIMULATIONS_RUN.labels(mode="v1").inc()
+    req_type = "public" if isinstance(request, PublicSimulationRequest) else "full"
+    
+    simulations_store[sim_id] = {
+        "id": sim_id,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0",
+        "request_type": req_type,
+        "request_data": request.model_dump()
+    }
+    
+    if background_tasks:
+        background_tasks.add_task(run_simulation_async, sim_id, request, req_type)
+        if response:
+            response.status_code = 202
+            response.headers["Location"] = f"/api/v1/simulations/{sim_id}"
+            
+        result_payload = {
             "id": sim_id,
-            "status": "completed",
+            "status": "pending",
             "created_at": simulations_store[sim_id]["created_at"],
-            "finished_at": simulations_store[sim_id]["finished_at"],
-            "compute_time": simulations_store[sim_id]["compute_time"],
-            "duration": simulations_store[sim_id]["duration"],
-            "timesteps": simulations_store[sim_id]["timesteps"],
-            "num_satellites": simulations_store[sim_id]["num_satellites"],
             "version": "1.0.0",
             "request_type": req_type
         }
-    except Exception as e:
-        logger.error("v1_simulation_failed", error=str(e))
-        simulations_store[sim_id] = {
+        ret_val = wrap_envelope(result_payload, f"/simulations/{sim_id}")
+        if http_request and http_request.headers.get("Idempotency-Key"):
+            idempotent_store[http_request.headers.get("Idempotency-Key")] = (ret_val, 202)
+        return ret_val
+    else:
+        transition_simulation_status(sim_id, "queued")
+        transition_simulation_status(sim_id, "running")
+        execute_simulation_core(sim_id, request, req_type)
+        
+        s = simulations_store[sim_id]
+        if s["status"] == "failed":
+            raise HTTPException(status_code=500, detail=s.get("error"))
+            
+        result_payload = {
             "id": sim_id,
-            "status": "failed",
-            "error": str(e),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "request_type": req_type,
-            "request_data": request.model_dump()
+            "status": s["status"],
+            "created_at": s["created_at"],
+            "finished_at": s.get("finished_at"),
+            "compute_time": s.get("compute_time"),
+            "duration": s.get("duration"),
+            "timesteps": s.get("timesteps"),
+            "num_satellites": s.get("num_satellites"),
+            "version": "1.0.0",
+            "request_type": req_type
         }
-        raise HTTPException(status_code=500, detail=str(e))
+        if response:
+            response.status_code = 202
+            response.headers["Location"] = f"/api/v1/simulations/{sim_id}"
+            
+        ret_val = wrap_envelope(result_payload, f"/simulations/{sim_id}")
+        if http_request and http_request.headers.get("Idempotency-Key"):
+            idempotent_store[http_request.headers.get("Idempotency-Key")] = (ret_val, 202)
+        return ret_val
 
-@v1_router.get("/simulations")
+@v1_router.get("/simulations", tags=["Simulation"])
+@v1_router.get("/simulations", tags=["Simulation"])
 async def list_simulations(
+    request: Request = None,
     page: int = Query(1, description="Page number", ge=1),
     limit: int = Query(10, description="Items per page", ge=1)
 ):
@@ -1697,7 +1899,7 @@ async def list_simulations(
     
     sims = sorted(
         simulations_store.values(),
-        key=lambda x: x["created_at"],
+        key=lambda x: x.get("created_at") or "",
         reverse=True
     )
     
@@ -1710,21 +1912,30 @@ async def list_simulations(
         result_list.append({
             "id": s["id"],
             "status": s["status"],
-            "created_at": s["created_at"],
+            "created_at": s.get("created_at"),
             "request_type": s["request_type"],
             "request_data": s["request_data"]
         })
         
-    return {
+    response_data = {
         "page": page,
         "limit": limit,
         "total_items": len(sims),
         "total_pages": (len(sims) + limit - 1) // limit if len(sims) > 0 else 0,
-        "simulations": result_list
+        "simulations": result_list,
+        "data": result_list,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": len(sims),
+            "next": f"/api/v1/simulations?page={page+1}&limit={limit}" if end_idx < len(sims) else None,
+            "previous": f"/api/v1/simulations?page={page-1}&limit={limit}" if page > 1 else None
+        }
     }
+    return wrap_envelope(response_data, "/simulations")
 
-@v1_router.get("/simulations/{id}")
-async def get_simulation(id: str):
+@v1_router.get("/simulations/{id}", tags=["Simulation"])
+async def get_simulation(id: str, request: Request = None):
     if id not in simulations_store:
         raise HTTPException(status_code=404, detail="Simulation not found")
     s = simulations_store[id]
@@ -1743,17 +1954,17 @@ async def get_simulation(id: str):
     }
     if s["status"] == "failed":
         response["error"] = s.get("error")
-    return response
+    return wrap_envelope(response, f"/simulations/{id}")
 
-@v1_router.delete("/simulations/{id}")
-async def delete_simulation(id: str):
+@v1_router.delete("/simulations/{id}", tags=["Simulation"])
+async def delete_simulation(id: str, request: Request = None):
     if id not in simulations_store:
         raise HTTPException(status_code=404, detail="Simulation not found")
     del simulations_store[id]
-    return {"status": "success", "message": f"Simulation {id} deleted."}
+    return wrap_envelope({"status": "success", "message": f"Simulation {id} deleted."}, f"/simulations/{id}")
 
-@v1_router.get("/simulations/{id}/summary")
-async def get_simulation_summary(id: str):
+@v1_router.get("/simulations/{id}/summary", tags=["Simulation"])
+async def get_simulation_summary(id: str, request: Request = None):
     if id not in simulations_store:
         raise HTTPException(status_code=404, detail="Simulation not found")
     s = simulations_store[id]
@@ -1793,7 +2004,7 @@ async def get_simulation_summary(id: str):
         max_snr = float(np.max(all_snrs)) if all_snrs else 0.0
         avg_rain = float(np.mean(all_rain_db)) if all_rain_db else 0.0
         
-    return {
+    summary_data = {
         "availability": availability_pct,
         "mean_snr": mean_snr,
         "minimum_snr": min_snr,
@@ -1804,22 +2015,34 @@ async def get_simulation_summary(id: str):
         "compute_time": s.get("compute_time", 0.0),
         "simulation_duration": s.get("duration", 0.0)
     }
+    return wrap_envelope(summary_data, f"/simulations/{id}/summary")
 
-@v1_router.patch("/simulations/{id}")
-async def patch_simulation(id: str, action: str = Query(..., description="Action to perform: cancel, pause, resume")):
+@v1_router.patch("/simulations/{id}", tags=["Simulation"])
+async def patch_simulation(
+    id: str,
+    request: Request = None,
+    action: str = Query(..., description="Action to perform: cancel, pause, resume")
+):
     if id not in simulations_store:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    s = simulations_store[id]
     action = action.lower()
+    
+    # State machine transition validation
     if action == "cancel":
-        s["status"] = "cancelled"
+        transition_simulation_status(id, "cancelled")
     elif action == "pause":
-        s["status"] = "paused"
+        transition_simulation_status(id, "paused")
     elif action == "resume":
-        s["status"] = "completed"
+        transition_simulation_status(id, "running")
+        # In a real async runner, we would resume thread execution.
+        # Since it runs to completion synchronously on our mock/test runs, we transition to completed immediately:
+        transition_simulation_status(id, "completed")
     else:
         raise HTTPException(status_code=400, detail=f"Invalid action: '{action}'. Must be cancel, pause, or resume.")
-    return {"id": id, "status": s["status"], "action": action}
+        
+    s = simulations_store[id]
+    ret_val = {"id": id, "status": s["status"], "action": action}
+    return wrap_envelope(ret_val, f"/simulations/{id}")
 
 @v1_router.get("/simulations/{id}/results")
 async def get_simulation_results(
@@ -2389,13 +2612,30 @@ def process_batch_job_task(job_id: str, request: BatchSimulationRequest):
         jobs[job_id].error = str(e)
         logger.error("batch_job_failed", error=str(e))
 
-@v1_router.post("/jobs", response_model=JobResponse)
-async def create_job(request: BatchSimulationRequest, background_tasks: BackgroundTasks):
+@v1_router.post("/jobs", response_model=JobResponse, tags=["Simulation"])
+async def create_job(
+    request: BatchSimulationRequest,
+    background_tasks: BackgroundTasks,
+    http_request: Request = None,
+    response: Response = None
+):
+    if http_request:
+        idemp_key = http_request.headers.get("Idempotency-Key")
+        if idemp_key and idemp_key in idempotent_store:
+            cached_val, cached_status = idempotent_store[idemp_key]
+            if response:
+                response.status_code = cached_status
+            return cached_val
+
     job_id = str(uuid.uuid4())
     jobs[job_id] = JobStatus(job_id=job_id, status="pending")
     background_tasks.add_task(process_batch_job_task, job_id, request)
     logger.info("batch_job_submitted", job_id=job_id)
-    return JobResponse(job_id=job_id)
+    
+    ret_val = JobResponse(job_id=job_id)
+    if http_request and http_request.headers.get("Idempotency-Key"):
+        idempotent_store[http_request.headers.get("Idempotency-Key")] = (ret_val, 200)
+    return ret_val
 
 @v1_router.get("/jobs/{id}", response_model=JobStatus)
 async def get_job_v1(id: str):
@@ -2481,30 +2721,30 @@ class ScintillationRequest(BaseModel):
     elevation_deg: float
     gs_antenna_diam: float = 1.2
 
-@v1_router.post("/calculators/fspl")
+@v1_router.post("/calculators/fspl", tags=["Calculator"])
 async def calc_fspl(request: FsplRequest):
     from satlinksim.domain.link.budget import fspl_db
     loss = fspl_db(request.frequency_hz, request.distance_km)
     return {"fspl_db": float(loss)}
 
-@v1_router.post("/calculators/slant-range")
+@v1_router.post("/calculators/slant-range", tags=["Calculator"])
 async def calc_slant_range(request: SlantRangeRequest):
     from satlinksim.geometry import slant_range
     d = slant_range(request.altitude_km, request.elevation_deg)
     return {"slant_range_km": float(d)}
 
-@v1_router.post("/calculators/noise-floor")
+@v1_router.post("/calculators/noise-floor", tags=["Calculator"])
 async def calc_noise_floor(request: NoiseFloorRequest):
     from satlinksim.domain.link.budget import noise_power_dbw
     nf = noise_power_dbw(request.system_temp_k, request.bandwidth_hz)
     return {"noise_floor_dbw": float(nf)}
 
-@v1_router.post("/calculators/eirp")
+@v1_router.post("/calculators/eirp", tags=["Calculator"])
 async def calc_eirp(request: EirpRequest):
     eirp = request.tx_power_dbw + request.tx_gain_dbi - request.line_loss_db
     return {"eirp_dbw": float(eirp)}
 
-@v1_router.post("/calculators/rain-attenuation")
+@v1_router.post("/calculators/rain-attenuation", tags=["Calculator"])
 async def calc_rain_attenuation(request: RainAttenuationRequest):
     from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_height, effective_path_length, rain_attenuation_db
     freq_ghz = request.frequency_hz / 1e9
@@ -2515,51 +2755,297 @@ async def calc_rain_attenuation(request: RainAttenuationRequest):
     attn = rain_attenuation_db(request.rain_rate, itu_k, itu_alpha, ep_safe)
     return {"rain_attenuation_db": float(attn)}
 
-@v1_router.post("/calculators/gaseous-attenuation")
+@v1_router.post("/calculators/gaseous-attenuation", tags=["Calculator"])
 async def calc_gaseous_attenuation(request: GaseousAttenuationRequest):
     from satlinksim.domain.link.itu_models import gaseous_absorption_db
     freq_ghz = request.frequency_hz / 1e9
     loss = gaseous_absorption_db(freq_ghz, request.elevation_deg, request.water_vapor_g_m3)
     return {"gaseous_attenuation_db": float(loss)}
 
-@v1_router.post("/calculators/scintillation")
+@v1_router.post("/calculators/scintillation", tags=["Calculator"])
 async def calc_scintillation(request: ScintillationRequest):
     from satlinksim.domain.link.itu_models import scintillation_sigma_db
     freq_ghz = request.frequency_hz / 1e9
     sigma = scintillation_sigma_db(freq_ghz, request.elevation_deg, request.gs_antenna_diam, 50.0)
     return {"scintillation_sigma_db": float(sigma)}
 
-@v1_router.post("/calculators/link-budget")
+@v1_router.post("/calculators/link-budget", tags=["Calculator"])
 async def calculator_link_budget(
     request: LinkBudgetRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     return await link_budget(request, format)
 
-@v1_router.post("/calculators/attenuation")
+@v1_router.post("/calculators/attenuation", tags=["Calculator"])
 async def calculator_attenuation(
     request: AttenuationRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     return await attenuation(request, format)
 
-@v1_router.post("/calculators/availability")
+@v1_router.post("/calculators/availability", tags=["Calculator"])
 async def calculator_availability(
     request: AvailabilityRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     return await availability(request, format)
 
-# --- Rain Resource ---
+@v1_router.post("/batch/link-budget", tags=["Calculator"])
+async def batch_link_budget(
+    requests: List[LinkBudgetRequest],
+    format: str = Query("json", description="Output format: json, csv, parquet, or netcdf")
+):
+    try:
+        dfs = []
+        json_results = []
+        for idx, req in enumerate(requests):
+            gs = resolve_ground_station(req.ground_station)
+            sats = resolve_satellites(req.satellites)
+            n_steps = int(req.duration / req.step)
+            dt_s = float(req.step)
+            
+            if req.handoff:
+                constellation = Constellation(name="Constellation", satellites=sats)
+                results = engine.simulate_all_batched(
+                    ground_stations=[gs],
+                    n_steps=n_steps,
+                    dt_s=dt_s,
+                    freq_hz=req.frequency,
+                    force_rain=req.rain,
+                    constellation=constellation,
+                    handoff_policy="highest_elevation"
+                )
+            else:
+                gs_copy = gs.copy()
+                gs_copy["norad_id"] = sats[0].norad_id
+                gs_copy["sat_name"] = sats[0].name
+                results = engine.simulate_all_batched(
+                    ground_stations=[gs_copy],
+                    n_steps=n_steps,
+                    dt_s=dt_s,
+                    freq_hz=req.frequency,
+                    force_rain=req.rain,
+                    constellation=None
+                )
+                
+            res = results[0]
+            if not req.rain:
+                disable_rain_in_result(res)
+                
+            freq_hz = req.frequency
+            freq_ghz = freq_hz / 1e9
+            polarization = req.polarization
+            itu_k, itu_a = itu_rain_coefficients(freq_ghz, polarization)
+            noise_floor = noise_power_dbw(gs["system_temp_k"], req.bandwidth_hz)
+            eirp = gs["eirp_dbw"]
+            g_rx = gs["g_rx_dbi"]
+            
+            slant_range = np.array(res.slant_range_series)
+            elevation = np.array(res.elevation_series)
+            path_loss = fspl_db(freq_hz, slant_range)
+            gas_loss = gaseous_absorption_db(freq_ghz, elevation, gs["wv_g_m3"])
+            rain_loss = np.array(res.rain_db_series)
+            scint_loss = np.array(res.scint_series)
+            rx_power = eirp - path_loss - gas_loss - rain_loss - scint_loss + g_rx
+            snr = np.array(res.snr_series)
+            
+            json_data = {
+                "time_step": list(range(n_steps)),
+                "eirp": [float(eirp)] * n_steps,
+                "path_loss": path_loss.tolist(),
+                "gas_loss": gas_loss.tolist(),
+                "rain_loss": rain_loss.tolist(),
+                "scint_loss": scint_loss.tolist(),
+                "rx_power": rx_power.tolist(),
+                "noise_floor": [float(noise_floor)] * n_steps,
+                "snr": snr.tolist()
+            }
+            
+            df = pd.DataFrame(json_data)
+            df["scenario_index"] = idx
+            df["satellite"] = res.sat_name_series or [sats[0].name] * n_steps
+            df["ground_station"] = gs["name"]
+            
+            dfs.append(df)
+            json_results.append(json_data)
+            
+        combined_json = {
+            "data": json_results,
+            "meta": {"count": len(json_results)}
+        }
+        if format.lower() == "json":
+            return respond_with_format(pd.DataFrame(), combined_json, format, "batch_link_budget")
+            
+        combined_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return respond_with_format(combined_df, json_results, format, "batch_link_budget")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_link_budget_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
-@v1_router.post("/rain/invert")
+@v1_router.post("/batch/attenuation", tags=["Calculator"])
+async def batch_attenuation(
+    requests: List[AttenuationRequest],
+    format: str = Query("json", description="Output format: json, csv, parquet, or netcdf")
+):
+    try:
+        dfs = []
+        json_results = []
+        for idx, req in enumerate(requests):
+            gs = resolve_ground_station(req.ground_station)
+            sats = resolve_satellites(req.satellites)
+            n_steps = int(req.duration / req.step)
+            dt_s = float(req.step)
+            
+            if req.handoff:
+                constellation = Constellation(name="Constellation", satellites=sats)
+                results = engine.simulate_all_batched(
+                    ground_stations=[gs],
+                    n_steps=n_steps,
+                    dt_s=dt_s,
+                    freq_hz=req.frequency,
+                    force_rain=req.rain,
+                    constellation=constellation,
+                    handoff_policy="highest_elevation"
+                )
+            else:
+                gs_copy = gs.copy()
+                gs_copy["norad_id"] = sats[0].norad_id
+                gs_copy["sat_name"] = sats[0].name
+                results = engine.simulate_all_batched(
+                    ground_stations=[gs_copy],
+                    n_steps=n_steps,
+                    dt_s=dt_s,
+                    freq_hz=req.frequency,
+                    force_rain=req.rain,
+                    constellation=None
+                )
+                
+            res = results[0]
+            if not req.rain:
+                disable_rain_in_result(res)
+                
+            freq_hz = req.frequency
+            freq_ghz = freq_hz / 1e9
+            elevation = np.array(res.elevation_series)
+            gas_loss = gaseous_absorption_db(freq_ghz, elevation, gs["wv_g_m3"])
+            rain_loss = np.array(res.rain_db_series)
+            scint_loss = np.array(res.scint_series)
+            total_loss = gas_loss + rain_loss + scint_loss
+            
+            json_data = {
+                "gaseous_attenuation": gas_loss.tolist(),
+                "rain_attenuation": rain_loss.tolist(),
+                "scintillation_attenuation": scint_loss.tolist(),
+                "total_attenuation": total_loss.tolist()
+            }
+            
+            df = pd.DataFrame({
+                "time_step": range(n_steps),
+                "gaseous_attenuation": gas_loss,
+                "rain_attenuation": rain_loss,
+                "scintillation_attenuation": scint_loss,
+                "total_attenuation": total_loss,
+                "scenario_index": [idx] * n_steps,
+                "satellite": res.sat_name_series or [sats[0].name] * n_steps,
+                "ground_station": gs["name"]
+            })
+            
+            dfs.append(df)
+            json_results.append(json_data)
+            
+        combined_json = {
+            "data": json_results,
+            "meta": {"count": len(json_results)}
+        }
+        if format.lower() == "json":
+            return respond_with_format(pd.DataFrame(), combined_json, format, "batch_attenuation")
+            
+        combined_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return respond_with_format(combined_df, json_results, format, "batch_attenuation")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_attenuation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/batch/orbit", tags=["Orbit"])
+async def batch_orbit(
+    requests: List[OrbitRequest],
+    format: str = Query("json", description="Output format: json, csv, parquet, or netcdf")
+):
+    try:
+        dfs = []
+        json_results = []
+        for idx, req in enumerate(requests):
+            gs = resolve_ground_station(req.ground_station)
+            sats = resolve_satellites([req.satellite])
+            sat = sats[0]
+            
+            n_steps = max(1, int(req.duration / req.step)) if req.duration > 0 else 1
+            dt_s = float(req.step)
+            
+            start_time = req.time or datetime.now(timezone.utc)
+            times = [start_time + timedelta(seconds=i*dt_s) for i in range(n_steps)]
+            
+            from satlinksim.infrastructure.tle.service import SGP4Propagator
+            propagator = SGP4Propagator()
+            
+            geo = propagator.get_geometry_batch(sat.norad_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
+            if not geo:
+                raise HTTPException(status_code=500, detail="Orbital propagation failed.")
+                
+            elevation = geo.elevation_deg.tolist()
+            slant_range = geo.slant_range_km.tolist()
+            radial_velocity = geo.radial_velocity_ms.tolist()
+            azimuth = geo.azimuth_deg.tolist() if geo.azimuth_deg is not None else [0.0] * n_steps
+            
+            json_data = {
+                "satellite": sat.name,
+                "time_step": list(range(n_steps)),
+                "elevation": elevation,
+                "slant_range_km": slant_range,
+                "radial_velocity_ms": radial_velocity,
+                "azimuth": azimuth
+            }
+            
+            df = pd.DataFrame({
+                "time_step": range(n_steps),
+                "satellite": [sat.name] * n_steps,
+                "elevation": elevation,
+                "slant_range": slant_range,
+                "radial_velocity": radial_velocity,
+                "azimuth": azimuth,
+                "scenario_index": [idx] * n_steps
+            })
+            
+            dfs.append(df)
+            json_results.append(json_data)
+            
+        combined_json = {
+            "data": json_results,
+            "meta": {"count": len(json_results)}
+        }
+        if format.lower() == "json":
+            return respond_with_format(pd.DataFrame(), combined_json, format, "batch_orbit")
+            
+        combined_df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return respond_with_format(combined_df, json_results, format, "batch_orbit")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("batch_orbit_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/rain/invert", tags=["Rain"])
 async def rain_invert_v1(
     request: PredictRainRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     return await predict_rain(request, format)
 
-@v1_router.post("/rain/forecast")
+@v1_router.post("/rain/forecast", tags=["Rain"])
 async def rain_forecast_v1(
     request: ForecastRainRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
@@ -2820,25 +3306,43 @@ async def orbit_propagate_v1(
 
 # --- Stations Resource ---
 
-@v1_router.get("/stations")
+@v1_router.get("/stations", tags=["Station"])
 async def stations_v1(
+    request: Request = None,
     name: Optional[str] = Query(None, description="Search ground stations by name"),
     page: int = Query(1, description="Page number", ge=1),
     limit: int = Query(10, description="Items per page", ge=1),
     operator: Optional[str] = Query(None, description="Filter by operator"),
+    country: Optional[str] = Query(None, description="Filter by country"),
+    climate: Optional[str] = Query(None, description="Filter by climate"),
+    latitude_min: Optional[float] = Query(None, description="Minimum latitude"),
+    latitude_max: Optional[float] = Query(None, description="Maximum latitude"),
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     name = name if isinstance(name, str) else None
     page = page if isinstance(page, int) else 1
     limit = limit if isinstance(limit, int) else 10
     operator = operator if isinstance(operator, str) else None
+    country = country if isinstance(country, str) else None
+    climate = climate if isinstance(climate, str) else None
+    latitude_min = latitude_min if isinstance(latitude_min, (int, float)) else None
+    latitude_max = latitude_max if isinstance(latitude_max, (int, float)) else None
     format = format if isinstance(format, str) else "json"
+    
     try:
         filtered = GROUND_STATIONS
         if name:
             filtered = [gs for gs in filtered if name.lower() in gs["name"].lower()]
         if operator:
             filtered = [gs for gs in filtered if operator.lower() in gs.get("operator", gs["name"]).lower()]
+        if country:
+            filtered = [gs for gs in filtered if country.lower() == gs.get("country", get_gs_country(gs["name"])).lower()]
+        if climate:
+            filtered = [gs for gs in filtered if climate.lower() == gs.get("climate", get_gs_climate(gs["name"])).lower() or climate.lower() == gs.get("rain_severity", "").lower()]
+        if latitude_min is not None:
+            filtered = [gs for gs in filtered if gs["latitude"] >= latitude_min]
+        if latitude_max is not None:
+            filtered = [gs for gs in filtered if gs["latitude"] <= latitude_max]
             
         total_items = len(filtered)
         start_idx = (page - 1) * limit
@@ -2852,7 +3356,14 @@ async def stations_v1(
             "limit": limit,
             "total_items": total_items,
             "total_pages": (total_items + limit - 1) // limit if total_items > 0 else 0,
-            "data": paginated
+            "data": paginated,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_items,
+                "next": f"/api/v1/stations?page={page+1}&limit={limit}" if end_idx < total_items else None,
+                "previous": f"/api/v1/stations?page={page-1}&limit={limit}" if page > 1 else None
+            }
         }
         
         if format.lower() == "json":
@@ -2863,22 +3374,23 @@ async def stations_v1(
         logger.error("get_stations_v1_failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@v1_router.get("/stations/{id}")
-async def get_station_v1(id: str):
+@v1_router.get("/stations/{id}", tags=["Station"])
+async def get_station_v1(id: str, request: Request = None):
     match = next((gs for gs in GROUND_STATIONS if gs["name"].lower() == id.lower()), None)
     if not match:
         raise HTTPException(status_code=404, detail=f"Ground station '{id}' not found")
-    return match
+    return wrap_envelope(match, f"/stations/{id}")
 
-# --- Satellites Resource ---
-
-@v1_router.get("/satellites")
+@v1_router.get("/satellites", tags=["Satellite"])
 async def satellites_v1(
+    request: Request = None,
     query: Optional[str] = Query(None, description="Search satellites by name or NORAD ID"),
     page: int = Query(1, description="Page number", ge=1),
     limit: int = Query(10, description="Items per page", ge=1),
     operator: Optional[str] = Query(None, description="Filter by operator"),
     constellation: Optional[str] = Query(None, description="Filter by constellation"),
+    orbit: Optional[str] = Query(None, description="Filter by orbit type: LEO, MEO, GEO"),
+    norad: Optional[int] = Query(None, description="Filter by NORAD ID"),
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     query = query if isinstance(query, str) else None
@@ -2886,7 +3398,10 @@ async def satellites_v1(
     limit = limit if isinstance(limit, int) else 10
     operator = operator if isinstance(operator, str) else None
     constellation = constellation if isinstance(constellation, str) else None
+    orbit = orbit if isinstance(orbit, str) else None
+    norad = norad if isinstance(norad, int) else None
     format = format if isinstance(format, str) else "json"
+    
     try:
         from satlinksim.infrastructure.persistence.database import init_db
         db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "satellites.db")
@@ -2914,6 +3429,10 @@ async def satellites_v1(
                 conditions.append("name LIKE ?")
                 params.append(f"%{operator}%")
                 
+            if norad:
+                conditions.append("norad_id = ?")
+                params.append(norad)
+                
             if query:
                 if query.isdigit():
                     conditions.append("norad_id = ?")
@@ -2925,43 +3444,55 @@ async def satellites_v1(
             if conditions:
                 sql += " WHERE " + " AND ".join(conditions)
                 
-            count_sql = f"SELECT COUNT(*) FROM ({sql})"
-            cur.execute(count_sql, params)
-            total_items = cur.fetchone()[0]
-            
-            sql += " LIMIT ? OFFSET ?"
-            offset = (page - 1) * limit
-            params.extend([limit, offset])
-            
             cur.execute(sql, params)
             rows = cur.fetchall()
         finally:
             conn.close()
             
-        json_data = [
-            {"name": r[0], "norad_id": r[1], "tle_line1": r[2], "tle_line2": r[3]}
-            for r in rows
-        ]
+        candidates = []
+        for r in rows:
+            name, norad_id, tle1, tle2 = r
+            sat_orbit = get_sat_orbit_type(name, norad_id)
+            if orbit and orbit.upper() != sat_orbit:
+                continue
+            candidates.append({
+                "name": name,
+                "norad_id": norad_id,
+                "tle_line1": tle1,
+                "tle_line2": tle2
+            })
+            
+        total_items = len(candidates)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated_data = candidates[start_idx:end_idx]
         
         metadata = {
             "page": page,
             "limit": limit,
             "total_items": total_items,
             "total_pages": (total_items + limit - 1) // limit if total_items > 0 else 0,
-            "data": json_data
+            "data": paginated_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_items,
+                "next": f"/api/v1/satellites?page={page+1}&limit={limit}" if end_idx < total_items else None,
+                "previous": f"/api/v1/satellites?page={page-1}&limit={limit}" if page > 1 else None
+            }
         }
         
-        df = pd.DataFrame(json_data)
+        df = pd.DataFrame(paginated_data)
         if format.lower() == "json":
             return respond_with_format(df, metadata, format, "satellites")
         else:
-            return respond_with_format(df, json_data, format, "satellites")
+            return respond_with_format(df, paginated_data, format, "satellites")
     except Exception as e:
         logger.error("get_satellites_v1_failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@v1_router.get("/satellites/{id}")
-async def get_satellite_v1(id: str):
+@v1_router.get("/satellites/{id}", tags=["Satellite"])
+async def get_satellite_v1(id: str, request: Request = None):
     try:
         from satlinksim.infrastructure.persistence.database import init_db
         db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "satellites.db")
@@ -2981,7 +3512,13 @@ async def get_satellite_v1(id: str):
         if not row:
             raise HTTPException(status_code=404, detail=f"Satellite '{id}' not found")
             
-        return {"name": row[0], "norad_id": row[1], "tle_line1": row[2], "tle_line2": row[3]}
+        sat_data = {"name": row[0], "norad_id": row[1], "tle_line1": row[2], "tle_line2": row[3]}
+        return wrap_envelope(sat_data, request.url.path if request else f"/satellites/{id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_satellite_detail_v1_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -2990,8 +3527,9 @@ async def get_satellite_v1(id: str):
 
 # --- Datasets Resource ---
 
-@v1_router.get("/datasets")
+@v1_router.get("/datasets", tags=["Dataset"])
 async def datasets_list_v1(
+    request: Request = None,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1)
 ):
@@ -3011,16 +3549,24 @@ async def datasets_list_v1(
     end_idx = start_idx + limit
     paginated = all_datasets[start_idx:end_idx]
     
-    return {
+    response_data = {
         "page": page,
         "limit": limit,
         "total_items": total_items,
         "total_pages": (total_items + limit - 1) // limit if total_items > 0 else 0,
-        "data": paginated
+        "data": paginated,
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total_items,
+            "next": f"/api/v1/datasets?page={page+1}&limit={limit}" if end_idx < total_items else None,
+            "previous": f"/api/v1/datasets?page={page-1}&limit={limit}" if page > 1 else None
+        }
     }
+    return wrap_envelope(response_data, request.url.path if request else "/datasets")
 
-@v1_router.get("/datasets/{id}")
-async def dataset_detail_v1(id: str):
+@v1_router.get("/datasets/{id}", tags=["Dataset"])
+async def dataset_detail_v1(id: str, request: Request = None):
     if id not in ["link_training_data", "link_training_data.parquet"]:
         raise HTTPException(status_code=404, detail="Dataset not found")
         
@@ -3057,7 +3603,7 @@ async def dataset_detail_v1(id: str):
         
     df_dataset = pd.read_parquet(ml_parquet)
     
-    return {
+    dataset_info = {
         "id": "link_training_data",
         "dataset_name": "link_training_data.parquet",
         "file_size_bytes": os.path.getsize(ml_parquet),
@@ -3066,8 +3612,9 @@ async def dataset_detail_v1(id: str):
         "features": [c for c in df_dataset.columns if c != "link_quality"],
         "target": "link_quality"
     }
+    return wrap_envelope(dataset_info, request.url.path if request else f"/datasets/{id}")
 
-@v1_router.get("/datasets/{id}/download")
+@v1_router.get("/datasets/{id}/download", tags=["Dataset"])
 async def dataset_download_v1(id: str):
     if id not in ["link_training_data", "link_training_data.parquet"]:
         raise HTTPException(status_code=404, detail="Dataset not found")
@@ -3187,24 +3734,67 @@ from fastapi import WebSocket, WebSocketDisconnect
 @app.websocket("/api/v1/stream/events")
 async def websocket_stream_events(websocket: WebSocket):
     await websocket.accept()
+    subscribed_events = set()
+    receive_task = None
+    
+    async def receive_messages():
+        nonlocal subscribed_events
+        try:
+            while True:
+                data = await websocket.receive_json()
+                action = data.get("action")
+                if action == "subscribe":
+                    events = data.get("events", [])
+                    subscribed_events = set(events)
+        except Exception:
+            pass
+            
     try:
+        receive_task = asyncio.create_task(receive_messages())
+        
         await websocket.send_json({
-            "event_type": "connection_established",
-            "message": "Subscribed to SatLinkSim real-time telemetry events stream.",
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "event": "connection_established",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "payload": {"message": "Subscribed to SatLinkSim real-time telemetry events stream. Please subscribe to events."}
         })
+        
         while True:
-            await asyncio.sleep(2.0)
-            await websocket.send_json({
-                "event_type": "orbit_update",
-                "satellite": "GALAXY 16",
-                "latitude": 0.0,
-                "longitude": -99.0,
-                "altitude_km": 35786.0,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            await asyncio.sleep(1.0)
+            if "orbit_update" in subscribed_events:
+                await websocket.send_json({
+                    "event": "orbit_update",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "satellite": "GALAXY 16",
+                        "latitude": 0.0,
+                        "longitude": -99.0,
+                        "altitude_km": 35786.0
+                    }
+                })
+            if "handoff" in subscribed_events:
+                await websocket.send_json({
+                    "event": "handoff",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "satellite": "GALAXY 16",
+                        "ground_station": "Delhi",
+                        "type": "station_handoff"
+                    }
+                })
+            if "rain_event" in subscribed_events:
+                await websocket.send_json({
+                    "event": "rain_event",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "location": "Delhi",
+                        "rain_rate_mm_h": 12.5
+                    }
+                })
     except WebSocketDisconnect:
         logger.info("websocket_stream_events_disconnected")
+    finally:
+        if receive_task:
+            receive_task.cancel()
 
 # --- TLE Resource ---
 
