@@ -27,7 +27,6 @@ The platform supports fine-grained authorization scopes:
 | `simulation.read` | Allows retrieving simulation metadata and raw output results. |
 | `simulation.write` | Allows creating, triggering, and deleting simulation resources. |
 | `datasets.read` | Allows listing and downloading simulation training datasets. |
-| `datasets.write` | Allows uploading custom datasets. |
 | `admin` | Full administrative access, including TLE updates and hardware validation. |
 
 ### 1.3 Rate Limits
@@ -124,6 +123,50 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
   ```
   *(Status transitions: `pending` ➔ `running` ➔ `completed` or `failed`)*
 
+#### Update (Control) Simulation Lifecycle
+* **Endpoint**: `PATCH https://api.satlinksim.com/api/v1/simulations/{id}`
+* **Query Parameters**:
+  * `action` (required): Must be one of `cancel`, `pause`, or `resume`.
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "paused",
+    "message": "Simulation successfully paused."
+  }
+  ```
+
+#### Delete a Simulation
+* **Endpoint**: `DELETE https://api.satlinksim.com/api/v1/simulations/{id}`
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "deleted",
+    "message": "Simulation record deleted."
+  }
+  ```
+
+#### Get Simulation Summary Metrics
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/summary`
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "simulation_id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "metrics": {
+      "availability": 98.4,
+      "mean_snr": 14.2,
+      "minimum_snr": 8.5,
+      "maximum_snr": 18.1,
+      "average_rain": 2.3,
+      "handoff_count": 4,
+      "outage_count": 2,
+      "compute_time": 2.15,
+      "simulation_duration": 86400.0
+    }
+  }
+  ```
+
 #### Retrieve Output Timeseries Results
 * **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/results?format=json`
 * **Response Payload**: Standard simulation output timeseries object (SNR, Availability, Handoffs, Rain Loss).
@@ -159,6 +202,12 @@ Explicit endpoints for direct raw data extraction in CSV or Parquet format:
   * Propagates to current system epoch.
 * **Epoch-Specific Coordinate Lookup**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}?epoch=2026-06-25T14:00:00Z`
   * Propagates to the designated historical or future epoch.
+* **Detailed Position Info**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}/position?epoch=2026-06-25T14:00:00Z`
+  * Returns geodetic coordinates (latitude, longitude, altitude) and velocity in ECEF frame.
+* **Ground Track Generator**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}/groundtrack?duration=5400&step=60`
+  * Generates a series of coordinates showing the satellite's path over a defined window.
+* **Pass Calculator**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}/passes?ground_station=Delhi&min_elevation=10.0`
+  * Calculates rise, culmination, and set passes for the satellite over a designated station.
 * **Batch Orbit Propagator**: `POST https://api.satlinksim.com/api/v1/orbit/propagate`
   * Propagates coordinates over a defined duration and step size.
 
@@ -168,7 +217,7 @@ Explicit endpoints for direct raw data extraction in CSV or Parquet format:
 
 Exposes physics-guided telemetry inversion and stochastic forecasting models.
 
-* **Stage A Predictor (SNR Telemetry Inversion)**: `POST https://api.satlinksim.com/api/v1/rain/predict`
+* **Stage A Predictor (SNR Telemetry Inversion)**: `POST https://api.satlinksim.com/api/v1/rain/invert`
   * Exposes the active algorithm model type in the response:
     ```json
     {
@@ -180,39 +229,83 @@ Exposes physics-guided telemetry inversion and stochastic forecasting models.
 
 ---
 
-### 3.5 Benchmarks Resource (`/benchmarks`)
+### 3.5 Calculators Resource (`/calculators`)
 
-Retrieve high-fidelity platform benchmark results:
-* **Endpoint**: `GET https://api.satlinksim.com/api/v1/benchmarks`
-* **Response Payload**:
-  ```json
-  {
-    "cpu": "Intel(R) Xeon(R) Gold 6154 CPU @ 3.00GHz",
-    "gpu": "NVIDIA A100-SXM4-40GB (Optional)",
-    "memory_rss_mb": 142.85,
-    "throughput_timesteps_per_second": 8345.10,
-    "sgp4_latency_ms": 0.042,
-    "rain_model_latency_ms": 0.125,
-    "jit_speedup_ratio": 42.15,
-    "version": "1.0.0",
-    "benchmark_machine": "gcp-compute-c2-standard-4"
-  }
-  ```
+Fast, standalone scientific calculators that bypass simulation lifecycle management.
+
+* **Free Space Path Loss (FSPL)**: `POST https://api.satlinksim.com/api/v1/calculators/fspl`
+  * Calculates attenuation due to path length:
+    ```json
+    {
+      "frequency_hz": 14e9,
+      "distance_km": 35786
+    }
+    ```
+* **Slant Range**: `POST https://api.satlinksim.com/api/v1/calculators/slant-range`
+  * Calculates distance between station and satellite:
+    ```json
+    {
+      "altitude_km": 550.0,
+      "elevation_deg": 45.0
+    }
+    ```
+* **Thermal Noise Floor**: `POST https://api.satlinksim.com/api/v1/calculators/noise-floor`
+  * Calculates thermal noise level:
+    ```json
+    {
+      "system_temp_k": 290.0,
+      "bandwidth_hz": 250e6
+    }
+    ```
+* **Equivalent Isotropically Radiated Power (EIRP)**: `POST https://api.satlinksim.com/api/v1/calculators/eirp`
+  * Calculates total radiated transmitter power:
+    ```json
+    {
+      "tx_power_dbw": 10.0,
+      "tx_gain_dbi": 38.5,
+      "line_loss_db": 1.5
+    }
+    ```
+* **ITU-R Rain Attenuation**: `POST https://api.satlinksim.com/api/v1/calculators/rain-attenuation`
+  * Computes attenuation using ITU-R P.618-13 models:
+    ```json
+    {
+      "rain_rate": 25.0,
+      "elevation_deg": 35.0,
+      "frequency_hz": 20e9,
+      "polarization": "circular",
+      "gs_latitude": 28.6
+    }
+    ```
+* **Gaseous Absorption**: `POST https://api.satlinksim.com/api/v1/calculators/gaseous-attenuation`
+  * Computes dry air and water vapor attenuation (ITU-R P.676):
+    ```json
+    {
+      "frequency_hz": 20e9,
+      "elevation_deg": 35.0,
+      "water_vapor_g_m3": 7.5
+    }
+    ```
+* **Scintillation**: `POST https://api.satlinksim.com/api/v1/calculators/scintillation`
+  * Computes tropospheric scintillation intensity (ITU-R P.618):
+    ```json
+    {
+      "frequency_hz": 20e9,
+      "elevation_deg": 35.0,
+      "gs_antenna_diam": 1.2
+    }
+    ```
+* **Batch Link Budget**: `POST https://api.satlinksim.com/api/v1/calculators/link-budget`
+* **Batch Attenuation**: `POST https://api.satlinksim.com/api/v1/calculators/attenuation`
+* **Batch Availability**: `POST https://api.satlinksim.com/api/v1/calculators/availability`
 
 ---
 
-### 3.6 Scientific Validation Resource (`/validation`)
-
-Exposes mathematical accuracy, physics checks, and ITU-R standard verification status.
-
-* **List Categories**: `GET https://api.satlinksim.com/api/v1/validation`
-* **Validation Sub-Resources**:
-  * Physics Invariants: `GET https://api.satlinksim.com/api/v1/validation/physics`
-  * ITU Model Verification: `GET https://api.satlinksim.com/api/v1/validation/itu`
-  * NASA GPM Correlation: `GET https://api.satlinksim.com/api/v1/validation/nasa`
-* **Validation Artifact Downloads**:
-  * JSON Report: `GET https://api.satlinksim.com/api/v1/validation/report.json`
-  * PDF Formal Report: `GET https://api.satlinksim.com/api/v1/validation/report.pdf`
+### 3.6 Directory Resources (`/stations`, `/satellites`)
+* **List Stations**: `GET https://api.satlinksim.com/api/v1/stations`
+* **Station Detail**: `GET https://api.satlinksim.com/api/v1/stations/{id}` (e.g. `/stations/delhi`)
+* **List Satellites**: `GET https://api.satlinksim.com/api/v1/satellites`
+* **Satellite Detail**: `GET https://api.satlinksim.com/api/v1/satellites/{id}` (e.g. `/satellites/29236`)
 
 ---
 
@@ -223,30 +316,46 @@ Exposes training datasets for link quality machine learning models.
 * **List Datasets**: `GET https://api.satlinksim.com/api/v1/datasets`
 * **Dataset Detail**: `GET https://api.satlinksim.com/api/v1/datasets/{id}`
 * **Download Dataset**: `GET https://api.satlinksim.com/api/v1/datasets/{id}/download`
-* **Upload Custom Dataset**: `POST https://api.satlinksim.com/api/v1/datasets`
+
+> [!NOTE]
+> `POST /datasets` has been removed initially to maintain strict compliance with storage policies and authorization controls.
 
 ---
 
-### 3.8 Directory Resources (`/stations`, `/satellites`)
-* **List Stations**: `GET https://api.satlinksim.com/api/v1/stations`
-* **Station Detail**: `GET https://api.satlinksim.com/api/v1/stations/{id}` (e.g. `/stations/delhi`)
-* **List Satellites**: `GET https://api.satlinksim.com/api/v1/satellites`
-* **Satellite Detail**: `GET https://api.satlinksim.com/api/v1/satellites/{id}` (e.g. `/satellites/29236`)
+### 3.8 Product & TLE APIs
+
+Endpoints supporting real-time visualization globes, SaaS tools, and operator catalogs.
+
+* **Live Globe Metrics**: `GET https://api.satlinksim.com/api/v1/live/globe`
+  * Returns active simulations and average satellite elevations.
+* **Constellation Status**: `GET https://api.satlinksim.com/api/v1/live/constellation?constellation=Starlink`
+  * Returns availability metrics and count of active nodes in named constellations.
+* **Recent Handoff Events**: `GET https://api.satlinksim.com/api/v1/live/handoffs`
+  * Returns the latest execution records for inter-satellite/station handoffs.
+* **TLE Cache Status**: `GET https://api.satlinksim.com/api/v1/tle/status`
+* **Trigger TLE Update**: `POST https://api.satlinksim.com/api/v1/tle/update` (Or `/tle` alias)
+  * Accepts an optional body containing satellite groups to fetch:
+    ```json
+    {
+      "groups": ["active", "starlink"]
+    }
+    ```
+* **NORAD Operators Catalog**: `GET https://api.satlinksim.com/api/v1/tle/operators`
 
 ---
 
 ### 3.9 WebSocket Streaming API
 
-For real-time visual globes and telemetry dashboards, the platform exposes sub-second WebSocket event streams:
-* **Base URL**: `wss://api.satlinksim.com/api/v1`
+For real-time visual globes and telemetry dashboards, the platform exposes a single sub-second WebSocket event stream:
+* **Base URL**: `wss://api.satlinksim.com/api/v1/stream/events`
 
-| Stream Route | Event Contents |
-| :--- | :--- |
-| `wss://api.satlinksim.com/api/v1/live/handoffs` | Emits active handoff execution events. |
-| `wss://api.satlinksim.com/api/v1/live/orbits` | Stream coordinates of all tracked satellites. |
-| `wss://api.satlinksim.com/api/v1/live/rain` | Emits real-time atmospheric attenuation states. |
-| `wss://api.satlinksim.com/api/v1/live/snr` | Telemetry carrier-to-noise ratio streams. |
-| `wss://api.satlinksim.com/api/v1/live/satellites` | Active NORAD satellite catalog alerts. |
+Supported client event subscriptions include:
+* `orbit_update`: Live coordinate changes for propagated satellites.
+* `handoff`: Instantaneous handoff execution triggers.
+* `rain_event`: Dynamic changes in localized rain rates.
+* `snr_update`: Real-time signal strength telemetry updates.
+* `availability_change`: Instant status switches.
+* `tle_update`: Alerts when database cache retrieves new ephemerides.
 
 ---
 
@@ -276,7 +385,15 @@ Interactive OpenAPI specs are automatically generated and served:
 
 ---
 
-## 4. Platform Deprecation Policy
+## 4. Documentation & Benchmarks (Static Resources)
+
+In accordance with keeping our API surfaces focused and operational, historical validation reports and static benchmark results are hosted as markdown resources:
+* For physics models and verification, refer to: [validation.md](file:///home/satyansh/leo_meo/docs/validation.md)
+* For hardware and execution benchmarks, refer to: [benchmarks.md](file:///home/satyansh/leo_meo/docs/benchmarks.md)
+
+---
+
+## 5. Platform Deprecation Policy
 
 To guarantee API stability for client systems:
 * **Version Support**: A major version (e.g. `/api/v1`) is officially supported for a minimum of 12 months after a subsequent major version (e.g. `/api/v2`) is launched.

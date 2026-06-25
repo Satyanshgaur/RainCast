@@ -10,15 +10,20 @@ from satlinksim.infrastructure.api.server import (
     get_simulation_link_budget, get_simulation_visibility, get_simulation_availability,
     get_simulation_handoffs, get_simulation_orbit, create_job, get_job_v1,
     get_job_results_v1, calculator_link_budget, calculator_attenuation,
-    calculator_availability, rain_predict_v1, rain_forecast_v1, coverage_v1,
+    calculator_availability, rain_invert_v1, rain_forecast_v1, coverage_v1,
     global_coverage, handoff_decision_v1, query_satellite_orbit, orbit_propagate_v1,
     stations_v1, satellites_v1, datasets_list_v1, dataset_detail_v1,
-    dataset_download_v1, benchmarks_v1, validate_physics, validate_itu,
-    validate_nasa, validate_regression, validate_all_v1, update_tle_v1,
+    dataset_download_v1, update_tle_v1,
     health_v1, simulations_store, jobs, GlobalCoverageRequest, TleUpdateRequest,
     get_station_v1, get_satellite_v1, download_simulation_results,
     download_simulation_results_csv, download_simulation_results_parquet,
-    get_validation_report_json, get_validation_report_pdf
+    get_simulation_summary, patch_simulation, query_satellite_position,
+    query_satellite_groundtrack, query_satellite_passes, calc_fspl,
+    calc_slant_range, calc_noise_floor, calc_eirp, calc_rain_attenuation,
+    calc_gaseous_attenuation, calc_scintillation, FsplRequest, SlantRangeRequest,
+    NoiseFloorRequest, EirpRequest, RainAttenuationRequest, GaseousAttenuationRequest,
+    ScintillationRequest, get_live_globe, get_live_constellation,
+    get_live_handoffs, get_tle_status, trigger_tle_update, get_tle_operators
 )
 from satlinksim.infrastructure.api.schemas import (
     PublicSimulationRequest, LinkBudgetRequest, AttenuationRequest,
@@ -120,41 +125,7 @@ async def test_dataset_download_v1():
     assert response.filename == "link_training_data.parquet"
     assert response.media_type == "application/octet-stream"
 
-@pytest.mark.asyncio
-async def test_benchmarks_v1():
-    response = await benchmarks_v1(format="json")
-    data = json.loads(response.body.decode())
-    assert "cpu_utilization_pct" in data
-    assert "numba_acceleration_ratio" in data
-    assert "monte_carlo_speedup_factor" in data
-
-@pytest.mark.asyncio
-async def test_validation_endpoints_v1():
-    # Individual category validation
-    res_physics = await validate_physics(format="json")
-    data_phys = json.loads(res_physics.body.decode())
-    assert len(data_phys) >= 1
-    
-    res_itu = await validate_itu(format="json")
-    data_itu = json.loads(res_itu.body.decode())
-    assert len(data_itu) >= 1
-    
-    res_nasa = await validate_nasa(format="json")
-    data_nasa = json.loads(res_nasa.body.decode())
-    assert data_nasa[0]["test_name"] == "NASA GPM Rain Rate Comparison"
-    
-    res_regression = await validate_regression(format="json")
-    data_reg = json.loads(res_regression.body.decode())
-    assert data_reg[0]["test_name"] == "API Regression Verification"
-    
-    # Combined validation
-    res_all = await validate_all_v1(format="json")
-    data_all = json.loads(res_all.body.decode())
-    categories = [x.get("category") for x in data_all]
-    assert "physics" in categories
-    assert "itu" in categories
-    assert "nasa" in categories
-    assert "regression" in categories
+# Benchmarks and Validation have been moved out of the public API surface.
 
 @pytest.mark.asyncio
 async def test_orbit_v1():
@@ -224,7 +195,7 @@ async def test_stateless_calculators_v1():
 
 @pytest.mark.asyncio
 async def test_rain_and_handoff_decision_v1():
-    # 1. Predict rain
+    # 1. Predict/Invert rain
     req_pr = PredictRainRequest(
         snr=[15.0, 10.0, 5.0],
         elevation=[30.0, 30.0, 30.0],
@@ -232,9 +203,10 @@ async def test_rain_and_handoff_decision_v1():
         ground_station="Delhi",
         frequency=14e9
     )
-    res = await rain_predict_v1(req_pr, format="json")
+    res = await rain_invert_v1(req_pr, format="json")
     data = json.loads(res.body.decode())
     assert "predicted_rain_rate" in data
+    assert data["model"] == "stage-a"
     
     # 2. Forecast rain
     req_fr = ForecastRainRequest(
@@ -436,8 +408,8 @@ async def test_resource_ids_and_epoch_propagation():
     assert "geodetic" in orbit
 
 @pytest.mark.asyncio
-async def test_downloads_and_validation_reports():
-    # 1. Create a simulation to test downloads
+async def test_downloads_and_product_apis():
+    # 1. Create a simulation to test downloads and metadata summary
     req_pub = PublicSimulationRequest(
         satellites=["GALAXY 16"],
         ground_station="Delhi",
@@ -462,14 +434,63 @@ async def test_downloads_and_validation_reports():
     res_pq = await download_simulation_results_parquet(sim_id)
     assert res_pq.media_type == "application/octet-stream"
     
-    # 5. GET /validation/report.json
-    res_val_json = await get_validation_report_json()
-    val_data = json.loads(res_val_json.body.decode())
-    assert len(val_data) >= 1
+    # 5. GET /simulations/{id}/summary
+    summary = await get_simulation_summary(sim_id)
+    assert "availability" in summary
+    assert "mean_snr" in summary
+    assert "handoff_count" in summary
     
-    # 6. GET /validation/report.pdf
-    res_val_pdf = await get_validation_report_pdf()
-    assert res_val_pdf.media_type == "application/pdf"
+    # 6. PATCH /simulations/{id}
+    res_patch = await patch_simulation(sim_id, action="pause")
+    assert res_patch["status"] == "paused"
+    
+    # 7. Orbit positional and groundtrack queries
+    pos = await query_satellite_position("GALAXY 16")
+    assert pos["satellite"] == "GALAXY 16 (G-16)"
+    
+    gt = await query_satellite_groundtrack("GALAXY 16")
+    assert len(gt["groundtrack"]) >= 1
+    
+    passes = await query_satellite_passes("GALAXY 16", ground_station="Delhi")
+    assert passes["ground_station"] == "Delhi"
+    
+    # 8. Calculators
+    res_fspl = await calc_fspl(FsplRequest(frequency_hz=14e9, distance_km=40000.0))
+    assert "fspl_db" in res_fspl
+    
+    res_sr = await calc_slant_range(SlantRangeRequest(altitude_km=35786.0, elevation_deg=30.0))
+    assert "slant_range_km" in res_sr
+    
+    res_nf = await calc_noise_floor(NoiseFloorRequest(system_temp_k=290.0, bandwidth_hz=10e6))
+    assert "noise_floor_dbw" in res_nf
+    
+    res_eirp = await calc_eirp(EirpRequest(tx_power_dbw=20.0, tx_gain_dbi=35.0))
+    assert "eirp_dbw" in res_eirp
+    
+    res_rain = await calc_rain_attenuation(RainAttenuationRequest(rain_rate=15.0, elevation_deg=35.0, frequency_hz=14e9, polarization="circular", gs_latitude=28.6))
+    assert "rain_attenuation_db" in res_rain
+    
+    res_gas = await calc_gaseous_attenuation(GaseousAttenuationRequest(frequency_hz=14e9, elevation_deg=35.0))
+    assert "gaseous_attenuation_db" in res_gas
+    
+    res_scint = await calc_scintillation(ScintillationRequest(frequency_hz=14e9, elevation_deg=35.0))
+    assert "scintillation_sigma_db" in res_scint
+    
+    # 9. Product and TLE info
+    globe = await get_live_globe()
+    assert "active_simulations_count" in globe
+    
+    const = await get_live_constellation("Iridium")
+    assert const["constellation"] == "Iridium"
+    
+    ho = await get_live_handoffs()
+    assert "handoffs" in ho
+    
+    tle_s = await get_tle_status()
+    assert "total_cached_tles" in tle_s
+    
+    tle_ops = await get_tle_operators()
+    assert "operators" in tle_ops
     
     # Cleanup
     await delete_simulation(sim_id)

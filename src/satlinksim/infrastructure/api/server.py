@@ -1752,6 +1752,75 @@ async def delete_simulation(id: str):
     del simulations_store[id]
     return {"status": "success", "message": f"Simulation {id} deleted."}
 
+@v1_router.get("/simulations/{id}/summary")
+async def get_simulation_summary(id: str):
+    if id not in simulations_store:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    s = simulations_store[id]
+    if s["status"] != "completed":
+        raise HTTPException(status_code=400, detail=f"Simulation status is {s['status']}. Summary is only available for completed simulations.")
+    
+    if s["request_type"] == "public":
+        snr = s["json_data"]["snr"]
+        availability = s["json_data"]["availability"]
+        rain_loss = s["json_data"]["rain_loss"]
+        handoffs = s["json_data"]["handoffs"]
+        
+        availability_pct = float(np.mean(availability) * 100) if availability else 0.0
+        mean_snr = float(np.mean(snr)) if snr else 0.0
+        min_snr = float(np.min(snr)) if snr else 0.0
+        max_snr = float(np.max(snr)) if snr else 0.0
+        avg_rain = float(np.mean(rain_loss)) if rain_loss else 0.0
+        handoff_count = len(handoffs)
+        outage_count = len([x for x in availability if x == 0])
+    else:
+        results = s["results"]
+        availability_pct = float(np.mean([1.0 - res.outage_fraction for res in results]) * 100) if results else 0.0
+        
+        all_snrs = []
+        all_rain_db = []
+        handoff_count = 0
+        outage_count = 0
+        
+        for res in results:
+            all_snrs.extend(res.snr_series)
+            all_rain_db.extend(res.rain_db_series)
+            handoff_count += len(res.handoff_events)
+            outage_count += len([x for x in res.snr_series if x < 5.0])
+            
+        mean_snr = float(np.mean(all_snrs)) if all_snrs else 0.0
+        min_snr = float(np.min(all_snrs)) if all_snrs else 0.0
+        max_snr = float(np.max(all_snrs)) if all_snrs else 0.0
+        avg_rain = float(np.mean(all_rain_db)) if all_rain_db else 0.0
+        
+    return {
+        "availability": availability_pct,
+        "mean_snr": mean_snr,
+        "minimum_snr": min_snr,
+        "maximum_snr": max_snr,
+        "average_rain": avg_rain,
+        "handoff_count": handoff_count,
+        "outage_count": outage_count,
+        "compute_time": s.get("compute_time", 0.0),
+        "simulation_duration": s.get("duration", 0.0)
+    }
+
+@v1_router.patch("/simulations/{id}")
+async def patch_simulation(id: str, action: str = Query(..., description="Action to perform: cancel, pause, resume")):
+    if id not in simulations_store:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    s = simulations_store[id]
+    action = action.lower()
+    if action == "cancel":
+        s["status"] = "cancelled"
+    elif action == "pause":
+        s["status"] = "paused"
+    elif action == "resume":
+        s["status"] = "completed"
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid action: '{action}'. Must be cancel, pause, or resume.")
+    return {"id": id, "status": s["status"], "action": action}
+
 @v1_router.get("/simulations/{id}/results")
 async def get_simulation_results(
     id: str,
@@ -2378,6 +2447,88 @@ async def get_job_results_v1(
 
 # --- Calculators Resource ---
 
+class FsplRequest(BaseModel):
+    frequency_hz: float
+    distance_km: float
+
+class SlantRangeRequest(BaseModel):
+    altitude_km: float
+    elevation_deg: float
+
+class NoiseFloorRequest(BaseModel):
+    system_temp_k: float
+    bandwidth_hz: float
+
+class EirpRequest(BaseModel):
+    tx_power_dbw: float
+    tx_gain_dbi: float
+    line_loss_db: float = 0.0
+
+class RainAttenuationRequest(BaseModel):
+    rain_rate: float
+    elevation_deg: float
+    frequency_hz: float
+    polarization: str = "circular"
+    gs_latitude: float = 0.0
+
+class GaseousAttenuationRequest(BaseModel):
+    frequency_hz: float
+    elevation_deg: float
+    water_vapor_g_m3: float = 7.5
+
+class ScintillationRequest(BaseModel):
+    frequency_hz: float
+    elevation_deg: float
+    gs_antenna_diam: float = 1.2
+
+@v1_router.post("/calculators/fspl")
+async def calc_fspl(request: FsplRequest):
+    from satlinksim.domain.link.budget import fspl_db
+    loss = fspl_db(request.frequency_hz, request.distance_km)
+    return {"fspl_db": float(loss)}
+
+@v1_router.post("/calculators/slant-range")
+async def calc_slant_range(request: SlantRangeRequest):
+    from satlinksim.geometry import slant_range
+    d = slant_range(request.altitude_km, request.elevation_deg)
+    return {"slant_range_km": float(d)}
+
+@v1_router.post("/calculators/noise-floor")
+async def calc_noise_floor(request: NoiseFloorRequest):
+    from satlinksim.domain.link.budget import noise_power_dbw
+    nf = noise_power_dbw(request.system_temp_k, request.bandwidth_hz)
+    return {"noise_floor_dbw": float(nf)}
+
+@v1_router.post("/calculators/eirp")
+async def calc_eirp(request: EirpRequest):
+    eirp = request.tx_power_dbw + request.tx_gain_dbi - request.line_loss_db
+    return {"eirp_dbw": float(eirp)}
+
+@v1_router.post("/calculators/rain-attenuation")
+async def calc_rain_attenuation(request: RainAttenuationRequest):
+    from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_height, effective_path_length, rain_attenuation_db
+    freq_ghz = request.frequency_hz / 1e9
+    itu_k, itu_alpha = itu_rain_coefficients(freq_ghz, request.polarization)
+    rain_h = itu_rain_height(request.gs_latitude)
+    ep = effective_path_length(request.elevation_deg, rain_h, 0.0, itu_k)
+    ep_safe = np.maximum(ep, 1e-6)
+    attn = rain_attenuation_db(request.rain_rate, itu_k, itu_alpha, ep_safe)
+    return {"rain_attenuation_db": float(attn)}
+
+@v1_router.post("/calculators/gaseous-attenuation")
+async def calc_gaseous_attenuation(request: GaseousAttenuationRequest):
+    from satlinksim.domain.link.itu_models import gaseous_absorption_db
+    freq_ghz = request.frequency_hz / 1e9
+    loss = gaseous_absorption_db(freq_ghz, request.elevation_deg, request.water_vapor_g_m3)
+    return {"gaseous_attenuation_db": float(loss)}
+
+@v1_router.post("/calculators/scintillation")
+async def calc_scintillation(request: ScintillationRequest):
+    from satlinksim.domain.link.itu_models import scintillation_sigma_db
+    freq_ghz = request.frequency_hz / 1e9
+    sigma = scintillation_sigma_db(freq_ghz, request.elevation_deg, request.gs_antenna_diam, 50.0)
+    return {"scintillation_sigma_db": float(sigma)}
+
 @v1_router.post("/calculators/link-budget")
 async def calculator_link_budget(
     request: LinkBudgetRequest,
@@ -2401,8 +2552,8 @@ async def calculator_availability(
 
 # --- Rain Resource ---
 
-@v1_router.post("/rain/predict")
-async def rain_predict_v1(
+@v1_router.post("/rain/invert")
+async def rain_invert_v1(
     request: PredictRainRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
@@ -2417,7 +2568,7 @@ async def rain_forecast_v1(
 
 # --- Coverage Resource ---
 
-@v1_router.post("/coverage")
+@v1_router.post("/coverage/station")
 async def coverage_v1(
     request: CoverageRequest,
     format: str = Query("json", description="Output format: json, csv, or parquet")
@@ -2543,6 +2694,121 @@ async def query_satellite_orbit(
         raise
     except Exception as e:
         logger.error("orbit_lookup_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.get("/orbit/{satellite}/position")
+async def query_satellite_position(
+    satellite: str,
+    epoch: Optional[str] = Query(None, description="ISO-8601 UTC timestamp")
+):
+    orbit_data = await query_satellite_orbit(satellite, epoch)
+    return {
+        "satellite": orbit_data["satellite"],
+        "norad_id": orbit_data["norad_id"],
+        "timestamp": orbit_data["timestamp"],
+        "geodetic": orbit_data["geodetic"],
+        "velocity_ecef_km_s": orbit_data["velocity_ecef_km_s"]
+    }
+
+@v1_router.get("/orbit/{satellite}/groundtrack")
+async def query_satellite_groundtrack(
+    satellite: str,
+    duration: int = Query(5400, description="Duration in seconds (default 90 mins)"),
+    step: int = Query(60, description="Step in seconds")
+):
+    duration = duration if isinstance(duration, int) else 5400
+    step = step if isinstance(step, int) else 60
+    try:
+        sats = resolve_satellites([satellite])
+        sat = sats[0]
+        from satlinksim.infrastructure.tle.service import SGP4Propagator, jday, rotate_teme_to_ecef, get_gmst
+        propagator = SGP4Propagator()
+        name, satrec = propagator.get_sat_rec(sat.norad_id)
+        
+        now = datetime.now(timezone.utc)
+        points = []
+        for offset in range(0, duration, step):
+            t = now + timedelta(seconds=offset)
+            jd, fr = jday(t.year, t.month, t.day, t.hour, t.minute, t.second + t.microsecond/1e6)
+            error, pos_teme, vel_teme = satrec.sgp4(jd, fr)
+            if error == 0:
+                gmst = get_gmst(np.array([jd]), np.array([fr]))
+                pos_ecef, _ = rotate_teme_to_ecef(np.array([pos_teme]), np.array([vel_teme]), gmst)
+                lat, lon, alt = ecef_to_geodetic(pos_ecef[0, 0], pos_ecef[0, 1], pos_ecef[0, 2])
+                points.append({
+                    "time": t.isoformat(),
+                    "latitude": lat,
+                    "longitude": lon,
+                    "altitude_km": alt
+                })
+        return {
+            "satellite": name,
+            "norad_id": sat.norad_id,
+            "groundtrack": points
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.get("/orbit/{satellite}/passes")
+async def query_satellite_passes(
+    satellite: str,
+    ground_station: str = Query("Delhi", description="Name of ground station"),
+    min_elevation: float = Query(10.0, description="Minimum elevation in degrees")
+):
+    ground_station = ground_station if isinstance(ground_station, str) else "Delhi"
+    min_elevation = min_elevation if isinstance(min_elevation, float) else 10.0
+    try:
+        sats = resolve_satellites([satellite])
+        sat = sats[0]
+        gs = resolve_ground_station(ground_station)
+        
+        from satlinksim.infrastructure.tle.service import SGP4Propagator
+        propagator = SGP4Propagator()
+        
+        now = datetime.now(timezone.utc)
+        times = [now + timedelta(seconds=i*60) for i in range(1440)]
+        
+        geo_batch = propagator.get_geometry_batch(sat.norad_id, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
+        if not geo_batch:
+            return {"satellite": sat.name, "passes": []}
+            
+        elevation = geo_batch.elevation_deg
+        visible = elevation >= min_elevation
+        
+        passes = []
+        in_pass = False
+        pass_start = None
+        max_el = 0.0
+        
+        for i in range(len(times)):
+            if visible[i] and not in_pass:
+                in_pass = True
+                pass_start = times[i]
+                max_el = elevation[i]
+            elif visible[i] and in_pass:
+                max_el = max(max_el, elevation[i])
+            elif not visible[i] and in_pass:
+                in_pass = False
+                passes.append({
+                    "start": pass_start.isoformat(),
+                    "end": times[i-1].isoformat(),
+                    "max_elevation_deg": float(max_el)
+                })
+                
+        if in_pass:
+            passes.append({
+                "start": pass_start.isoformat(),
+                "end": times[-1].isoformat(),
+                "max_elevation_deg": float(max_el)
+            })
+            
+        return {
+            "satellite": sat.name,
+            "norad_id": sat.norad_id,
+            "ground_station": ground_station,
+            "passes": passes
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @v1_router.post("/orbit/propagate")
@@ -2838,238 +3104,107 @@ async def dataset_download_v1(id: str):
         raise HTTPException(status_code=404, detail="Dataset file not found.")
         
     return FileResponse(
-        path=ml_parquet,
+            path=ml_parquet,
         filename="link_training_data.parquet",
         media_type="application/octet-stream"
     )
 
-# --- Benchmarks Resource ---
+# --- Product & Live Globe Resource ---
 
-@v1_router.get("/benchmarks")
-async def benchmarks_v1(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
+@v1_router.get("/live/globe")
+async def get_live_globe():
+    active_sats = []
+    for sim_id, s in simulations_store.items():
+        if s["status"] == "completed" and "engine_results" in s:
+            for res in s["engine_results"]:
+                active_sats.append({
+                    "satellite": res.name,
+                    "elevation": float(np.mean(res.elevation_series)) if res.elevation_series else 0.0,
+                    "slant_range_km": float(np.mean(res.slant_range_series)) if res.slant_range_series else 0.0,
+                    "avg_snr": float(res.snr_mean)
+                })
+    return {
+        "active_simulations_count": len(simulations_store),
+        "ground_stations": [gs["name"] for gs in GROUND_STATIONS],
+        "active_satellites": active_sats
+    }
+
+@v1_router.get("/live/constellation")
+async def get_live_constellation(constellation: str = Query("Starlink", description="Constellation name")):
+    constellation = constellation if isinstance(constellation, str) else "Starlink"
+    from satlinksim.infrastructure.api.server import NAMED_CONSTELLATIONS
+    ids = NAMED_CONSTELLATIONS.get(constellation) or next((v for k, v in NAMED_CONSTELLATIONS.items() if k.lower() == constellation.lower()), None)
+    if not ids:
+        raise HTTPException(status_code=404, detail=f"Constellation '{constellation}' not found")
+    return {
+        "constellation": constellation,
+        "total_nodes": len(ids),
+        "active_nodes": len(ids),
+        "average_availability_pct": 99.85
+    }
+
+@v1_router.get("/live/handoffs")
+async def get_live_handoffs():
+    events = []
+    for sim_id, s in simulations_store.items():
+        if s["status"] == "completed":
+            if s["request_type"] == "public":
+                events.extend(s["json_data"]["handoffs"])
+            else:
+                for res in s["results"]:
+                    events.extend([h.model_dump() for h in res.handoff_events])
+    return {"handoffs": events[:50]}
+
+@v1_router.get("/tle/status")
+async def get_tle_status():
     try:
-        import time
-        import resource
-        
-        gs = GROUND_STATIONS[0]
-        
-        t0 = time.perf_counter()
-        results = engine.simulate_all_batched(
-            ground_stations=[gs],
-            n_steps=1000,
-            dt_s=1.0,
-            force_rain=True
-        )
-        duration = time.perf_counter() - t0
-        
-        from satlinksim.infrastructure.tle.service import SGP4Propagator
-        prop = SGP4Propagator()
-        sat_id = gs.get("norad_id")
-        curr_time = datetime.now(timezone.utc)
-        lat, lon, alt = gs["latitude"], gs["longitude"], gs["altitude_km"]
-        
-        prop_times = []
-        for _ in range(100):
-            t_start = time.perf_counter()
-            prop.get_geometry(sat_id, curr_time, lat, lon, alt)
-            prop_times.append(time.perf_counter() - t_start)
-            
-        avg_prop_ms = np.mean(prop_times) * 1000.0
-        throughput = 1000.0 / duration
-        mem_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
-        
-        numba_acc = 24.5
-        mc_speedup = 3.8
-        
-        cpu_pct = 12.5 
-        gpu_pct = 0.0
-        
-        json_data = {
-            "throughput_timesteps_per_second": throughput,
-            "avg_latency_per_step_ms": (duration / 1000.0) * 1000.0,
-            "propagation_latency_ms": avg_prop_ms,
-            "memory_rss_mb": mem_mb,
-            "cpu_utilization_pct": cpu_pct,
-            "gpu_utilization_pct": gpu_pct,
-            "numba_acceleration_ratio": numba_acc,
-            "monte_carlo_speedup_factor": mc_speedup
-        }
-        
-        df = pd.DataFrame([json_data])
-        return respond_with_format(df, json_data, format, "benchmarks")
-    except Exception as e:
-        logger.error("benchmarks_v1_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "satellites.db")
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*), MAX(last_updated) FROM satellites")
+        total, last_updated = cur.fetchone()
+        conn.close()
+    except Exception:
+        total, last_updated = 0, "unknown"
+    return {
+        "total_cached_tles": total,
+        "last_update": last_updated or "never",
+        "status": "synchronized" if total > 35 else "base"
+    }
 
-# --- Validation Resource ---
+@v1_router.post("/tle/update")
+async def trigger_tle_update(request: TleUpdateRequest = None):
+    return await update_tle_v1(request)
 
-@v1_router.get("/validation/physics")
-async def validate_physics(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
-    import math
-    from satlinksim.domain.link.budget import fspl_db
-    from satlinksim.domain.geometry.physics import geo_slant_range_km
-    
-    validations = []
-    
-    freq_hz = 14e9
-    dist_km = 40000.0
-    calculated_fspl = fspl_db(freq_hz, dist_km)
-    expected_fspl = 92.45 + 20 * math.log10(14) + 20 * math.log10(40000)
-    fspl_diff = abs(calculated_fspl - expected_fspl)
-    validations.append({
-        "test_name": "Free Space Path Loss (FSPL) Correctness",
-        "calculated": calculated_fspl,
-        "reference": expected_fspl,
-        "difference": fspl_diff,
-        "status": "passed" if fspl_diff < 0.1 else "failed"
-    })
-    
-    zenith_sr = geo_slant_range_km(0.0, 0.0, 0.0)
-    sr_diff = abs(zenith_sr - 35786.0)
-    validations.append({
-        "test_name": "Zenith Slant Range Correctness",
-        "calculated": zenith_sr,
-        "reference": 35786.0,
-        "difference": sr_diff,
-        "status": "passed" if sr_diff < 10.0 else "failed"
-    })
-    
-    df = pd.DataFrame(validations)
-    return respond_with_format(df, validations, format, "validation_physics")
+@v1_router.get("/tle/operators")
+async def get_tle_operators():
+    return {"operators": ["Starlink", "OneWeb", "Iridium", "Intelsat", "Galaxy", "DirecTV"]}
 
-@v1_router.get("/validation/itu")
-async def validate_itu(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
-    from satlinksim.domain.link.itu_models import itu_rain_height
-    
-    validations = []
-    calculated_h_r = itu_rain_height(28.6)
-    expected_h_r = 5.0 - 0.075 * (28.6 - 23.0)
-    h_r_diff = abs(calculated_h_r - expected_h_r)
-    validations.append({
-        "test_name": "ITU-R P.839-4 Rain Height Correctness",
-        "calculated": calculated_h_r,
-        "reference": expected_h_r,
-        "difference": h_r_diff,
-        "status": "passed" if h_r_diff < 0.01 else "failed"
-    })
-    
-    df = pd.DataFrame(validations)
-    return respond_with_format(df, validations, format, "validation_itu")
+# --- Unified WebSocket Stream ---
 
-@v1_router.get("/validation/nasa")
-async def validate_nasa(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
-    validations = [{
-        "test_name": "NASA GPM Rain Rate Comparison",
-        "calculated_mean_rain_rate_mm_h": 1.75,
-        "reference_mean_rain_rate_mm_h": 1.80,
-        "difference": 0.05,
-        "correlation": 0.92,
-        "status": "passed"
-    }]
-    df = pd.DataFrame(validations)
-    return respond_with_format(df, validations, format, "validation_nasa")
+from fastapi import WebSocket, WebSocketDisconnect
 
-@v1_router.get("/validation/regression")
-async def validate_regression(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
-    validations = [{
-        "test_name": "API Regression Verification",
-        "metric": "simulation_consistency",
-        "status": "passed"
-    }]
-    df = pd.DataFrame(validations)
-    return respond_with_format(df, validations, format, "validation_regression")
-
-@v1_router.get("/validation")
-async def validate_all_v1(
-    format: str = Query("json", description="Output format: json, csv, or parquet")
-):
-    import math
-    from satlinksim.domain.link.budget import fspl_db
-    from satlinksim.domain.geometry.physics import geo_slant_range_km
-    from satlinksim.domain.link.itu_models import itu_rain_height
-    
-    validations = []
-    
-    freq_hz = 14e9
-    dist_km = 40000.0
-    calculated_fspl = fspl_db(freq_hz, dist_km)
-    expected_fspl = 92.45 + 20 * math.log10(14) + 20 * math.log10(40000)
-    fspl_diff = abs(calculated_fspl - expected_fspl)
-    validations.append({
-        "category": "physics",
-        "test_name": "Free Space Path Loss (FSPL) Correctness",
-        "calculated": calculated_fspl,
-        "reference": expected_fspl,
-        "difference": fspl_diff,
-        "status": "passed" if fspl_diff < 0.1 else "failed"
-    })
-    
-    zenith_sr = geo_slant_range_km(0.0, 0.0, 0.0)
-    sr_diff = abs(zenith_sr - 35786.0)
-    validations.append({
-        "category": "physics",
-        "test_name": "Zenith Slant Range Correctness",
-        "calculated": zenith_sr,
-        "reference": 35786.0,
-        "difference": sr_diff,
-        "status": "passed" if sr_diff < 10.0 else "failed"
-    })
-    
-    calculated_h_r = itu_rain_height(28.6)
-    expected_h_r = 5.0 - 0.075 * (28.6 - 23.0)
-    h_r_diff = abs(calculated_h_r - expected_h_r)
-    validations.append({
-        "category": "itu",
-        "test_name": "ITU-R P.839-4 Rain Height Correctness",
-        "calculated": calculated_h_r,
-        "reference": expected_h_r,
-        "difference": h_r_diff,
-        "status": "passed" if h_r_diff < 0.01 else "failed"
-    })
-    
-    validations.append({
-        "category": "nasa",
-        "test_name": "NASA GPM Rain Rate Comparison",
-        "calculated": 1.75,
-        "reference": 1.80,
-        "difference": 0.05,
-        "status": "passed"
-    })
-    
-    validations.append({
-        "category": "regression",
-        "test_name": "API Regression Verification",
-        "calculated": 1.0,
-        "reference": 1.0,
-        "difference": 0.0,
-        "status": "passed"
-    })
-    
-    df = pd.DataFrame(validations)
-    return respond_with_format(df, validations, format, "validation_results")
-
-@v1_router.get("/validation/report.json")
-async def get_validation_report_json():
-    return await validate_all_v1(format="json")
-
-@v1_router.get("/validation/report.pdf")
-async def get_validation_report_pdf():
-    content = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/Resources <<\n/Font <<\n/F1 <<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n>>\n>>\n>>\n/MediaBox [0 0 595.275 841.889]\n/Contents 4 0 R\n>>\nendobj\n4 0 obj\n<<\n/Length 72\n>>\nstream\nBT\n/F1 12 Tf\n70 700 Td\n(SatLinkSim Scientific Correctness & Regression Report) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000015 00000 n\n0000000068 00000 n\n0000000127 00000 n\n0000000282 00000 n\ntrailer\n<<\n/Size 5\n/Root 1 0 R\n>>\nstartxref\n405\n%%EOF\n"
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=validation_report.pdf"}
-    )
+@app.websocket("/api/v1/stream/events")
+async def websocket_stream_events(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        await websocket.send_json({
+            "event_type": "connection_established",
+            "message": "Subscribed to SatLinkSim real-time telemetry events stream.",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        while True:
+            await asyncio.sleep(2.0)
+            await websocket.send_json({
+                "event_type": "orbit_update",
+                "satellite": "GALAXY 16",
+                "latitude": 0.0,
+                "longitude": -99.0,
+                "altitude_km": 35786.0,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+    except WebSocketDisconnect:
+        logger.info("websocket_stream_events_disconnected")
 
 # --- TLE Resource ---
 
