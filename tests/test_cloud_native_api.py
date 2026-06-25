@@ -56,6 +56,34 @@ async def test_stations_v1():
 
 @pytest.mark.asyncio
 async def test_satellites_v1():
+    # Insert mock Starlink satellites to ensure the query returns data on a fresh DB
+    import sqlite3
+    import os
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src", "satlinksim", "satellites.db")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS satellites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        norad_id INTEGER UNIQUE,
+        tle_line1 TEXT,
+        tle_line2 TEXT
+    )
+    """)
+    mock_sats = [
+        ("STARLINK-1", 44057, "1 44057U 19029A   20001.00000000  .00000000  00000-0  00000-0 0  9999", "2 44057  53.0000  0.0000 0001000   0.0000   0.0000 15.00000000    12"),
+        ("STARLINK-2", 44059, "1 44059U 19029B   20001.00000000  .00000000  00000-0  00000-0 0  9999", "2 44059  53.0000  0.0000 0001000   0.0000   0.0000 15.00000000    12"),
+        ("STARLINK-3", 44061, "1 44061U 19029C   20001.00000000  .00000000  00000-0  00000-0 0  9999", "2 44061  53.0000  0.0000 0001000   0.0000   0.0000 15.00000000    12")
+    ]
+    for name, norad_id, l1, l2 in mock_sats:
+        cur.execute(
+            "INSERT OR IGNORE INTO satellites (name, norad_id, tle_line1, tle_line2) VALUES (?, ?, ?, ?)",
+            (name, norad_id, l1, l2)
+        )
+    conn.commit()
+    conn.close()
+
     # Constellation search
     response = await satellites_v1(page=1, limit=5, constellation="Starlink", format="json")
     data = json.loads(response.body.decode())
