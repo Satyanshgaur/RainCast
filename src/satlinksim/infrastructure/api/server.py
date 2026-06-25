@@ -1002,10 +1002,37 @@ async def get_datasets(
     format: str = Query("json", description="Output format: json, csv, or parquet")
 ):
     try:
-        parquet_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "satellites.db")
-        # Find path to ml/link_training_data.parquet
-        ml_parquet = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ml", "link_training_data.parquet")
-        if not os.path.exists(ml_parquet):
+        # Robust search for link_training_data.parquet across multiple potential paths
+        candidates = [
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "ml", "link_training_data.parquet"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))), "src", "satlinksim", "infrastructure", "ml", "link_training_data.parquet"),
+            os.path.join(os.getcwd(), "src", "satlinksim", "infrastructure", "ml", "link_training_data.parquet"),
+            os.path.join(os.getcwd(), "satlinksim", "infrastructure", "ml", "link_training_data.parquet"),
+            "link_training_data.parquet"
+        ]
+        
+        ml_parquet = None
+        for path in candidates:
+            if os.path.exists(path):
+                ml_parquet = path
+                break
+                
+        if not ml_parquet:
+            # Fallback: Walk the directory tree to find it stochastically
+            found_path = None
+            search_roots = [os.getcwd(), os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))]
+            for s_root in search_roots:
+                if not os.path.exists(s_root):
+                    continue
+                for root, dirs, files in os.walk(s_root):
+                    if "link_training_data.parquet" in files:
+                        found_path = os.path.join(root, "link_training_data.parquet")
+                        break
+                if found_path:
+                    break
+            ml_parquet = found_path
+
+        if not ml_parquet or not os.path.exists(ml_parquet):
             raise HTTPException(status_code=404, detail="Dataset file not found.")
             
         df_dataset = pd.read_parquet(ml_parquet)
