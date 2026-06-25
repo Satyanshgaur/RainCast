@@ -1,205 +1,284 @@
-# SatLinkSim v1 Cloud-Native API Platform Documentation
+# SatLinkSim v1 Cloud-Native API Platform Specification
 
-This document explains the architecture, security, and reference endpoints for the SatLinkSim Cloud-Native API Platform (`/api/v1`). 
+Welcome to the official developer documentation for the SatLinkSim Cloud-Native API Platform. This specification defines version `v1` of our resource-oriented REST and WebSocket endpoints.
 
-The v1 API transforms SatLinkSim from a simple command line wrapper into a robust, cloud-ready satellite simulation platform.
-
----
-
-## 1. Core Architecture Principles
-
-1. **Simulations as Persistent Resources**: Avoid duplicate computations by creating simulations once via `POST /api/v1/simulations` and querying sub-resources (`/results`, `/attenuation`, `/link-budget`, `/visibility`, `/availability`, `/handoffs`, `/orbit`) as needed.
-2. **Stateless Calculators**: For interactive web widgets, stateless calculators (`/api/v1/calculators/...`) evaluate metrics on-the-fly without creating database/in-memory records.
-3. **Asynchronous Batch Execution**: Long-running simulations, parameter sweeps, and Monte Carlo experiments are submitted as `/api/v1/jobs` and executed in the background.
-4. **Unified Multi-Format Outputs**: Every tabular and timeseries endpoint supports selection of the output format (`json`, `csv`, or `parquet`) via the `format` query parameter.
-5. **Pagination by Default**: Directory endpoints (`/satellites`, `/stations`, `/datasets`, `/simulations`) support structured cursor/page pagination to ensure high performance.
+> [!NOTE]
+> All versioned endpoints require Bearer Token Authentication. Root-level legacy routes (e.g. `/simulate`, `/visibility`) continue to operate without authentication to ensure full backward compatibility with the existing Streamlit UI and CLI tools.
 
 ---
 
-## 2. Authentication
+## 1. Global Platform Configuration
 
-All requests to the versioned `/api/v1/...` routes require **Bearer Token Authentication** in the HTTP request headers:
-
+### 1.1 Base URL
+All API requests must be directed to the following versioned base URL:
 ```http
-Authorization: Bearer sk_test_token
+https://api.satlinksim.com/api/v1
 ```
 
-* **API Key Format**: Any key starting with `sk_` (e.g. `sk_live_123456`, `sk_test_token`).
-* **Errors**: Requests without an `Authorization` header, or with an invalid key format, return `401 Unauthorized` or `403 Forbidden`.
-* **Legacy Root Routes**: Root-level legacy endpoints (like `/simulate`, `/link-budget`) do not require authentication to ensure absolute backward compatibility with the existing Streamlit UI and CLI.
+### 1.2 Authentication & Scopes
+Authenticate your requests by including your API key in the `Authorization` header as a Bearer token:
+```http
+Authorization: Bearer sk_live_51N2x...
+```
+
+The platform supports fine-grained authorization scopes:
+| Scope Name | Description |
+| :--- | :--- |
+| `simulation.read` | Allows retrieving simulation metadata and raw output results. |
+| `simulation.write` | Allows creating, triggering, and deleting simulation resources. |
+| `datasets.read` | Allows listing and downloading simulation training datasets. |
+| `datasets.write` | Allows uploading custom datasets. |
+| `admin` | Full administrative access, including TLE updates and hardware validation. |
+
+### 1.3 Rate Limits
+Rate limits are enforced based on account tiers. Clients exceeding limits will receive a `429 Too Many Requests` response.
+| Plan Tier | Hourly Request Limit | Max Concurrent Simulations | Max Simulation Duration | Max Satellites |
+| :--- | :--- | :--- | :--- | :--- |
+| **Free** | 100 requests/hr | 5 | 24 hours | 100 |
+| **Developer** | 2,000 requests/hr | 20 | 168 hours | 500 |
+| **Enterprise** | Unlimited | Custom | Unlimited | Unlimited |
 
 ---
 
-## 3. Global Query Parameters
+## 2. Standard Error Schema
 
-### 3.1 Format Selection
-* **`format`** (string, default: `"json"`): Can be `json`, `csv`, or `parquet`.
-  * `json`: Returns structured JSON payloads.
-  * `csv`: Returns a text CSV file download attachment (`text/csv`).
-  * `parquet`: Returns a binary Apache Parquet file download (`application/octet-stream`).
+All error responses return a standardized JSON payload to facilitate client-side SDK generation and error handling.
 
-### 3.2 Pagination (Directories)
-Applicable to `/satellites`, `/stations`, `/datasets`, and `/simulations`:
-* **`page`** (integer, default: `1`): The page number to retrieve (1-indexed).
-* **`limit`** (integer, default: `10`): Number of items per page.
-* **`operator`** (string, optional): Filter by operator name.
-* **`constellation`** (string, optional): Filter by constellation name (e.g., `Starlink`, `OneWeb`).
+### 2.1 Common HTTP Status Codes
+* **`400 Bad Request`**: Malformed payload or invalid query parameters.
+* **`401 Unauthorized`**: Missing or malformed Bearer Token.
+* **`403 Forbidden`**: Valid token, but lacks required scope.
+* **`404 Not Found`**: Target resource does not exist.
+* **`422 Unprocessable Entity`**: Request payload failed semantic schema validation.
+* **`429 Too Many Requests`**: Rate limit exceeded.
+* **`500 Internal Server Error`**: Core simulator computation crash.
+
+### 2.2 Error Payload Example
+```json
+{
+  "error": "InvalidFrequency",
+  "message": "Frequency must be between 1 GHz and 100 GHz."
+}
+```
 
 ---
 
-## 4. API Reference
+## 3. API Reference
 
-### 4.1 Simulations Resource (`/api/v1/simulations`)
+### 3.1 Simulations Resource (`/simulations`)
+
+Simulation execution is asynchronous to accommodate long-running parameter sweeps, Monte Carlo runs, and high-fidelity orbits.
 
 #### Create a Simulation
-Starts a simulation run and returns its identifier.
-* **Path**: `POST /api/v1/simulations`
-* **Request Schema**: Accepts either `PublicSimulationRequest` (simplified) or `SimulationRequest` (full RF details).
-* **Example JSON Request**:
+* **Endpoint**: `POST https://api.satlinksim.com/api/v1/simulations`
+* **Headers**: 
+  * `Authorization: Bearer sk_test_token`
+  * `Idempotency-Key: <UUID>` (Optional - prevents duplicate runs on retries)
+* **Example Request Payload**:
   ```json
   {
     "satellites": ["GALAXY 16"],
     "ground_station": "Delhi",
     "frequency": 14e9,
-    "duration": 600,
+    "duration": 86400,
     "step": 60,
     "rain": true,
     "handoff": true
   }
   ```
-* **Example JSON Response** (Status Code `201`):
+* **Example Response Payload** (`202 Accepted`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "pending",
+    "created_at": "2026-06-26T02:30:10Z",
+    "version": "1.0.0"
+  }
+  ```
+
+#### Get Simulation Status & Metadata
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}`
+* **Response Payload** (`200 OK`):
   ```json
   {
     "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
     "status": "completed",
     "created_at": "2026-06-26T02:30:10Z",
-    "request_type": "public"
+    "finished_at": "2026-06-26T02:30:12Z",
+    "compute_time": 2.15,
+    "duration": 86400,
+    "timesteps": 1440,
+    "num_satellites": 1,
+    "version": "1.0.0",
+    "request_type": "public",
+    "request_data": {
+      "satellites": ["GALAXY 16"],
+      "ground_station": "Delhi",
+      "frequency": 14e9,
+      "duration": 86400,
+      "step": 60,
+      "rain": true,
+      "handoff": true
+    }
   }
   ```
+  *(Status transitions: `pending` ➔ `running` ➔ `completed` or `failed`)*
 
-#### List Simulations
-Returns a paginated list of created simulations.
-* **Path**: `GET /api/v1/simulations`
+#### Retrieve Output Timeseries Results
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/results?format=json`
+* **Response Payload**: Standard simulation output timeseries object (SNR, Availability, Handoffs, Rain Loss).
 
-#### Get Simulation Metadata
-Retrieves configuration, creation epoch, and status.
-* **Path**: `GET /api/v1/simulations/{id}`
+#### Download Simulation Data
+Explicit endpoints for direct raw data extraction in CSV or Parquet format:
+* **JSON/CSV/Parquet Auto-negotiation**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download?format=parquet`
+* **CSV Explicit File**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download.csv`
+* **Parquet Explicit File**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download.parquet`
 
-#### Delete a Simulation
-Cleans up the simulation resource from in-memory/persistent store.
-* **Path**: `DELETE /api/v1/simulations/{id}`
+#### Sub-Resource Query Paths
+* **Attenuation**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/attenuation`
+* **Link Budget**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/link-budget`
+* **Visibility**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/visibility`
+* **Availability**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/availability`
+* **Handoffs**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/handoffs`
+* **Orbit Coordinates**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/orbit`
 
-#### Retrieve Outputs (`/results`)
-Returns the complete timeseries array of simulated metrics.
-* **Path**: `GET /api/v1/simulations/{id}/results`
+---
 
-#### Sub-Resource: Attenuation (`/attenuation`)
-Extracts gaseous, rain, scintillation, and total attenuation timeseries.
-* **Path**: `GET /api/v1/simulations/{id}/attenuation`
-* **Response Output**:
+### 3.2 Coverage Resource (`/coverage`)
+
+* **Station Coverage**: `POST https://api.satlinksim.com/api/v1/coverage/station`
+  * Evaluates coverage statistics and duration intervals for specific ground stations.
+* **Global Grid Coverage Map**: `POST https://api.satlinksim.com/api/v1/coverage/global`
+  * Generates a global grid coverage density report based on the specified `grid_size` parameters.
+
+---
+
+### 3.3 Orbit Propagation Resource (`/orbit`)
+
+* **Live Coordinate Lookup**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}`
+  * Propagates to current system epoch.
+* **Epoch-Specific Coordinate Lookup**: `GET https://api.satlinksim.com/api/v1/orbit/{satellite}?epoch=2026-06-25T14:00:00Z`
+  * Propagates to the designated historical or future epoch.
+* **Batch Orbit Propagator**: `POST https://api.satlinksim.com/api/v1/orbit/propagate`
+  * Propagates coordinates over a defined duration and step size.
+
+---
+
+### 3.4 Rain Services Resource (`/rain`)
+
+Exposes physics-guided telemetry inversion and stochastic forecasting models.
+
+* **Stage A Predictor (SNR Telemetry Inversion)**: `POST https://api.satlinksim.com/api/v1/rain/predict`
+  * Exposes the active algorithm model type in the response:
+    ```json
+    {
+      "predicted_rain_rate": [0.0, 1.25, 4.3],
+      "model": "stage-a"
+    }
+    ```
+* **Ensemble Forecast**: `POST https://api.satlinksim.com/api/v1/rain/forecast`
+
+---
+
+### 3.5 Benchmarks Resource (`/benchmarks`)
+
+Retrieve high-fidelity platform benchmark results:
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/benchmarks`
+* **Response Payload**:
   ```json
   {
-    "gaseous_attenuation": [0.81, 0.82, 0.83],
-    "rain_attenuation": [0.0, 1.25, 4.30],
-    "scintillation_attenuation": [0.15, -0.02, 0.09],
-    "total_attenuation": [0.96, 2.05, 5.22]
+    "cpu": "Intel(R) Xeon(R) Gold 6154 CPU @ 3.00GHz",
+    "gpu": "NVIDIA A100-SXM4-40GB (Optional)",
+    "memory_rss_mb": 142.85,
+    "throughput_timesteps_per_second": 8345.10,
+    "sgp4_latency_ms": 0.042,
+    "rain_model_latency_ms": 0.125,
+    "jit_speedup_ratio": 42.15,
+    "version": "1.0.0",
+    "benchmark_machine": "gcp-compute-c2-standard-4"
   }
   ```
 
-#### Sub-Resource: Link Budget (`/link-budget`)
-Extracts RF parameters like EIRP, path loss, received power, noise floor, and SNR.
-* **Path**: `GET /api/v1/simulations/{id}/link-budget`
+---
 
-#### Sub-Resource: Visibility (`/visibility`)
-Retrieves elevation, azimuth, and visibility booleans for all constellation satellites.
-* **Path**: `GET /api/v1/simulations/{id}/visibility?min_elevation=10.0`
+### 3.6 Scientific Validation Resource (`/validation`)
 
-#### Sub-Resource: Availability (`/availability`)
-Computes availability fraction, total outages, and detailed outage start/end timestamps.
-* **Path**: `GET /api/v1/simulations/{id}/availability?snr_threshold=5.0`
+Exposes mathematical accuracy, physics checks, and ITU-R standard verification status.
 
-#### Sub-Resource: Handoffs (`/handoffs`)
-Retrieves the array of handoff events during the simulation.
-* **Path**: `GET /api/v1/simulations/{id}/handoffs`
-
-#### Sub-Resource: Orbit (`/orbit`)
-Retrieves orbital coordinate tracking states (elevation, slant range, radial velocity, azimuth).
-* **Path**: `GET /api/v1/simulations/{id}/orbit`
+* **List Categories**: `GET https://api.satlinksim.com/api/v1/validation`
+* **Validation Sub-Resources**:
+  * Physics Invariants: `GET https://api.satlinksim.com/api/v1/validation/physics`
+  * ITU Model Verification: `GET https://api.satlinksim.com/api/v1/validation/itu`
+  * NASA GPM Correlation: `GET https://api.satlinksim.com/api/v1/validation/nasa`
+* **Validation Artifact Downloads**:
+  * JSON Report: `GET https://api.satlinksim.com/api/v1/validation/report.json`
+  * PDF Formal Report: `GET https://api.satlinksim.com/api/v1/validation/report.pdf`
 
 ---
 
-### 4.2 Batch Jobs Resource (`/api/v1/jobs`)
+### 3.7 Datasets Resource (`/datasets`)
 
-For asynchronous runs, parameter sweeps, and multi-station simulations:
-* **Create Job**: `POST /api/v1/jobs` (takes `BatchSimulationRequest`, runs in background).
-* **Check Status**: `GET /api/v1/jobs/{id}` (returns `"pending"`, `"running"`, `"completed"`, or `"failed"`).
-* **Get Results**: `GET /api/v1/jobs/{id}/results` (returns batch dictionary or tabular timeseries).
+Exposes training datasets for link quality machine learning models.
 
----
-
-### 4.3 Stateless Calculators (`/api/v1/calculators`)
-
-Stateless APIs designed for real-time web utilities. They accept parameters, run calculations on-the-fly, and return formatted data directly without caching.
-* **Link Budget Calculator**: `POST /api/v1/calculators/link-budget`
-* **Atmospheric Attenuation Calculator**: `POST /api/v1/calculators/attenuation`
-* **Availability Calculator**: `POST /api/v1/calculators/availability`
+* **List Datasets**: `GET https://api.satlinksim.com/api/v1/datasets`
+* **Dataset Detail**: `GET https://api.satlinksim.com/api/v1/datasets/{id}`
+* **Download Dataset**: `GET https://api.satlinksim.com/api/v1/datasets/{id}/download`
+* **Upload Custom Dataset**: `POST https://api.satlinksim.com/api/v1/datasets`
 
 ---
 
-## 5. Rain Services (`/api/v1/rain`)
-
-Exposes physics-guided Narrowcasting algorithms and Maseng-Bakken stochastic forecasting.
-* **Stage A Predictor (Telemetry Inversion)**: `POST /api/v1/rain/predict`
-  * Inverts elevation, SNR, slant range, and frequency to predict rain rate.
-* **Ensemble Forecast**: `POST /api/v1/rain/forecast`
-  * Projects forward ensemble realizations using Maseng-Bakken AR(1) process parameters.
+### 3.8 Directory Resources (`/stations`, `/satellites`)
+* **List Stations**: `GET https://api.satlinksim.com/api/v1/stations`
+* **Station Detail**: `GET https://api.satlinksim.com/api/v1/stations/{id}` (e.g. `/stations/delhi`)
+* **List Satellites**: `GET https://api.satlinksim.com/api/v1/satellites`
+* **Satellite Detail**: `GET https://api.satlinksim.com/api/v1/satellites/{id}` (e.g. `/satellites/29236`)
 
 ---
 
-## 6. Coverage (`/api/v1/coverage`)
+### 3.9 WebSocket Streaming API
 
-* **Local Station Coverage**: `POST /api/v1/coverage`
-  * Evaluates duration covered by a constellation for specific ground stations.
-* **Global Grid Coverage Map**: `POST /api/v1/coverage/global`
-  * Calculates coverage fraction across a global latitude-longitude coordinates grid (e.g. `grid_size=30` degrees) for premium dashboard visualizations.
+For real-time visual globes and telemetry dashboards, the platform exposes sub-second WebSocket event streams:
+* **Base URL**: `wss://api.satlinksim.com/api/v1`
 
----
-
-## 7. Orbit Propagation (`/api/v1/orbit`)
-
-* **Live Geodetic Coordinate Lookup**: `GET /api/v1/orbit/{satellite}`
-  * Searches the SQLite TLE database for the satellite name or NORAD ID, propagates to the **current exact epoch**, and returns WGS84 Geodetic Latitude, Longitude, Altitude, ECEF velocity vectors, and TLE lines.
-* **Batch Propagator**: `POST /api/v1/orbit/propagate` (propagates coordinates over a defined duration).
+| Stream Route | Event Contents |
+| :--- | :--- |
+| `wss://api.satlinksim.com/api/v1/live/handoffs` | Emits active handoff execution events. |
+| `wss://api.satlinksim.com/api/v1/live/orbits` | Stream coordinates of all tracked satellites. |
+| `wss://api.satlinksim.com/api/v1/live/rain` | Emits real-time atmospheric attenuation states. |
+| `wss://api.satlinksim.com/api/v1/live/snr` | Telemetry carrier-to-noise ratio streams. |
+| `wss://api.satlinksim.com/api/v1/live/satellites` | Active NORAD satellite catalog alerts. |
 
 ---
 
-## 8. Directories (`/api/v1/stations`, `/api/v1/satellites`)
-
-* **GET `/api/v1/stations`**: Returns ground station metadata database (paginated, supports `operator` filter).
-* **GET `/api/v1/satellites`**: Returns tracked satellites database (paginated, supports `constellation` filter).
-
----
-
-## 9. Scientific Validation (`/api/v1/validation`)
-
-Exposes scientific correctness and regression assertions directly:
-* **All Validations**: `GET /api/v1/validation`
-* **Category Physics**: `GET /api/v1/validation/physics` (FSPL, Slant Range)
-* **Category ITU**: `GET /api/v1/validation/itu` (ITU-R P.839 height validations)
-* **Category NASA**: `GET /api/v1/validation/nasa` (NASA GPM rain statistics correlation validations)
-* **Category Regression**: `GET /api/v1/validation/regression`
+### 3.10 OpenAPI & Interactive Docs
+Interactive OpenAPI specs are automatically generated and served:
+* **Interactive Swagger UI**: `https://api.satlinksim.com/docs`
+* **JSON Raw Specification**: `https://api.satlinksim.com/openapi.json`
 
 ---
 
-## 10. Benchmarks (`/api/v1/benchmarks`)
+### 3.11 Health & Status Endpoint
 
-Exposes simulator performance metrics:
-* **GET `/api/v1/benchmarks`**:
-  * Returns `throughput_timesteps_per_second`, `memory_rss_mb`, `cpu_utilization_pct`, `numba_acceleration_ratio`, and `monte_carlo_speedup_factor`.
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/health`
+* **Response Payload**:
+  ```json
+  {
+    "status": "healthy",
+    "timestamp": "2026-06-26T02:50:00Z",
+    "database": "connected",
+    "database_status": "online",
+    "tle_database": "updated",
+    "api_version": "1.0.0",
+    "uptime": "21 days",
+    "build": "abc123"
+  }
+  ```
 
 ---
 
-## 11. Health (`/api/v1/health`)
+## 4. Platform Deprecation Policy
 
-* **GET `/api/v1/health`** (Public Endpoint):
-  * Returns: `{"status": "healthy", "timestamp": "...", "database": "connected"}`.
+To guarantee API stability for client systems:
+* **Version Support**: A major version (e.g. `/api/v1`) is officially supported for a minimum of 12 months after a subsequent major version (e.g. `/api/v2`) is launched.
+* **Deprecation Notice**: Deprecated endpoints will return a `Warning` HTTP header indicating deprecation dates.
+* **Incompatibilities**: Minor and patch versions maintain complete backward compatibility in accordance with Semantic Versioning.

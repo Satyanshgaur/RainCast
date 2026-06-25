@@ -15,7 +15,10 @@ from satlinksim.infrastructure.api.server import (
     stations_v1, satellites_v1, datasets_list_v1, dataset_detail_v1,
     dataset_download_v1, benchmarks_v1, validate_physics, validate_itu,
     validate_nasa, validate_regression, validate_all_v1, update_tle_v1,
-    health_v1, simulations_store, jobs, GlobalCoverageRequest, TleUpdateRequest
+    health_v1, simulations_store, jobs, GlobalCoverageRequest, TleUpdateRequest,
+    get_station_v1, get_satellite_v1, download_simulation_results,
+    download_simulation_results_csv, download_simulation_results_parquet,
+    get_validation_report_json, get_validation_report_pdf
 )
 from satlinksim.infrastructure.api.schemas import (
     PublicSimulationRequest, LinkBudgetRequest, AttenuationRequest,
@@ -403,3 +406,70 @@ async def test_tle_update_v1():
     req = TleUpdateRequest(groups=["starlink"])
     response = await update_tle_v1(req)
     assert response["status"] == "success"
+
+@pytest.mark.asyncio
+async def test_resource_ids_and_epoch_propagation():
+    # 1. GET /stations/{id}
+    station = await get_station_v1("Delhi")
+    assert station["name"] == "Delhi"
+    assert "latitude" in station
+    
+    # 2. GET /stations/{id} not found
+    with pytest.raises(HTTPException) as exc_info:
+        await get_station_v1("NonexistentStation")
+    assert exc_info.value.status_code == 404
+    
+    # 3. GET /satellites/{id}
+    sat = await get_satellite_v1("GALAXY 16")
+    assert sat["name"] == "GALAXY 16 (G-16)"
+    assert sat["norad_id"] == 29236
+    
+    # 4. GET /satellites/{id} not found
+    with pytest.raises(HTTPException) as exc_info:
+        await get_satellite_v1("999999")
+    assert exc_info.value.status_code == 404
+    
+    # 5. GET /orbit/{satellite}?epoch=...
+    orbit = await query_satellite_orbit("GALAXY 16", epoch="2026-06-25T14:00:00Z")
+    assert orbit["satellite"] == "GALAXY 16 (G-16)"
+    assert "timestamp" in orbit
+    assert "geodetic" in orbit
+
+@pytest.mark.asyncio
+async def test_downloads_and_validation_reports():
+    # 1. Create a simulation to test downloads
+    req_pub = PublicSimulationRequest(
+        satellites=["GALAXY 16"],
+        ground_station="Delhi",
+        frequency=14e9,
+        duration=600,
+        step=60,
+        rain=True,
+        handoff=True
+    )
+    sim_meta = await create_simulation(req_pub)
+    sim_id = sim_meta["id"]
+    
+    # 2. GET /simulations/{id}/download
+    res_dl = await download_simulation_results(sim_id, format="csv")
+    assert res_dl.media_type == "text/csv"
+    
+    # 3. GET /simulations/{id}/download.csv
+    res_csv = await download_simulation_results_csv(sim_id)
+    assert res_csv.media_type == "text/csv"
+    
+    # 4. GET /simulations/{id}/download.parquet
+    res_pq = await download_simulation_results_parquet(sim_id)
+    assert res_pq.media_type == "application/octet-stream"
+    
+    # 5. GET /validation/report.json
+    res_val_json = await get_validation_report_json()
+    val_data = json.loads(res_val_json.body.decode())
+    assert len(val_data) >= 1
+    
+    # 6. GET /validation/report.pdf
+    res_val_pdf = await get_validation_report_pdf()
+    assert res_val_pdf.media_type == "application/pdf"
+    
+    # Cleanup
+    await delete_simulation(sim_id)
