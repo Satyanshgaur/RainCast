@@ -37,6 +37,78 @@ Rate limits are enforced based on account tiers. Clients exceeding limits will r
 | **Developer** | 2,000 requests/hr | 20 | 168 hours | 500 |
 | **Enterprise** | Unlimited | Custom | Unlimited | Unlimited |
 
+### 1.4 Standard Response Envelope
+All versioned JSON responses (under `/api/v1`) are wrapped in a standard response envelope. The payload maintains top-level backward compatibility, with the target response resource encapsulated in `data`, metadata in `meta`, and self link references in `links`.
+
+Example Envelope:
+```json
+{
+  "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+  "status": "completed",
+  "data": {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "completed"
+  },
+  "meta": {
+    "api_version": "1.0.0"
+  },
+  "links": {
+    "self": "/api/v1/simulations/e2a225de-8c83-49fb-811c-99d8213bfa70"
+  }
+}
+```
+
+### 1.5 Pagination Envelope
+For resources returning lists of items (such as `/stations`, `/satellites`, and `/datasets`), results are wrapped in a pagination envelope. The root level preserves pagination statistics, next/previous link cursors, and the items list inside `data`.
+
+Example Pagination Envelope:
+```json
+{
+  "page": 1,
+  "limit": 10,
+  "total_items": 1423,
+  "total_pages": 143,
+  "data": [
+    {
+      "id": "link_training_data",
+      "name": "Link Training Data"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1423,
+    "next": "/api/v1/datasets?page=2&limit=10",
+    "previous": null
+  },
+  "meta": {
+    "api_version": "1.0.0"
+  },
+  "links": {
+    "self": "/api/v1/datasets"
+  }
+}
+```
+
+### 1.6 Simulation Lifecycle State Machine
+Simulations are stateful resources with an explicit lifecycle to support asynchronous executions. 
+
+Allowed states:
+* `pending`: Simulation has been registered.
+* `queued`: Simulation is in queue waiting to be executed.
+* `running`: Simulation is currently executing.
+* `paused`: Simulation execution is temporarily suspended.
+* `completed`: Simulation executed successfully and results are ready.
+* `failed`: Simulation execution failed.
+* `cancelled`: Simulation execution was aborted.
+
+Allowed transitions:
+* `pending` ➔ `queued`, `cancelled`
+* `queued` ➔ `running`, `cancelled`
+* `running` ➔ `paused`, `completed`, `failed`, `cancelled`
+* `paused` ➔ `running`, `cancelled`
+* `completed` ➔ `paused` (supported for compatibility/synchronous test execution runs)
+
 ---
 
 ## 2. Standard Error Schema
