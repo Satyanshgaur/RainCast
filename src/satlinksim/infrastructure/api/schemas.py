@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Any
 from datetime import datetime
 
 class ItuRain(BaseModel):
@@ -114,3 +114,49 @@ class JobStatus(BaseModel):
     status: str  # pending, running, completed, failed
     result: Optional[SimulationResponse] = None
     error: Optional[str] = None
+
+class PublicSimulationRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_station: Union[str, Dict[str, Any]]
+    frequency: float = 14e9
+    duration: int = 86400
+    step: float = 60.0
+    rain: bool = True
+    handoff: bool = True
+
+class LinkBudgetRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_station: Union[str, Dict[str, Any]]
+    frequency: float = 14e9
+    duration: int = 86400
+    step: float = 60.0
+    rain: bool = True
+    handoff: bool = True
+    polarization: str = "vertical"
+    bandwidth_hz: float = 36e6
+
+class AttenuationRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_station: Union[str, Dict[str, Any]]
+    frequency: float = 14e9
+    duration: int = 86400
+    step: float = 60.0
+    rain: bool = True
+    handoff: bool = True
+
+class VisibilityRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_station: Union[str, Dict[str, Any]]
+    duration: int = 86400
+    step: float = 60.0
+    min_elevation: float = 10.0
+
+class AvailabilityRequest(BaseModel):
+    satellites: List[Union[str, int]]
+    ground_station: Union[str, Dict[str, Any]]
+    frequency: float = 14e9
+    duration: int = 86400
+    step: float = 60.0
+    rain: bool = True
+    handoff: bool = True
+    snr_threshold: float = 5.0
