@@ -51,6 +51,8 @@ class SimulationRequest(BaseModel):
     handoff_policy: str = "highest_elevation"
     hysteresis: float = 0.5
     min_dwell_steps: int = 10
+    name: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class HandoffEventSchema(BaseModel):
     time_step: int
@@ -123,6 +125,8 @@ class PublicSimulationRequest(BaseModel):
     step: float = 60.0
     rain: bool = True
     handoff: bool = True
+    name: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class LinkBudgetRequest(BaseModel):
     satellites: List[Union[str, int]]

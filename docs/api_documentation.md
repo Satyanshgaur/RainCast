@@ -2,8 +2,9 @@
 
 Welcome to the official developer documentation for the SatLinkSim Cloud-Native API Platform. This specification defines version `v1` of our resource-oriented REST and WebSocket endpoints.
 
+### Relationship Between Legacy and v1 APIs
 > [!NOTE]
-> All versioned endpoints require Bearer Token Authentication. Root-level legacy routes (e.g. `/simulate`, `/visibility`) continue to operate without authentication to ensure full backward compatibility with the existing Streamlit UI and CLI tools.
+> Root-level endpoints (`/simulate`, `/visibility`, etc.) remain available for backward compatibility with the CLI and Streamlit dashboard. New integrations should use the versioned `/api/v1` endpoints, which provide authentication, standardized responses, and long-term stability. All versioned endpoints require Bearer Token Authentication.
 
 ---
 
@@ -15,7 +16,11 @@ All API requests must be directed to the following versioned base URL:
 https://api.satlinksim.com/api/v1
 ```
 
-### 1.2 Authentication & Scopes
+### 1.2 Timestamps Standard
+All timestamps in request payloads and response bodies are standardized as ISO-8601 UTC.
+Example: `2026-06-26T14:22:31Z`.
+
+### 1.3 Authentication & Scopes
 Authenticate your requests by including your API key in the `Authorization` header as a Bearer token:
 ```http
 Authorization: Bearer sk_live_51N2x...
@@ -29,7 +34,7 @@ The platform supports fine-grained authorization scopes:
 | `datasets.read` | Allows listing and downloading simulation training datasets. |
 | `admin` | Full administrative access, including TLE updates and hardware validation. |
 
-### 1.3 Rate Limits
+### 1.4 Rate Limits
 Rate limits are enforced based on account tiers. Clients exceeding limits will receive a `429 Too Many Requests` response.
 | Plan Tier | Hourly Request Limit | Max Concurrent Simulations | Max Simulation Duration | Max Satellites |
 | :--- | :--- | :--- | :--- | :--- |
@@ -37,8 +42,8 @@ Rate limits are enforced based on account tiers. Clients exceeding limits will r
 | **Developer** | 2,000 requests/hr | 20 | 168 hours | 500 |
 | **Enterprise** | Unlimited | Custom | Unlimited | Unlimited |
 
-### 1.4 Standard Response Envelope
-All versioned JSON responses (under `/api/v1`) are wrapped in a standard response envelope. The payload maintains top-level backward compatibility, with the target response resource encapsulated in `data`, metadata in `meta`, and self link references in `links`.
+### 1.5 Standard Response Envelope
+All versioned JSON responses (under `/api/v1`) are wrapped in a standard response envelope. The payload maintains top-level backward compatibility, with the target response resource encapsulated in `data`, metadata in `meta` (including request IDs), and self link references in `links`.
 
 Example Envelope:
 ```json
@@ -50,7 +55,8 @@ Example Envelope:
     "status": "completed"
   },
   "meta": {
-    "api_version": "1.0.0"
+    "api_version": "1.0.0",
+    "request_id": "8f2f53d9-a720-43ef-a9c6-121f0629a9ee"
   },
   "links": {
     "self": "/api/v1/simulations/e2a225de-8c83-49fb-811c-99d8213bfa70"
@@ -58,8 +64,11 @@ Example Envelope:
 }
 ```
 
-### 1.5 Pagination Envelope
+### 1.6 Pagination Envelope
 For resources returning lists of items (such as `/stations`, `/satellites`, and `/datasets`), results are wrapped in a pagination envelope. The root level preserves pagination statistics, next/previous link cursors, and the items list inside `data`.
+
+> [!NOTE]
+> **Cursor Pagination**: While page numbers are currently used for small datasets, the platform plans to transition to cursor-based pagination (e.g., `GET /simulations?cursor=eyJpZCI6...`) in future versions to efficiently scale for millions of simulation records.
 
 Example Pagination Envelope:
 ```json
@@ -82,7 +91,8 @@ Example Pagination Envelope:
     "previous": null
   },
   "meta": {
-    "api_version": "1.0.0"
+    "api_version": "1.0.0",
+    "request_id": "8f2f53d9-a720-43ef-a9c6-121f0629a9ee"
   },
   "links": {
     "self": "/api/v1/datasets"
@@ -90,7 +100,7 @@ Example Pagination Envelope:
 }
 ```
 
-### 1.6 Simulation Lifecycle State Machine
+### 1.7 Simulation Lifecycle State Machine
 Simulations are stateful resources with an explicit lifecycle to support asynchronous executions. 
 
 Allowed states:
@@ -107,6 +117,27 @@ Allowed transitions:
 * `queued` ➔ `running`, `cancelled`
 * `running` ➔ `paused`, `completed`, `failed`, `cancelled`
 * `paused` ➔ `running`, `cancelled`
+
+### 1.8 Idempotency Support
+For mutation requests (e.g., `POST /simulations`), users can include an optional `Idempotency-Key` header with a unique UUID.
+* **Storage**: Keys and their original HTTP responses are cached for up to 24 hours.
+* **Reuse**: Re-submitting a request with the same `Idempotency-Key` returns the cached status code and response payload immediately without re-calculating the simulation.
+* **Usage Guideline**: Users should use idempotency keys on retry attempts after network timeouts to prevent duplicate resource creations and duplicated computation billing (similar to Stripe’s idempotency pattern).
+
+### 1.9 HTTP API Headers
+Every HTTP response contains versioning, tracking, and rate-limiting metadata:
+* `X-Request-ID`: Unique request ID (e.g. `8f2f53d9...`) for auditing and debugging.
+* `X-Compute-Time`: Server-side execution duration in seconds.
+* `API-Version`: The version of the API server (`1.0.0`).
+* `Deprecation`: Boolean indicating whether the requested version is deprecated (`false`).
+* `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`: Standard rate-limiting headers.
+
+### 1.10 Production Security Headers
+For production deployments, the gateway/server enforces the following standard security headers:
+* `Strict-Transport-Security`: `max-age=63072000; includeSubDomains; preload` (enforces HTTPS).
+* `Content-Security-Policy`: `default-src 'self'; frame-ancestors 'none';` (prevents clickjacking and unauthorized script loading).
+* `X-Content-Type-Options`: `nosniff` (disables MIME-type sniffing).
+* `X-Frame-Options`: `DENY` (prohibits framing).
 
 ---
 
@@ -153,7 +184,9 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
     "duration": 86400,
     "step": 60,
     "rain": true,
-    "handoff": true
+    "handoff": true,
+    "name": "LEO Coverage Test",
+    "tags": ["paper", "starlink", "ka-band"]
   }
   ```
 * **Example Response Payload** (`202 Accepted`):
@@ -166,6 +199,49 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
   }
   ```
 
+#### List Simulations
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations`
+* **Query Parameters**:
+  * `page` (Optional, integer, default: `1`): Page number for pagination.
+  * `limit` (Optional, integer, default: `10`): Number of items per page.
+  * `status` (Optional, string): Filter simulations by status (e.g. `completed`, `pending`, `failed`, `paused`, `running`).
+  * `ground_station` (Optional, string): Filter simulations by ground station name (case-insensitive substring match).
+  * `created_after` (Optional, string): Filter simulations created after this ISO-8601 timestamp.
+  * `tags` (Optional, string): Filter simulations by comma-separated tags (returns simulations matching any of the specified tags).
+* **Example Response Payload** (`200 OK`):
+  ```json
+  {
+    "page": 1,
+    "limit": 10,
+    "total_items": 1,
+    "total_pages": 1,
+    "data": [
+      {
+        "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+        "status": "completed",
+        "name": "LEO Coverage Test",
+        "tags": ["paper", "starlink", "ka-band"],
+        "created_at": "2026-06-26T02:30:10Z",
+        "request_type": "public"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1,
+      "next": null,
+      "previous": null
+    },
+    "meta": {
+      "api_version": "1.0.0",
+      "request_id": "8f2f53d9-a720-43ef-a9c6-121f0629a9ee"
+    },
+    "links": {
+      "self": "/api/v1/simulations"
+    }
+  }
+  ```
+
 #### Get Simulation Status & Metadata
 * **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}`
 * **Response Payload** (`200 OK`):
@@ -173,6 +249,8 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
   {
     "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
     "status": "completed",
+    "name": "LEO Coverage Test",
+    "tags": ["paper", "starlink", "ka-band"],
     "created_at": "2026-06-26T02:30:10Z",
     "finished_at": "2026-06-26T02:30:12Z",
     "compute_time": 2.15,
@@ -188,11 +266,42 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
       "duration": 86400,
       "step": 60,
       "rain": true,
-      "handoff": true
+      "handoff": true,
+      "name": "LEO Coverage Test",
+      "tags": ["paper", "starlink", "ka-band"]
     }
   }
   ```
   *(Status transitions: `pending` ➔ `running` ➔ `completed` or `failed`)*
+
+#### Retrieve Original Request Configuration
+* **Endpoint**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/request`
+* **Response Payload** (`200 OK`):
+  ```json
+  {
+    "id": "e2a225de-8c83-49fb-811c-99d8213bfa70",
+    "status": "completed",
+    "data": {
+      "satellites": ["GALAXY 16"],
+      "ground_station": "Delhi",
+      "frequency": 14000000000.0,
+      "duration": 86400,
+      "step": 60.0,
+      "rain": true,
+      "handoff": true,
+      "name": "LEO Coverage Test",
+      "tags": ["paper", "starlink", "ka-band"]
+    },
+    "meta": {
+      "api_version": "1.0.0",
+      "request_id": "8f2f53d9-a720-43ef-a9c6-121f0629a9ee"
+    },
+    "links": {
+      "self": "/api/v1/simulations/e2a225de-8c83-49fb-811c-99d8213bfa70/request"
+    }
+  }
+  ```
+
 
 #### Pause a Simulation
 * **Endpoint**: `POST https://api.satlinksim.com/api/v1/simulations/{id}/pause`
@@ -499,12 +608,20 @@ Standardized Event Payload Format:
 }
 ```
 
+#### Connection Management & Reconnection Policy
+* **Heartbeat Protocol**: The server sends a heartbeat `ping` frame every 30 seconds. Clients must respond with a corresponding `pong` frame within 5 seconds to prevent the server from terminating the connection.
+* **Reconnection Strategy**: In case of unexpected disconnection, clients should implement exponential backoff reconnection with random jitter (e.g., initial delay of 1s, doubling up to a maximum of 60s, plus or minus 15% random jitter). This prevents the platform from experiencing a thundering herd problem during server/network recovery.
+* **Delivery Semantics & Event Ordering**: Event delivery follows a **best-effort** model. Telemetry events originating from the same simulation are guaranteed to be ordered sequentially, but message delivery is not guaranteed during net splits. Clients should handle dropped telemetry packets gracefully by checking statuses via REST.
+
 ---
 
 ### 3.10 OpenAPI & Interactive Docs
 Interactive OpenAPI specs are automatically generated and served:
 * **Interactive Swagger UI**: `https://api.satlinksim.com/docs`
 * **JSON Raw Specification**: `https://api.satlinksim.com/openapi.json`
+
+> [!NOTE]
+> Official SDKs generated from the OpenAPI specification will be published for Python, JavaScript/TypeScript, and Go.
 
 ---
 
@@ -589,7 +706,25 @@ The documentation is published as a unified portal using the following structure
 
 ## 6. Platform Deprecation Policy
 
-To guarantee API stability for client systems:
-* **Version Support**: A major version (e.g. `/api/v1`) is officially supported for a minimum of 12 months after a subsequent major version (e.g. `/api/v2`) is launched.
-* **Deprecation Notice**: Deprecated endpoints will return a `Warning` HTTP header indicating deprecation dates.
+To guarantee API stability for client systems, we adhere to a structured deprecation lifecycle:
+
+```
+Active & Supported ➔ Deprecated (Supported for 12 Months) ➔ Sunset / Removed
+```
+
+* **Lifecycle Definition**:
+  1. **Active & Supported**: Current stable production version.
+  2. **Deprecated (12 Months Support)**: When a new major API version (e.g. `/api/v2`) is introduced, the legacy version (e.g. `/api/v1`) enters deprecation status. It is officially supported with security patches and critical bug fixes for exactly **12 months** from the deprecation announcement date.
+  3. **Sunset / Removed**: After the 12-month period expires, the version is fully removed and calls will return `410 Gone` or `404 Not Found`.
+
+* **HTTP Deprecation Headers**:
+  Endpoints belonging to a deprecated version will return the following headers in every response:
+  * `Sunset`: Specifying the timestamp of version removal (RFC 7231 format).
+    * *Example*: `Sunset: Sat, 26 Jun 2027 00:00:00 GMT`
+  * `Warning`: Standard API warning header (code `299`).
+    * *Example*: `Warning: 299 - "API version v1 is deprecated and will be sunset on 2027-06-26T00:00:00Z"`
+  * `Link`: Hyperlink referencing version migration guides or deprecation announcements.
+    * *Example*: `Link: <https://api.satlinksim.com/docs/deprecation/v1>; rel="sunset"`
+
 * **Incompatibilities**: Minor and patch versions maintain complete backward compatibility in accordance with Semantic Versioning.
+

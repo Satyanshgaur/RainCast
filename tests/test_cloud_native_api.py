@@ -495,3 +495,62 @@ async def test_downloads_and_product_apis():
     
     # Cleanup
     await delete_simulation(sim_id)
+
+@pytest.mark.asyncio
+async def test_simulation_tags_and_filtering():
+    # 1. Create a simulation with tags and name
+    req_pub = PublicSimulationRequest(
+        satellites=["GALAXY 16"],
+        ground_station="Delhi",
+        frequency=14e9,
+        duration=600,
+        step=60,
+        rain=True,
+        handoff=True,
+        name="LEO Coverage Test",
+        tags=["paper", "starlink", "ka-band"]
+    )
+    sim_meta = await create_simulation(req_pub)
+    assert "id" in sim_meta
+    sim_id = sim_meta["id"]
+
+    # 2. Retrieve detail and verify tags/name
+    detail = await get_simulation(sim_id)
+    assert detail["name"] == "LEO Coverage Test"
+    assert detail["tags"] == ["paper", "starlink", "ka-band"]
+
+    # 3. Retrieve request config and verify original request parameters are returned
+    from satlinksim.infrastructure.api.server import get_simulation_request
+    req_data = await get_simulation_request(sim_id)
+    assert req_data["data"]["name"] == "LEO Coverage Test"
+    assert req_data["data"]["tags"] == ["paper", "starlink", "ka-band"]
+    assert req_data["data"]["frequency"] == 14e9
+
+    # 4. List simulations with filtering
+    # Filter by status
+    res_list_status = await list_simulations(status="completed")
+    assert any(s["id"] == sim_id for s in res_list_status["data"])
+
+    res_list_status_wrong = await list_simulations(status="failed")
+    assert not any(s["id"] == sim_id for s in res_list_status_wrong["data"])
+
+    # Filter by ground_station
+    res_list_gs = await list_simulations(ground_station="Delhi")
+    assert any(s["id"] == sim_id for s in res_list_gs["data"])
+
+    res_list_gs_wrong = await list_simulations(ground_station="Mumbai")
+    assert not any(s["id"] == sim_id for s in res_list_gs_wrong["data"])
+
+    # Filter by tags
+    res_list_tag = await list_simulations(tags="starlink")
+    assert any(s["id"] == sim_id for s in res_list_tag["data"])
+
+    res_list_tag_multiple = await list_simulations(tags="paper, ka-band")
+    assert any(s["id"] == sim_id for s in res_list_tag_multiple["data"])
+
+    res_list_tag_wrong = await list_simulations(tags="other-tag")
+    assert not any(s["id"] == sim_id for s in res_list_tag_wrong["data"])
+
+    # Cleanup
+    await delete_simulation(sim_id)
+

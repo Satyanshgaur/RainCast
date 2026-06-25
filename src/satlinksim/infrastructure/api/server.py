@@ -117,9 +117,11 @@ def respond_with_format(df: pd.DataFrame, json_data: Any, format: str, filename_
     if format == "json":
         if isinstance(json_data, dict):
             if "data" not in json_data or "pagination" in json_data:
+                ctx = structlog.contextvars.get_contextvars()
+                req_id = ctx.get("request_id") or ""
                 wrapped = {
                     **json_data,
-                    "meta": {"api_version": "1.0.0"},
+                    "meta": {"api_version": "1.0.0", "request_id": req_id},
                     "links": {"self": f"/api/v1/{filename_prefix}"}
                 }
                 if "data" not in json_data:
@@ -1243,6 +1245,7 @@ async def predict_rain(
         json_data = {
             "predicted_rain_rate": pred_rain.tolist(),
             "model": "stage-c-frequency-aware",
+            "model_version": "1.2.0",
             "rain_rate": pred_rain.tolist(),
             "confidence": confidence
         }
@@ -1254,7 +1257,8 @@ async def predict_rain(
             "filtered_attenuation": filtered_attn.tolist(),
             "predicted_rain_rate": pred_rain.tolist(),
             "confidence": confidence,
-            "model": ["stage-c-frequency-aware"] * n_points
+            "model": ["stage-c-frequency-aware"] * n_points,
+            "model_version": ["1.2.0"] * n_points
         })
         
         return respond_with_format(df, json_data, format, "rain_predictions")
@@ -1557,9 +1561,11 @@ def wrap_envelope(data: Any, path: str) -> Dict[str, Any]:
     if isinstance(data, dict):
         if "data" in data and "meta" in data:
             return data
+        ctx = structlog.contextvars.get_contextvars()
+        req_id = ctx.get("request_id") or ""
         wrapped = {
             **data,
-            "meta": {"api_version": "1.0.0"},
+            "meta": {"api_version": "1.0.0", "request_id": req_id},
             "links": {"self": f"/api/v1{path}"}
         }
         if "data" not in data:
@@ -1893,14 +1899,21 @@ async def create_simulation(
         return ret_val
 
 @v1_router.get("/simulations", tags=["Simulation"])
-@v1_router.get("/simulations", tags=["Simulation"])
 async def list_simulations(
     request: Request = None,
     page: int = Query(1, description="Page number", ge=1),
-    limit: int = Query(10, description="Items per page", ge=1)
+    limit: int = Query(10, description="Items per page", ge=1),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    ground_station: Optional[str] = Query(None, description="Filter by ground station"),
+    created_after: Optional[str] = Query(None, description="Filter by creation timestamp (ISO-8601)"),
+    tags: Optional[str] = Query(None, description="Filter by comma-separated tags")
 ):
     page = page if isinstance(page, int) else 1
     limit = limit if isinstance(limit, int) else 10
+    status = status if isinstance(status, str) else None
+    ground_station = ground_station if isinstance(ground_station, str) else None
+    created_after = created_after if isinstance(created_after, str) else None
+    tags = tags if isinstance(tags, str) else None
     
     sims = sorted(
         simulations_store.values(),
@@ -1908,33 +1921,88 @@ async def list_simulations(
         reverse=True
     )
     
+    filtered_sims = []
+    for s in sims:
+        if status and s.get("status") != status:
+            continue
+            
+        if ground_station:
+            req_data = s.get("request_data") or {}
+            gs_val = req_data.get("ground_station")
+            gs_list = req_data.get("ground_stations")
+            
+            match = False
+            if gs_val:
+                if isinstance(gs_val, str) and ground_station.lower() in gs_val.lower():
+                    match = True
+                elif isinstance(gs_val, dict) and ground_station.lower() in str(gs_val.get("name", "")).lower():
+                    match = True
+            if gs_list and isinstance(gs_list, list):
+                for gs in gs_list:
+                    if isinstance(gs, str) and ground_station.lower() in gs.lower():
+                        match = True
+                    elif isinstance(gs, dict) and ground_station.lower() in str(gs.get("name", "")).lower():
+                        match = True
+            if not match:
+                continue
+                
+        if created_after:
+            sim_created_at = s.get("created_at")
+            if not sim_created_at or sim_created_at < created_after:
+                continue
+                
+        if tags:
+            req_data = s.get("request_data") or {}
+            sim_tags = req_data.get("tags") or []
+            if isinstance(sim_tags, str):
+                sim_tags = [sim_tags]
+            q_tags = [t.strip().lower() for t in tags.split(",") if t.strip()]
+            if not any(t in [st.lower() for st in sim_tags] for t in q_tags):
+                continue
+                
+        filtered_sims.append(s)
+        
     start_idx = (page - 1) * limit
     end_idx = start_idx + limit
-    paginated_sims = sims[start_idx:end_idx]
+    paginated_sims = filtered_sims[start_idx:end_idx]
     
     result_list = []
     for s in paginated_sims:
         result_list.append({
             "id": s["id"],
             "status": s["status"],
+            "name": s["request_data"].get("name"),
+            "tags": s["request_data"].get("tags"),
             "created_at": s.get("created_at"),
             "request_type": s["request_type"],
             "request_data": s["request_data"]
         })
         
+    query_params = []
+    if status:
+        query_params.append(f"status={status}")
+    if ground_station:
+        query_params.append(f"ground_station={ground_station}")
+    if created_after:
+        query_params.append(f"created_after={created_after}")
+    if tags:
+        query_params.append(f"tags={tags}")
+        
+    query_suffix = "&" + "&".join(query_params) if query_params else ""
+    
     response_data = {
         "page": page,
         "limit": limit,
-        "total_items": len(sims),
-        "total_pages": (len(sims) + limit - 1) // limit if len(sims) > 0 else 0,
+        "total_items": len(filtered_sims),
+        "total_pages": (len(filtered_sims) + limit - 1) // limit if len(filtered_sims) > 0 else 0,
         "simulations": result_list,
         "data": result_list,
         "pagination": {
             "page": page,
             "limit": limit,
-            "total": len(sims),
-            "next": f"/api/v1/simulations?page={page+1}&limit={limit}" if end_idx < len(sims) else None,
-            "previous": f"/api/v1/simulations?page={page-1}&limit={limit}" if page > 1 else None
+            "total": len(filtered_sims),
+            "next": f"/api/v1/simulations?page={page+1}&limit={limit}{query_suffix}" if end_idx < len(filtered_sims) else None,
+            "previous": f"/api/v1/simulations?page={page-1}&limit={limit}{query_suffix}" if page > 1 else None
         }
     }
     return wrap_envelope(response_data, "/simulations")
@@ -1947,6 +2015,8 @@ async def get_simulation(id: str, request: Request = None):
     response = {
         "id": s["id"],
         "status": s["status"],
+        "name": s["request_data"].get("name"),
+        "tags": s["request_data"].get("tags"),
         "created_at": s.get("created_at"),
         "finished_at": s.get("finished_at"),
         "compute_time": s.get("compute_time"),
@@ -1960,6 +2030,13 @@ async def get_simulation(id: str, request: Request = None):
     if s["status"] == "failed":
         response["error"] = s.get("error")
     return wrap_envelope(response, f"/simulations/{id}")
+
+@v1_router.get("/simulations/{id}/request", tags=["Simulation"])
+async def get_simulation_request(id: str, request: Request = None):
+    if id not in simulations_store:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    s = simulations_store[id]
+    return wrap_envelope(s["request_data"], f"/simulations/{id}/request")
 
 @v1_router.delete("/simulations/{id}", tags=["Simulation"])
 async def delete_simulation(id: str, request: Request = None):
@@ -3962,6 +4039,21 @@ async def get_system_info():
         ],
         "ml_models": [
             "Stage-C Frequency-Aware XGBoost"
+        ],
+        "supported_formats": [
+            "json",
+            "csv",
+            "parquet",
+            "netcdf"
+        ],
+        "authentication": [
+            "Bearer"
+        ],
+        "features": [
+            "handoffs",
+            "rain",
+            "monte_carlo",
+            "realtime"
         ],
         "build": "abc123",
         "last_tle_update": now.isoformat()
