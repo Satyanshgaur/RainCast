@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raincast Documentation Portal</title>
+    <meta name="description" content="Extensive technical reference for Raincast REST endpoints, SGP4 propagation, ITU-R physics models, and machine learning narrowcasting.">
+    
+    <!-- Google Fonts: DM Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..500;1,9..40,400..500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS for Math Equations -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    
+    <!-- Highlight.js CSS for Syntax Highlighting (Dark Theme) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Core Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        /* Documentation Portal Grid Layout */
+        .docs-layout {
+            display: flex;
+            gap: 40px;
+            margin-top: 40px;
+            align-items: flex-start;
+        }
+        
+        /* Left Sticky Sidebar */
+        .docs-sidebar {
+            width: 280px;
+            position: sticky;
+            top: 100px;
+            height: calc(100vh - 140px);
+            overflow-y: auto;
+            border-right: 1px solid rgba(237, 255, 254, 0.04);
+            padding-right: 20px;
+            flex-shrink: 0;
+        }
+
+        .docs-sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .docs-sidebar::-webkit-scrollbar-thumb {
+            background: var(--color-tide-pool-teal);
+            border-radius: 2px;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .sidebar-link {
+            display: block;
+            color: var(--color-fog-veil);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.44px;
+            padding: 10px 14px;
+            border-radius: var(--radius-inputs);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 2px solid transparent;
+        }
+        
+        .sidebar-link:hover {
+            color: var(--color-snow-sheet);
+            background-color: rgba(237, 255, 254, 0.02);
+            border-left-color: rgba(237, 255, 254, 0.2);
+        }
+        
+        .sidebar-link.active {
+            color: var(--color-snow-sheet);
+            background-color: var(--color-tide-pool-teal);
+            border-left-color: var(--color-teal-accent);
+        }
+        
+        /* Main Document Display Panel */
+        .docs-body {
+            flex: 1;
+            max-width: 880px;
+            min-height: 600px;
+            position: relative;
+        }
+
+        /* Loading Spinner */
+        .doc-loader {
+            position: absolute;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            color: var(--color-fog-veil);
+            font-size: 13px;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(255, 255, 255, 0.05);
+            border-top-color: var(--color-teal-accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Markdown Render Styling */
+        .markdown-body {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--color-fog-veil);
+            transition: opacity 0.2s ease;
+        }
+
+        .markdown-body h1 {
+            font-size: 36px;
+            font-weight: 400;
+            margin-bottom: 24px;
+            color: var(--color-snow-sheet);
+            letter-spacing: -0.47px;
+            border-bottom: 1px solid rgba(237, 255, 254, 0.04);
+            padding-bottom: 12px;
+        }
+
+        .markdown-body h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-top: 40px;
+            margin-bottom: 16px;
+            color: var(--color-snow-sheet);
+            letter-spacing: -0.29px;
+            border-bottom: 1px solid rgba(237, 255, 254, 0.03);
+            padding-bottom: 8px;
+        }
+
+        .markdown-body h3 {
+            font-size: 20px;
+            font-weight: 400;
+            margin-top: 32px;
+            margin-bottom: 12px;
+            color: var(--color-snow-sheet);
+            letter-spacing: -0.29px;
+        }
+
+        .markdown-body p {
+            margin-bottom: 16px;
+        }
+
+        .markdown-body ul, .markdown-body ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        .markdown-body li {
+            margin-bottom: 8px;
+        }
+
+        .markdown-body code {
+            font-family: var(--font-geistmono);
+            font-size: 12.5px;
+            background-color: var(--color-tide-pool-teal);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--color-snow-sheet);
+        }
+
+        .markdown-body pre {
+            background-color: rgba(1, 29, 28, 0.6);
+            border: 1px solid rgba(237, 255, 254, 0.03);
+            border-radius: var(--radius-inputs);
+            padding: 16px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .markdown-body pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            color: inherit;
+            font-size: 12px;
+        }
+
+        /* Alert Callouts */
+        .doc-alert {
+            border-left: 4px solid var(--color-teal-accent);
+            background-color: rgba(0, 130, 124, 0.05);
+            border-radius: var(--radius-inputs);
+            padding: 16px 20px;
+            margin: 24px 0;
+            font-size: 14px;
+        }
+
+        .doc-alert strong {
+            text-transform: uppercase;
+            letter-spacing: 1.44px;
+            font-size: 11px;
+            color: var(--color-snow-sheet);
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .doc-alert.note {
+            border-left-color: var(--color-teal-accent);
+            background-color: rgba(0, 130, 124, 0.04);
+        }
+
+        .doc-alert.warning {
+            border-left-color: var(--color-ember-red);
+            background-color: rgba(255, 99, 99, 0.04);
+        }
+
+        .doc-alert.important {
+            border-left-color: #a855f7;
+            background-color: rgba(168, 85, 247, 0.04);
+        }
+
+        .doc-alert.tip {
+            border-left-color: #59d499;
+            background-color: rgba(89, 212, 153, 0.04);
+        }
+
+        /* Markdown Table Formatting */
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+            font-size: 12px;
+        }
+
+        .markdown-body th, .markdown-body td {
+            padding: 10px 12px;
+            border: 1px solid rgba(237, 255, 254, 0.04);
+            text-align: left;
+        }
+
+        .markdown-body th {
+            background-color: var(--color-midnight-current);
+            font-weight: 500;
+            color: var(--color-snow-sheet);
+        }
+
+        .markdown-body tr:nth-child(even) td {
+            background-color: rgba(237, 255, 254, 0.01);
+        }
+
+        /* LaTeX Equations sizing */
+        .katex-display {
+            margin: 20px 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 8px 0;
+        }
+
+        /* Markdown image mapping */
+        .markdown-body img {
+            max-width: 100%;
+            height: auto;
+            border-radius: var(--radius-cards);
+            border: 1px solid rgba(237, 255, 254, 0.03);
+            margin: 20px 0;
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .docs-layout {
+                flex-direction: column;
+            }
+            .docs-sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                top: 0;
+                border-right: none;
+                border-bottom: 1px solid rgba(237, 255, 254, 0.04);
+                padding-right: 0;
+                padding-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Section Atmosphere Radials -->
+    <div class="gradient-wash"></div>
+
+    <!-- Floating Top Navigation Bar (Auros Transparent) -->
+    <header class="navbar-container">
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">
+                <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 2,22 22,22" fill="#ffffff"/>
+                </svg>
+                <span class="brand-name">Raincast</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="products.html" class="nav-link">Products</a></li>
+                <li><a href="docs.html" class="nav-link active">Documentation</a></li>
+                <li><a href="about.html" class="nav-link">About</a></li>
+                <li><a href="pricing.html" class="nav-link">Pricing</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <a href="login.html" class="nav-link">Log in</a>
+                <a href="products.html" class="btn-secondary">Launch</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-content" style="padding-top: 120px;">
+        <div class="section-container">
+            <div class="docs-layout">
+                <!-- Left Sidebar Navigation -->
+                <aside class="docs-sidebar">
+                    <ul class="sidebar-menu">
+                        <li><a href="#api" class="sidebar-link active" data-file="api_documentation.md">REST & WebSocket API</a></li>
+                        <li><a href="#architecture" class="sidebar-link" data-file="architecture.md">System Architecture</a></li>
+                        <li><a href="#physics" class="sidebar-link" data-file="physics_models.md">Physics Models</a></li>
+                        <li><a href="#rain" class="sidebar-link" data-file="rain_model.md">Maseng-Bakken Model</a></li>
+                        <li><a href="#narrowcast" class="sidebar-link" data-file="inverse_rain_rate.md">Inverse Narrowcasting</a></li>
+                        <li><a href="#validation" class="sidebar-link" data-file="validation.md">Validation Methodology</a></li>
+                        <li><a href="#benchmarks" class="sidebar-link" data-file="benchmarks.md">Performance Benchmarks</a></li>
+                        <li><a href="#references" class="sidebar-link" data-file="references.md">References</a></li>
+                    </ul>
+                </aside>
+
+                <!-- Right Side Content Area -->
+                <div class="docs-body glass-card" style="padding: 48px;">
+                    <!-- Loading Spinner -->
+                    <div class="doc-loader" id="doc-loader">
+                        <div class="spinner"></div>
+                        <span>Parsing Document...</span>
+                    </div>
+
+                    <!-- Output markdown container -->
+                    <article class="markdown-body" id="doc-content">
+                        <!-- Loaded dynamically -->
+                    </article>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-name">Raincast</span>
+                <span class="footer-meta font-mono">v2.1.0-API</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 Raincast. Technical Reference Suite.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Markdown & Render Scripts (CDNs) -->
+    <!-- Marked.js for markdown-to-HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <!-- KaTeX for math formula rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <!-- Mermaid.js for flowcharts -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.4/dist/mermaid.min.js"></script>
+
+    <!-- Dynamic Fetch & Loader JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            const docContent = document.getElementById('doc-content');
+            const loader = document.getElementById('doc-loader');
+            
+            // Initialize Mermaid configurations
+            if (window.mermaid) {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'dark',
+                    themeVariables: {
+                        background: '#012624',
+                        primaryColor: '#011d1c',
+                        primaryTextColor: '#ffffff',
+                        lineColor: '#00827c'
+                    }
+                });
+            }
+
+            // Convert GitHub-style alerts into styled alert boxes
+            function parseAlerts(markdown) {
+                const alertTypes = ['NOTE', 'WARNING', 'IMPORTANT', 'TIP', 'CAUTION'];
+                let parsed = markdown;
+                
+                alertTypes.forEach(type => {
+                    const regex = new RegExp(`> \\[\\!${type}\\]\\n> ([\\s\\S]*?)(?=\\n\\n|\\n[^>]|$)`, 'g');
+                    parsed = parsed.replace(regex, (match, content) => {
+                        const cleanContent = content.replace(/^>\s?/gm, '').trim();
+                        const alertClass = type.toLowerCase();
+                        return `\n<div class="doc-alert ${alertClass}"><strong>${type}</strong><br>${cleanContent}</div>\n`;
+                    });
+                });
+                
+                return parsed;
+            }
+
+            // Adjust relative image paths to load directly from raw folders
+            function adjustAssetPaths(markdown) {
+                let adjusted = markdown;
+                adjusted = adjusted.replace(/\((plots\/.*?)\)/g, '(../docs/$1)');
+                adjusted = adjusted.replace(/src="(plots\/.*?)"/g, 'src="../docs/$1"');
+                return adjusted;
+            }
+
+            async function loadDocument(fileName) {
+                loader.style.display = 'flex';
+                docContent.style.opacity = '0.1';
+                
+                try {
+                    const response = await fetch(`../docs/${fileName}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${fileName}: ${response.statusText}`);
+                    }
+                    let markdown = await response.text();
+                    
+                    markdown = parseAlerts(markdown);
+                    markdown = adjustAssetPaths(markdown);
+                    
+                    let html = marked.parse(markdown);
+                    docContent.innerHTML = html;
+                    
+                    // 1. Convert Mermaid blocks into diagram divs
+                    const mermaidBlocks = docContent.querySelectorAll('pre code.language-mermaid');
+                    mermaidBlocks.forEach((block, index) => {
+                        const pre = block.parentNode;
+                        const code = block.textContent.trim();
+                        const id = `mermaid-chart-${index}`;
+                        
+                        const div = document.createElement('div');
+                        div.className = 'mermaid';
+                        div.id = id;
+                        div.textContent = code;
+                        
+                        pre.parentNode.replaceChild(div, pre);
+                    });
+
+                    // Render Mermaid diagrams
+                    if (window.mermaid && docContent.querySelectorAll('.mermaid').length > 0) {
+                        try {
+                            mermaid.init(undefined, docContent.querySelectorAll('.mermaid'));
+                        } catch (mErr) {
+                            console.error('Mermaid render error:', mErr);
+                        }
+                    }
+
+                    // 2. Render Math Equations using KaTeX Auto-Render
+                    if (window.renderMathInElement) {
+                        renderMathInElement(docContent, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '\\[', right: '\\]', display: true}
+                            ],
+                            throwOnError: false
+                        });
+                    }
+
+                    // 3. Apply Syntax Highlighting to standard code blocks
+                    if (window.hljs) {
+                        docContent.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                    }
+                    
+                } catch (error) {
+                    console.error(error);
+                    docContent.innerHTML = `
+                        <div class="doc-alert warning">
+                            <strong>Error</strong><br>
+                            Failed to retrieve the technical document. Detail: ${error.message}<br><br>
+                            <em>Note: Make sure you are accessing the site via the running HTTP server (http://localhost:8000/frontend/docs.html) to support AJAX fetches.</em>
+                        </div>
+                    `;
+                } finally {
+                    loader.style.display = 'none';
+                    docContent.style.opacity = '1';
+                }
+            }
+
+            // Click Handlers for Sidebar
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    sidebarLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    const file = link.getAttribute('data-file');
+                    loadDocument(file);
+                    
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            // Initial load of default tab
+            const defaultLink = document.querySelector('.sidebar-link.active');
+            if (defaultLink) {
+                loadDocument(defaultLink.getAttribute('data-file'));
+            }
+        });
+    </script>
+</body>
+</html>

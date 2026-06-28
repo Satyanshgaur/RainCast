@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raincast Products — Live Link Budget Calculator</title>
+    <meta name="description" content="Calculate and analyze satellite link budgets dynamically with interactive inputs for frequency, EIRP, path geometry, and rain attenuation.">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..500;1,9..40,400..500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Section Atmosphere Radials -->
+    <div class="gradient-wash"></div>
+
+    <!-- Floating Top Navigation Bar (Auros Transparent) -->
+    <header class="navbar-container">
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">
+                <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 2,22 22,22" fill="#ffffff"/>
+                </svg>
+                <span class="brand-name">Raincast</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="products.html" class="nav-link active">Products</a></li>
+                <li><a href="docs.html" class="nav-link">Documentation</a></li>
+                <li><a href="about.html" class="nav-link">About</a></li>
+                <li><a href="pricing.html" class="nav-link">Pricing</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <a href="login.html" class="nav-link">Log in</a>
+                <a href="products.html" class="btn-secondary">Launch</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-content" style="padding-top: 120px;">
+        <!-- Product: Link Budget Calculator Section -->
+        <section class="section-container">
+            <div class="section-header">
+                <div class="section-eyebrow-container">
+                    <span class="eyebrow-dot"></span>
+                    <span class="badge-chip">Atmospheric Product</span>
+                </div>
+                <h2 class="section-title">Link Budget Calculator</h2>
+                <p class="section-subtitle">Real-time analytical propagation solver showing path attenuation and noise levels live.</p>
+            </div>
+
+            <!-- Interactive Calculator Glass Card -->
+            <div class="calculator-card glass-card">
+                <!-- Inputs Column -->
+                <div class="calc-inputs-panel">
+                    <h3 class="panel-title">Link Parameters</h3>
+                    
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-frequency">Carrier Frequency</label>
+                            <span class="input-value" id="val-frequency">14.0 GHz</span>
+                        </div>
+                        <input type="range" id="input-frequency" min="10" max="30" step="0.5" value="14">
+                        <div class="preset-buttons">
+                            <button type="button" class="btn-preset" data-target="input-frequency" data-value="12">12 GHz (Ku)</button>
+                            <button type="button" class="btn-preset active" data-target="input-frequency" data-value="14">14 GHz (Ku)</button>
+                            <button type="button" class="btn-preset" data-target="input-frequency" data-value="20">20 GHz (Ka)</button>
+                            <button type="button" class="btn-preset" data-target="input-frequency" data-value="30">30 GHz (Ka)</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-eirp">Transmitter EIRP</label>
+                            <span class="input-value" id="val-eirp">54.0 dBW</span>
+                        </div>
+                        <input type="range" id="input-eirp" min="30" max="70" step="1" value="54">
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-distance">Slant Range (Distance)</label>
+                            <span class="input-value" id="val-distance">35,786 km</span>
+                        </div>
+                        <input type="range" id="input-distance" min="500" max="40000" step="100" value="35786">
+                        <div class="preset-buttons">
+                            <button type="button" class="btn-preset" data-target="input-distance" data-value="600">LEO (600km)</button>
+                            <button type="button" class="btn-preset" data-target="input-distance" data-value="8000">MEO (8,000km)</button>
+                            <button type="button" class="btn-preset active" data-target="input-distance" data-value="35786">GEO (35,786km)</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-elevation">Elevation Angle</label>
+                            <span class="input-value" id="val-elevation">35.0°</span>
+                        </div>
+                        <input type="range" id="input-elevation" min="5" max="90" step="1" value="35">
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-diameter">Receiver Antenna Diameter</label>
+                            <span class="input-value" id="val-diameter">1.2 m</span>
+                        </div>
+                        <input type="range" id="input-diameter" min="0.5" max="5.0" step="0.1" value="1.2">
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-rain">Rain Intensity</label>
+                            <span class="input-value" id="val-rain">0.0 mm/h</span>
+                        </div>
+                        <input type="range" id="input-rain" min="0" max="150" step="1" value="0">
+                        <div class="preset-buttons">
+                            <button type="button" class="btn-preset active" data-target="input-rain" data-value="0">Clear</button>
+                            <button type="button" class="btn-preset" data-target="input-rain" data-value="5">Light (5 mm/h)</button>
+                            <button type="button" class="btn-preset" data-target="input-rain" data-value="25">Heavy (25 mm/h)</button>
+                            <button type="button" class="btn-preset" data-target="input-rain" data-value="90">Monsoon (90 mm/h)</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-temp">System Noise Temperature</label>
+                            <span class="input-value" id="val-temp">290 K</span>
+                        </div>
+                        <input type="range" id="input-temp" min="100" max="800" step="10" value="290">
+                    </div>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="input-bandwidth">Signal Bandwidth</label>
+                            <span class="input-value" id="val-bandwidth">250 MHz</span>
+                        </div>
+                        <input type="range" id="input-bandwidth" min="1" max="500" step="5" value="250">
+                    </div>
+                </div>
+
+                <!-- Outputs Column -->
+                <div class="calc-outputs-panel">
+                    <div class="summary-row">
+                        <div class="summary-metric">
+                            <span class="metric-label">RECEIVED SNR</span>
+                            <div class="metric-value-container">
+                                <span class="metric-value font-mono" id="out-snr">15.4 dB</span>
+                                <span class="status-badge" id="out-status">Excellent</span>
+                            </div>
+                        </div>
+                        <div class="summary-metric">
+                            <span class="metric-label">PACKET LOSS RATE</span>
+                            <span class="metric-value font-mono" id="out-loss">0.00%</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Signal Visualizer (SVG Dynamic Illustration) -->
+                    <div class="visualizer-container">
+                        <svg class="signal-svg" viewBox="0 0 400 160">
+                            <!-- Background grid lines -->
+                            <line x1="0" y1="40" x2="400" y2="40" stroke="rgba(237, 255, 254, 0.03)" stroke-dasharray="2,2"/>
+                            <line x1="0" y1="80" x2="400" y2="80" stroke="rgba(237, 255, 254, 0.03)" stroke-dasharray="2,2"/>
+                            <line x1="0" y1="120" x2="400" y2="120" stroke="rgba(237, 255, 254, 0.03)" stroke-dasharray="2,2"/>
+                            
+                            <!-- Rain cloud layers -->
+                            <g class="rain-layer" id="svg-rain-clouds" opacity="0">
+                                <path d="M 280 20 Q 300 10 320 20 Q 340 10 350 25 Q 365 25 365 40 Q 365 50 350 50 L 250 50 Q 235 50 235 40 Q 235 25 255 25 Q 265 15 280 20 Z" fill="var(--color-tide-pool-teal)" opacity="0.8"/>
+                                <!-- Rain lines -->
+                                <line x1="260" y1="55" x2="245" y2="140" stroke="#56c2ff" stroke-width="1.5" stroke-dasharray="4,6" class="falling-rain-line"/>
+                                <line x1="285" y1="55" x2="270" y2="140" stroke="#56c2ff" stroke-width="1.5" stroke-dasharray="4,6" class="falling-rain-line" style="animation-delay: 0.1s"/>
+                                <line x1="310" y1="55" x2="295" y2="140" stroke="#56c2ff" stroke-width="1.5" stroke-dasharray="4,6" class="falling-rain-line" style="animation-delay: 0.2s"/>
+                                <line x1="335" y1="55" x2="320" y2="140" stroke="#56c2ff" stroke-width="1.5" stroke-dasharray="4,6" class="falling-rain-line" style="animation-delay: 0.15s"/>
+                                <line x1="360" y1="55" x2="345" y2="140" stroke="#56c2ff" stroke-width="1.5" stroke-dasharray="4,6" class="falling-rain-line" style="animation-delay: 0.05s"/>
+                            </g>
+
+                            <!-- Satellite representation -->
+                            <g transform="translate(40, 30)">
+                                <circle cx="0" cy="0" r="14" fill="#011d1c" stroke="rgba(237, 255, 254, 0.08)" stroke-width="2"/>
+                                <rect x="-35" y="-5" width="20" height="10" rx="1" fill="#00827c" stroke="#cbfffc" stroke-width="1"/>
+                                <rect x="15" y="-5" width="20" height="10" rx="1" fill="#00827c" stroke="#cbfffc" stroke-width="1"/>
+                                <path d="M -8 -8 Q -14 0 -8 8 L -4 4 Q -8 0 -4 -4 Z" fill="var(--color-ice-mist)"/>
+                                <line x1="-12" y1="0" x2="-2" y2="0" stroke="var(--color-ice-mist)" stroke-width="1.5"/>
+                            </g>
+                            <text x="40" y="60" fill="var(--color-fog-veil)" font-size="10" font-family="Matter" text-anchor="middle">SATELLITE</text>
+
+                            <!-- Ground Gateway -->
+                            <g transform="translate(340, 120)">
+                                <line x1="0" y1="0" x2="0" y2="20" stroke="var(--color-ice-mist)" stroke-width="3"/>
+                                <line x1="-10" y1="20" x2="10" y2="20" stroke="var(--color-ice-mist)" stroke-width="2"/>
+                                <path d="M -15 -12 Q 0 -5 15 -12" fill="none" stroke="var(--color-ice-mist)" stroke-width="3"/>
+                                <line x1="0" y1="-7" x2="0" y2="-15" stroke="var(--color-teal-accent)" stroke-width="1.5"/>
+                                <circle cx="0" cy="-15" r="2.5" fill="var(--color-teal-accent)"/>
+                            </g>
+                            <text x="340" y="155" fill="var(--color-fog-veil)" font-size="10" font-family="Matter" text-anchor="middle">GATEWAY</text>
+
+                            <!-- Dynamic Signal Propagation Path -->
+                            <path d="M 40 30 L 340 120" stroke="#cbfffc" stroke-width="2.5" id="signal-path" fill="none"/>
+                            <circle r="4" fill="#ffffff" id="signal-pulse">
+                                <animateMotion dur="2s" repeatCount="indefinite" path="M 40 30 L 340 120" />
+                            </circle>
+                        </svg>
+                        <div class="visualizer-status">
+                            <span class="indicator-dot active" id="indicator-status-dot"></span>
+                            <span id="visualizer-status-text">Signal Locked</span>
+                        </div>
+                    </div>
+
+                    <!-- Link Budget Table (Auros Pressed Tonal Structure) -->
+                    <div class="link-budget-table-container">
+                        <table class="link-budget-table font-mono">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th class="text-right">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Transmitter EIRP</td>
+                                    <td class="text-right text-success" id="table-eirp">+54.00 dBW</td>
+                                </tr>
+                                <tr>
+                                    <td>Free-Space Path Loss (FSPL)</td>
+                                    <td class="text-right text-danger" id="table-fspl">-206.45 dB</td>
+                                </tr>
+                                <tr>
+                                    <td>Atmospheric Gaseous Loss</td>
+                                    <td class="text-right text-danger" id="table-gas">-0.19 dB</td>
+                                </tr>
+                                <tr>
+                                    <td>Rain Attenuation</td>
+                                    <td class="text-right" id="table-rain">0.00 dB</td>
+                                </tr>
+                                <tr>
+                                    <td>Tropospheric Scintillation Loss</td>
+                                    <td class="text-right text-danger" id="table-scint">-0.22 dB</td>
+                                </tr>
+                                <tr>
+                                    <td>Receiver Antenna Gain ($G_{rx}$)</td>
+                                    <td class="text-right text-success" id="table-rx-gain">+42.92 dBi</td>
+                                </tr>
+                                <tr>
+                                    <td>Receiver Noise Floor ($N$)</td>
+                                    <td class="text-right text-muted" id="table-noise">-125.34 dBW</td>
+                                </tr>
+                                <tr class="table-total-row">
+                                    <td>Calculated SNR</td>
+                                    <td class="text-right text-highlight" id="table-snr">15.42 dB</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-name">Raincast</span>
+                <span class="footer-meta font-mono">v2.1.0-API</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 Raincast. Interactive Link Modeler.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script connection -->
+    <script src="app.js"></script>
+</body>
+</html>

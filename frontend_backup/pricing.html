@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Plans — Raincast API Platform</title>
+    <meta name="description" content="Select a Raincast platform subscription tier configured for your satellite constellation simulation and narrowcasting workloads.">
+    <!-- Google Fonts: DM Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..500;1,9..40,400..500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Section Atmosphere Radials -->
+    <div class="gradient-wash"></div>
+
+    <!-- Floating Top Navigation Bar (Auros Transparent) -->
+    <header class="navbar-container">
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">
+                <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 2,22 22,22" fill="#ffffff"/>
+                </svg>
+                <span class="brand-name">Raincast</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="products.html" class="nav-link">Products</a></li>
+                <li><a href="docs.html" class="nav-link">Documentation</a></li>
+                <li><a href="about.html" class="nav-link">About</a></li>
+                <li><a href="pricing.html" class="nav-link active">Pricing</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <a href="login.html" class="nav-link">Log in</a>
+                <a href="products.html" class="btn-secondary">Launch</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-content" style="padding-top: 120px;">
+        <!-- Pricing Section -->
+        <section class="section-container">
+            <div class="section-header">
+                <div class="section-eyebrow-container">
+                    <span class="eyebrow-dot"></span>
+                    <span class="badge-chip">Pricing Models</span>
+                </div>
+                <h2 class="section-title">Flexible Pricing Plans</h2>
+                <p class="section-subtitle">Choose a plan configured for your operational link density and API workload.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <div class="pricing-card card-base">
+                    <div class="pricing-tier-name">Free</div>
+                    <div class="pricing-price">$0</div>
+                    <div class="pricing-frequency">per month</div>
+                    <ul class="pricing-features">
+                        <li>100 requests / hour</li>
+                        <li>5 concurrent simulations</li>
+                        <li>Max 24h simulation window</li>
+                        <li>Standard community support</li>
+                    </ul>
+                    <a href="products.html" class="btn-secondary text-center w-full">Start Free</a>
+                </div>
+
+                <div class="pricing-card card-highlight">
+                    <div class="pricing-tier-name">Developer</div>
+                    <div class="pricing-price">$99</div>
+                    <div class="pricing-frequency">per month</div>
+                    <ul class="pricing-features">
+                        <li>2,000 requests / hour</li>
+                        <li>20 concurrent simulations</li>
+                        <li>Max 168h simulation window</li>
+                        <li>Live telemetry API access</li>
+                        <li>24h support response</li>
+                    </ul>
+                    <a href="products.html" class="btn-primary text-center w-full">Get Developer</a>
+                </div>
+
+                <div class="pricing-card card-base">
+                    <div class="pricing-tier-name">Enterprise</div>
+                    <div class="pricing-price">Custom</div>
+                    <div class="pricing-frequency">annual contract</div>
+                    <ul class="pricing-features">
+                        <li>Unlimited API request limits</li>
+                        <li>Custom concurrency limits</li>
+                        <li>Unlimited simulation duration</li>
+                        <li>Custom orbit propagations</li>
+                        <li>Dedicated engineer SLA</li>
+                    </ul>
+                    <a href="products.html" class="btn-secondary text-center w-full">Contact Sales</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-name">Raincast</span>
+                <span class="footer-meta font-mono">v2.1.0-API</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 Raincast. Scalable telemetry narrowcasting tiers.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

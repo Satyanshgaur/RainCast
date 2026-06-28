@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Raincast — Scientific Foundations</title>
+    <meta name="description" content="Learn about the physics-informed simulator, ML narrowcasting models, and ITU-R standards underlying the Raincast platform.">
+    <!-- Google Fonts: DM Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..500;1,9..40,400..500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Section Atmosphere Radials -->
+    <div class="gradient-wash"></div>
+
+    <!-- Floating Top Navigation Bar (Auros Transparent) -->
+    <header class="navbar-container">
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">
+                <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 2,22 22,22" fill="#ffffff"/>
+                </svg>
+                <span class="brand-name">Raincast</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="products.html" class="nav-link">Products</a></li>
+                <li><a href="docs.html" class="nav-link">Documentation</a></li>
+                <li><a href="about.html" class="nav-link active">About</a></li>
+                <li><a href="pricing.html" class="nav-link">Pricing</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <a href="login.html" class="nav-link">Log in</a>
+                <a href="products.html" class="btn-secondary">Launch</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-content" style="padding-top: 120px;">
+        <section class="section-container">
+            <div class="section-header">
+                <div class="section-eyebrow-container">
+                    <span class="eyebrow-dot"></span>
+                    <span class="badge-chip">Science & Research</span>
+                </div>
+                <h2 class="section-title">Physics-Informed Narrowcasting</h2>
+                <p class="section-subtitle">Bridging atmospheric physics and machine learning to infer rainfall rates from satellite telemetry.</p>
+            </div>
+
+            <!-- Detailed description -->
+            <div class="glass-card" style="padding: 40px; margin-bottom: 40px;">
+                <h3 class="panel-title" style="font-size: 20px; margin-bottom: 16px;">The Core Research</h3>
+                <p style="color: var(--color-fog-veil); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                    Tropospheric precipitation causes substantial microwave signal attenuation in satellite links, especially at carrier bands above 10 GHz (Ku and Ka-bands). Traditional precipitation monitoring relies on expensive rain gauges or spatial weather radars. 
+                </p>
+                <p style="color: var(--color-fog-veil); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                    <strong>Raincast</strong> investigates an alternative: can we leverage satellite receivers as distributed, real-time weather sensors? By mapping signal-to-noise ratio (SNR) decays, our framework reconstructs rainfall intensities along propagation slant paths.
+                </p>
+                
+                <h3 class="panel-title" style="font-size: 20px; margin-top: 32px; margin-bottom: 16px;">Identifying & Correcting Simulator Biases</h3>
+                <p style="color: var(--color-fog-veil); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                    During the validation of our stochastic propagation simulator, we discovered and corrected two crucial statistical biases that caused the generator to underestimate extreme rain exceedances by 15% to 50%:
+                </p>
+                <ul style="padding-left: 24px; color: var(--color-fog-veil); font-size: 14px; margin-bottom: 20px; line-height: 1.6;">
+                    <li style="margin-bottom: 8px;">
+                        <strong>Quantile Probit Fitting Error</strong>: Replaced static 10% annual rain fraction assumptions with local, latitude-dependent standard normal CDF quantiles.
+                    </li>
+                    <li style="margin-bottom: 8px;">
+                        <strong>Temporal Markov Reset Bias</strong>: Corrected event onset initializations to draw random noise scaled by local variance parameters rather than resetting events to the lognormal median.
+                    </li>
+                </ul>
+                <p style="color: var(--color-fog-veil); font-size: 14px; line-height: 1.6;">
+                    Delhi exceedance target replication accuracy improved from **57.5% to 98.0%** (41.16 mm/h modeled vs. 42.00 mm/h theoretical ITU target) following these corrections.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-name">Raincast</span>
+                <span class="footer-meta font-mono">v2.1.0-API</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 Raincast. Physics-first propagation research.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

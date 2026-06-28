@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In to Raincast</title>
+    <meta name="description" content="Sign in to access your satellite link narrowcasting dashboards and API access keys.">
+    <!-- Google Fonts: DM Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..500;1,9..40,400..500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .login-card-container {
+            min-height: calc(100vh - 180px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Section Atmosphere Radials -->
+    <div class="gradient-wash"></div>
+
+    <!-- Floating Top Navigation Bar (Auros Transparent) -->
+    <header class="navbar-container">
+        <nav class="navbar">
+            <a href="index.html" class="nav-brand">
+                <svg class="brand-logo" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="12,2 2,22 22,22" fill="#ffffff"/>
+                </svg>
+                <span class="brand-name">Raincast</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="products.html" class="nav-link">Products</a></li>
+                <li><a href="docs.html" class="nav-link">Documentation</a></li>
+                <li><a href="about.html" class="nav-link">About</a></li>
+                <li><a href="pricing.html" class="nav-link">Pricing</a></li>
+            </ul>
+
+            <div class="nav-actions">
+                <a href="login.html" class="nav-link active">Log in</a>
+                <a href="products.html" class="btn-secondary">Launch</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-content" style="padding-top: 120px;">
+        <div class="login-card-container">
+            <div class="glass-card" style="width: 100%; max-width: 400px; padding: 40px;">
+                <div style="margin-bottom: 24px; text-align: center;">
+                    <h3 class="panel-title" style="font-size: 24px; margin-bottom: 8px;">Sign in to Raincast</h3>
+                    <p style="font-size: 13px; color: var(--color-fog-veil);">Access your simulator workloads & credentials</p>
+                </div>
+                <form class="modal-form" onsubmit="event.preventDefault(); alert('Login successful! Redirecting to products...'); window.location.href = 'products.html';">
+                    <div class="form-group">
+                        <label for="login-email">Email Address</label>
+                        <input type="email" id="login-email" required placeholder="name@company.com" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="form-input">
+                    </div>
+                    <button type="submit" class="btn-primary w-full" style="margin-top: 8px; padding: 14px;">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-name">Raincast</span>
+                <span class="footer-meta font-mono">v2.1.0-API</span>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 Raincast. Secure credentials authentication.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
