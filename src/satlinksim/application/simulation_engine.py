@@ -111,9 +111,12 @@ class SimulationEngine:
 
             candidates_geo = []
             if constellation:
-                for sat in constellation.satellites:
-                    geo = self.propagator.get_geometry_batch(sat, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
-                    if geo: candidates_geo.append(geo)
+                from concurrent.futures import ThreadPoolExecutor
+                def _prop(sat):
+                    return self.propagator.get_geometry_batch(sat, times, gs["latitude"], gs["longitude"], gs["altitude_km"])
+                with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as executor:
+                    geos = list(executor.map(_prop, constellation.satellites))
+                candidates_geo = [g for g in geos if g is not None]
             else:
                 sat_id = gs.get("norad_id") or gs.get("sat_name")
                 if sat_id:

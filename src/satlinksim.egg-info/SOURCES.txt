@@ -40,6 +40,7 @@ src/satlinksim/infrastructure/persistence/database.py
 src/satlinksim/infrastructure/tle/service.py
 src/satlinksim/infrastructure/tle/updater.py
 src/satlinksim/infrastructure/ui/streamlit_app.py
+tests/test_cloud_native_api.py
 tests/test_outage_softness.py
 tests/test_parallelism.py
 tests/test_physics_invariants.py

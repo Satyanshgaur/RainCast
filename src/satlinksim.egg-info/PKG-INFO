@@ -37,7 +37,7 @@ Dynamic: license-file
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-# Physics-Informed Rain Rate Narrowcasting for Satellite Links
+# RainLink: Rain Rate Narrowcasting from Satellite Link Telemetry 
 
 A physics-first satellite communication simulator and machine learning narrowcasting framework for inferring rainfall intensity from satellite link telemetry.
 
