@@ -52,3 +52,9 @@ satlinksim = "satlinksim.cli:main"
 satlinksim-ui = "satlinksim.cli:main_ui"
 satlinksim-update = "satlinksim.infrastructure.tle.updater:main"
 satlinksim-api = "satlinksim.infrastructure.api.server:main"
+
+[tool.uv]
+exclude-dependencies = [
+    "nvidia-nccl-cu12",
+]
+
