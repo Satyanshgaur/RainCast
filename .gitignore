@@ -27,3 +27,5 @@ venv/
 # Datasets
 datasets/
 
+# Notebooks
+notebooks/

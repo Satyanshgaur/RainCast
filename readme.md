@@ -124,44 +124,16 @@ graph TD
 - **NASA GPM benchmarking**: Validation against real-world observations.
 
 ---
+## Datasets & Tutorials
 
-## Simulated Datasets
+RainCast includes publicly available benchmark datasets and accompanying tutorials to help researchers and practitioners reproduce experiments or develop new machine learning models.
 
-To study the effects of weather on satellite communications and develop rain-rate narrowcasting models, a dataset generation tool is included. The script runs physical and orbital simulations using the core package components to produce time-series datasets.
+| Resource                                           | Description                                                                                                                                                                            | Link                                                                                         |
+| :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+| **Rain Rate Prediction Dataset**                   | ML-ready benchmark for estimating instantaneous rainfall intensity from satellite communication telemetry. Includes train/validation/test splits, baseline metrics, and documentation. | https://www.kaggle.com/datasets/satyanshgaur1/rain-prediction-training-dataset               |
+| **Satellite Link Performance Time Series Dataset** | Physics-based satellite communication telemetry dataset containing realistic orbital propagation, link geometry, atmospheric effects, and time-series link quality measurements.       | https://www.kaggle.com/datasets/satyanshgaur1/satellite-link-performance-time-series-dataset |
+| **Rainfall Prediction using Satellite Telemetry**  | End-to-end Kaggle notebook demonstrating the complete benchmark pipeline, from analytical ITU-R inversion to a physics-guided XGBoost model with validation experiments.               | https://www.kaggle.com/code/satyanshgaur1/rainfall-prediction-using-satellite-telemetry      |
 
-### Dataset Overview
-Each row in the dataset represents a single timestep (1-minute resolution) for one ground station and carrier frequency combination. The dataset features:
-- **Locations & Climates**: Delhi (heavy monsoon / ITU zone K), São Paulo (tropical / ITU zone N/P), and Berlin (temperate / ITU zone E).
-- **Frequencies**: Spans Ku-band (12 GHz, 14 GHz) and Ka-band (20 GHz, 30 GHz) frequencies.
-- **Constellations**: Stratified sample of 4,008 satellites across **Starlink**, **OneWeb**, **Iridium**, **Globalstar**, and **GEO/Other** to model realistic handoff dynamics.
-- **Columns**: Covering the full observable state of the link: timestamp, ground station, active satellite, active constellation, carrier frequency, elevation, slant range, FSPL, gaseous attenuation, rain attenuation, scintillation loss, total path loss, received SNR, packet loss probability, in-rain-event flag, and instantaneous rain rate.
-
-### Dataset Profiles
-Two sizes are supported:
-- **Small Dataset** (`satellite_time_series_small.parquet`):
-  - Size: **100,008 rows** (~7.2 MB Parquet format)
-  - Coverage: **5.79 days** per station-frequency combination (8,334 steps)
-- **Medium Dataset** (`satellite_time_series_medium.parquet`):
-  - Size: **1,000,080 rows** (~68.2 MB Parquet format)
-  - Coverage: **57.88 days** per station-frequency combination (83,340 steps)
-
-### How to Generate
-The generator script is located in [generate_dataset.py](file:///home/satyansh/leo_meo/generate_datasets/generate_dataset.py). It runs simulations in memory-safe sequential chunks of 8,334 steps:
-
-```bash
-# Generate the small dataset (~100k rows)
-python generate_datasets/generate_dataset.py --size small
-
-# Generate the medium dataset (~1M rows)
-python generate_datasets/generate_dataset.py --size medium
-```
-
-All generated output files are written to the ignored `/datasets/satellite_time_series/` directory:
-- `satellite_time_series_[small|medium].parquet`: Main dataset file.
-- `metadata.json`: Unified metadata containing simulation parameters, TLE reference ranges, and file mappings.
-- `column_dictionary.csv`: Map of variables, data types, units, and descriptions.
-- `stations.csv` and `satellites.csv`: Static tables of simulated nodes.
-- `sample_plots/`: Matplotlib figures showing SNR, rain events, attenuation scaling, and station map.
 
 ---
 
