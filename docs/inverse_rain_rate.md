@@ -478,3 +478,71 @@ Testing robustness when evaluated against a simulator run with modified dynamics
 * **Correlation ($R$)**: 0.9891
 * **R² Score**: 0.9746
 * **F1 Score**: 0.9482
+
+## Stage B Generalization and Robustness Validation
+
+Following the Stage B Validation checklist, this section documents the generalization, leakage, and cross-domain validation testing:
+
+### 1. Feature Importance Analysis
+
+Below are the top 10 most important features for the XGBoost Regressor model:
+
+| Feature | Importance |
+|---|---|
+| rolling_min_300s | 0.2823 |
+| received_snr_db | 0.1343 |
+| lag_excess_attn_5s | 0.0629 |
+| lag_excess_attn_1s | 0.0477 |
+| excess_attn | 0.0461 |
+| L_eff | 0.0420 |
+| rolling_mean_60s | 0.0338 |
+| rolling_max_30s | 0.0338 |
+| itu_R001 | 0.0335 |
+| elevation | 0.0293 |
+
+### 2. Feature Leakage & Ablation Study
+
+Evaluating the model after stripping groups of features to ensure it is not overly reliant on raw/direct simulator attenuation mapping:
+
+| Ablation Group | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 (0.1 mm/h) |
+|---|---|---|---|---|---|
+| All Features | 4.8821 | 2.2275 | 0.7282 | 0.5243 | 0.9324 |
+| No Rolling Stats | 5.6323 | 3.1834 | 0.6087 | 0.3669 | 0.7444 |
+| No Excess Attn & L_eff | 5.8884 | 3.3517 | 0.5576 | 0.3080 | 0.7301 |
+| No Climatology | 4.9252 | 2.2431 | 0.7237 | 0.5159 | 0.9280 |
+
+### 3. Leave-One-Station-Out (LOSO) Generalization
+
+Evaluating how well the narrowcaster generalizes to a completely unseen geographic location (cross-climate validation):
+
+| Excluded Ground Station | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 Score (0.1 mm/h) |
+|---|---|---|---|---|---|
+| Delhi | 0.8993 | 0.1247 | 0.0000 | -0.0196 | 0.0000 |
+| Sao Paulo | 4.3624 | 2.7012 | 0.1322 | -0.2491 | 0.1299 |
+| Tokyo | 2.6585 | 1.7943 | 0.1669 | -0.3521 | 0.0989 |
+| Berlin | 0.7418 | 0.1287 | 0.0000 | -0.0310 | 0.0000 |
+
+### 4. Cross-Frequency Generalization
+
+Testing the model pre-trained at 14 GHz on unseen high-frequency channels (12 GHz, 20 GHz, 30 GHz) without retraining:
+
+| Test Channel Frequency | RMSE (mm/h) | MAE (mm/h) | Correlation | R² Score | F1 Score (0.1 mm/h) |
+|---|---|---|---|---|---|
+| 12 GHz | 6.1403 | 2.8040 | 0.6349 | 0.2886 | 0.7060 |
+| 20 GHz | 13.9865 | 9.4298 | 0.4659 | -2.6914 | 0.7330 |
+| 30 GHz | 22.5276 | 16.2955 | 0.0915 | -8.5764 | 0.7139 |
+
+### 5. Distribution Matching
+
+To verify that the model produces physically realistic distributions rather than simply smoothing outliers:
+
+* **Jensen-Shannon (JS) Divergence** ($P(R) \parallel P(\widehat{R})$) for Sao Paulo Stochastic Rain: **0.11468** *(where 0.0 is a perfect match)*.
+
+### 6. Simulator Parameter Modification (Noise Shifts)
+
+Testing robustness when evaluated against a simulator run with modified dynamics (Rain coherence time tau_c = 600s, rain scale 1.5x, and injected 2.0x nominal scintillation power):
+
+* **RMSE**: 6.6908 mm/h
+* **Correlation ($R$)**: 0.7751
+* **R² Score**: 0.5476
+* **F1 Score**: 0.9170

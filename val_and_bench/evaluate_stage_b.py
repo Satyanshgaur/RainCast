@@ -54,6 +54,10 @@ def extract_features_and_targets(res, gs, freq_hz, bandwidth_hz, polarization, s
     features["elevation"] = el_series_obs
     features["L_eff"] = ep_obs
     features["freq_ghz"] = np.full(n_steps, freq_hz / 1e9)
+    features["received_snr_db"] = snr_series_obs
+    features["slant_range_km"] = slant_series_obs
+    features["observed_snr_uncertainty_db"] = obs_data["observed_snr_uncertainty_db"]
+    features["calibration_state"] = obs_data["calibration_state"]
     
     # Season (month of the year proxy)
     month = start_time.month
