@@ -16,10 +16,15 @@ from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_he
 from satlinksim.domain.link.budget import fspl_db, noise_power_dbw
 
 def extract_features_and_targets(res, gs, freq_hz, bandwidth_hz, polarization, start_time):
+    from satlinksim.domain.observation import ObservationModel
+    
+    obs_model = ObservationModel(seed=42) # Fixed seed for deterministic evaluation
+    obs_data = obs_model.observe(gs, freq_hz, bandwidth_hz, polarization, res)
+    
     n_steps = len(res.snr_series)
-    snr_series = np.array(res.snr_series)
-    el_series = np.array(res.elevation_series)
-    slant_series = np.array(res.slant_range_series)
+    snr_series_obs = obs_data["observed_snr_db"]
+    el_series_obs = obs_data["observed_elevation_deg"]
+    slant_series_obs = obs_data["observed_slant_range_km"]
     
     # Calculate physical constants
     eirp = gs["eirp_dbw"]
@@ -28,26 +33,26 @@ def extract_features_and_targets(res, gs, freq_hz, bandwidth_hz, polarization, s
     rain_h = itu_rain_height(gs["latitude"])
     itu_k, _ = itu_rain_coefficients(freq_hz / 1e9, polarization)
     
-    # Subtract FSPL and gas loss
-    pl = fspl_db(freq_hz, slant_series)
-    gas_loss = gaseous_absorption_db(freq_hz / 1e9, el_series, gs["wv_g_m3"])
+    # Subtract FSPL and gas loss using observed coordinates
+    pl_obs = fspl_db(freq_hz, slant_series_obs)
+    gas_loss_obs = gaseous_absorption_db(freq_hz / 1e9, el_series_obs, gs["wv_g_m3"])
     total_gain = eirp + g_rx - noise_floor
-    excess_attn = total_gain - snr_series - pl - gas_loss
+    excess_attn_obs = total_gain - snr_series_obs - pl_obs - gas_loss_obs
     
     # Effective path length
-    ep = effective_path_length(el_series, rain_h, gs["altitude_km"], itu_k)
+    ep_obs = effective_path_length(el_series_obs, rain_h, gs["altitude_km"], itu_k)
     
     # Build dataframe for rolling features
     df = pd.DataFrame({
-        "excess_attn": excess_attn,
-        "elevation": el_series,
-        "L_eff": ep,
+        "excess_attn": excess_attn_obs,
+        "elevation": el_series_obs,
+        "L_eff": ep_obs,
     })
     
     features = {}
-    features["excess_attn"] = excess_attn
-    features["elevation"] = el_series
-    features["L_eff"] = ep
+    features["excess_attn"] = excess_attn_obs
+    features["elevation"] = el_series_obs
+    features["L_eff"] = ep_obs
     features["freq_ghz"] = np.full(n_steps, freq_hz / 1e9)
     
     # Season (month of the year proxy)

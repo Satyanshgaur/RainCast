@@ -18,12 +18,13 @@ from scipy.signal import butter, filtfilt
 
 # Add src to python path so we can import satlinksim
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(root_dir, "src"))
+sys.path.insert(0, os.path.join(root_dir, "src"))
 
 from satlinksim.satellite_link_sim import simulate_station
 from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_height, effective_path_length, gaseous_absorption_db
 from satlinksim.domain.link.budget import fspl_db, noise_power_dbw
 from satlinksim.ground_stations import GROUND_STATIONS
+from satlinksim.domain.observation import ObservationModel
 
 def lowpass_butterworth(data, cutoff_freq=0.005, fs=1.0, order=2):
     """
@@ -99,7 +100,7 @@ def main():
                 run_id = f"sim_{name}_{freq_ghz}ghz_rain_{force_rain}"
                 print(f"  Running: {run_id} ...")
                 
-                # Run the physics-based simulator
+                # Run the physics-based simulator (Physical World)
                 res = simulate_station(
                     gs,
                     n_steps=n_steps,
@@ -111,47 +112,56 @@ def main():
                     start_time=start_time
                 )
                 
-                # Extract lists/arrays
-                snr_series = np.array(res.snr_series)
+                # Observation Model Layer: distort the physical world state
+                obs_model = ObservationModel(seed=seed)
+                obs_data = obs_model.observe(gs, freq_hz, bandwidth_hz, polarization, res)
+                
+                # Telemetry Dataset Layer: extract telemetry observables
+                snr_series_obs = obs_data["observed_snr_db"]
+                el_series_obs = obs_data["observed_elevation_deg"]
+                slant_series_obs = obs_data["observed_slant_range_km"]
+                
+                # Keep true rain rate for targets
                 true_rain = np.array(res.rain_series)
-                el_series = np.array(res.elevation_series)
-                slant_series = np.array(res.slant_range_series)
                 
                 # Calculate physical constants
+                rain_h = itu_rain_height(gs["latitude"])
+                
+                # Calculate observed path loss and gaseous attenuation (relying on observed coordinates)
+                pl_obs = fspl_db(freq_hz, slant_series_obs)
+                gas_loss_obs = gaseous_absorption_db(freq_ghz, el_series_obs, gs["wv_g_m3"])
+                
+                # Nominal total gain
                 eirp = gs["eirp_dbw"]
                 g_rx = gs["g_rx_dbi"]
                 noise_floor = noise_power_dbw(gs["system_temp_k"], bandwidth_hz)
-                rain_h = itu_rain_height(gs["latitude"])
-                
-                # Subtract known physical components to calculate excess attenuation
-                pl = fspl_db(freq_hz, slant_series)
-                gas_loss = gaseous_absorption_db(freq_ghz, el_series, gs["wv_g_m3"])
-                
                 total_gain = eirp + g_rx - noise_floor
-                excess_attn = total_gain - snr_series - pl - gas_loss
                 
-                # Effective path length through rain layer
-                ep = effective_path_length(el_series, rain_h, gs["altitude_km"], itu_k)
-                ep_safe = np.maximum(ep, 1e-6)
+                # Observed excess attenuation
+                excess_attn_obs = total_gain - snr_series_obs - pl_obs - gas_loss_obs
                 
-                # Specific attenuation (dB/km)
-                specific_attn = np.maximum(excess_attn, 0.0) / ep_safe
+                # Observed effective path length through rain layer
+                ep_obs = effective_path_length(el_series_obs, rain_h, gs["altitude_km"], itu_k)
+                ep_safe_obs = np.maximum(ep_obs, 1e-6)
+                
+                # Observed specific attenuation (dB/km)
+                specific_attn_obs = np.maximum(excess_attn_obs, 0.0) / ep_safe_obs
                 
                 # Generate timestamps
                 times = [start_time + timedelta(minutes=i) for i in range(n_steps)]
                 
-                # Assemble DataFrame
+                # Assemble DataFrame using observed parameters
                 run_df = pd.DataFrame({
                     "timestamp": times,
-                    "received_snr_db": snr_series,
+                    "received_snr_db": snr_series_obs,
                     "carrier_frequency_ghz": np.full(n_steps, freq_ghz),
-                    "elevation_angle_deg": el_series,
-                    "slant_range_km": slant_series,
-                    "fspl_db": pl,
-                    "gaseous_attenuation_db": gas_loss,
-                    "excess_attenuation_db": excess_attn,
-                    "effective_path_length_km": ep,
-                    "specific_attenuation_db_per_km": specific_attn,
+                    "elevation_angle_deg": el_series_obs,
+                    "slant_range_km": slant_series_obs,
+                    "fspl_db": pl_obs,
+                    "gaseous_attenuation_db": gas_loss_obs,
+                    "excess_attenuation_db": excess_attn_obs,
+                    "effective_path_length_km": ep_obs,
+                    "specific_attenuation_db_per_km": specific_attn_obs,
                     "rain_height_km": np.full(n_steps, rain_h),
                     "frequency_ghz": np.full(n_steps, freq_ghz),
                     "itu_k": np.full(n_steps, itu_k),
@@ -161,6 +171,15 @@ def main():
                     "simulation_id": [run_id] * n_steps,
                     "rain_rate_mm_per_hr": true_rain,
                     "rain_event": (true_rain > 0.1).astype(int),
+                    # Ground truth physical parameters for validation and diagnostics (hidden from ML features list)
+                    "true_snr_db": np.array(res.snr_series),
+                    "true_elevation_deg": np.array(res.elevation_series),
+                    "true_slant_range_km": np.array(res.slant_range_series),
+                    "pointing_loss_db": obs_data["pointing_loss_db"],
+                    "tracking_error_deg": obs_data["tracking_error_deg"],
+                    "sat_eirp_error_db": obs_data["sat_eirp_error_db"],
+                    "rx_gain_error_db": obs_data["rx_gain_error_db"],
+                    "calibration_error_db": obs_data["calibration_error_db"],
                     # Season and ground station details for models
                     "season_sin": np.full(n_steps, np.sin(2 * np.pi * month / 12)),
                     "season_cos": np.full(n_steps, np.cos(2 * np.pi * month / 12)),
