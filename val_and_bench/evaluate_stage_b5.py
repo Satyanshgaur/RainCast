@@ -15,10 +15,10 @@ from satlinksim.ground_stations import GROUND_STATIONS
 from satlinksim.domain.link.itu_models import itu_rain_coefficients, itu_rain_height, effective_path_length, gaseous_absorption_db
 from satlinksim.domain.link.budget import fspl_db, noise_power_dbw
 
-def extract_features_and_targets_b5(res, gs, freq_hz, bandwidth_hz, polarization, start_time):
+def extract_features_and_targets_b5(res, gs, freq_hz, bandwidth_hz, polarization, start_time, obs_config=None):
     from satlinksim.domain.observation import ObservationModel
     
-    obs_model = ObservationModel(seed=42) # Fixed seed for deterministic evaluation
+    obs_model = ObservationModel(config=obs_config, seed=42) # Fixed seed for deterministic evaluation
     obs_data = obs_model.observe(gs, freq_hz, bandwidth_hz, polarization, res)
     
     n_steps = len(res.snr_series)
