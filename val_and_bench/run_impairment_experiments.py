@@ -154,7 +154,7 @@ def run_experiment(config: ObservationConfig, name: str):
     }
 
 def main():
-    experiments = [
+    incremental_experiments = [
         (
             ObservationConfig(
                 scenario="typical",
@@ -229,17 +229,112 @@ def main():
         )
     ]
     
-    results = []
-    for config, name in experiments:
+    print("\n==========================================")
+    print("RUNNING INCREMENTAL IMPAIRMENT STUDY")
+    print("==========================================")
+    inc_results = []
+    for config, name in incremental_experiments:
         res = run_experiment(config, name)
-        results.append(res)
+        inc_results.append(res)
+        
+    solo_experiments = [
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=True,
+                enable_tracking=False,
+                enable_calibration=False,
+                enable_agc=False,
+                enable_multipath=False,
+                enable_wet_antenna=False
+            ),
+            "1. Scintillation Solo"
+        ),
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=False,
+                enable_tracking=True,
+                enable_calibration=False,
+                enable_agc=False,
+                enable_multipath=False,
+                enable_wet_antenna=False
+            ),
+            "2. Tracking Solo"
+        ),
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=False,
+                enable_tracking=False,
+                enable_calibration=True,
+                enable_agc=False,
+                enable_multipath=False,
+                enable_wet_antenna=False
+            ),
+            "3. Calibration Solo"
+        ),
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=False,
+                enable_tracking=False,
+                enable_calibration=False,
+                enable_agc=True,
+                enable_multipath=False,
+                enable_wet_antenna=False
+            ),
+            "4. AGC & ADC Solo"
+        ),
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=False,
+                enable_tracking=False,
+                enable_calibration=False,
+                enable_agc=False,
+                enable_multipath=True,
+                enable_wet_antenna=False
+            ),
+            "5. Multipath Solo"
+        ),
+        (
+            ObservationConfig(
+                scenario="typical",
+                enable_scintillation=False,
+                enable_tracking=False,
+                enable_calibration=False,
+                enable_agc=False,
+                enable_multipath=False,
+                enable_wet_antenna=True
+            ),
+            "6. Wet Antenna Solo"
+        )
+    ]
+    
+    print("\n==========================================")
+    print("RUNNING SOLO IMPAIRMENT STUDY")
+    print("==========================================")
+    solo_results = []
+    for config, name in solo_experiments:
+        res = run_experiment(config, name)
+        solo_results.append(res)
         
     print("\n\n==================================================")
-    print("FINAL IMPAIRMENT EXPERIMENT SUMMARY TABLE")
+    print("FINAL INCREMENTAL DEGRADATION SUMMARY TABLE")
     print("==================================================")
     print(f"{'Experiment':<25} | {'F1-Score':<8} | {'RMSE':<8} | {'MAE':<8} | {'R² Score':<8}")
     print("-" * 68)
-    for r in results:
+    for r in inc_results:
+        print(f"{r['name']:<25} | {r['f1']:<8.4f} | {r['rmse']:<8.4f} | {r['mae']:<8.4f} | {r['r2']:<8.4f}")
+    print("==================================================")
+    
+    print("\n\n==================================================")
+    print("FINAL SOLO IMPAIRMENT SUMMARY TABLE")
+    print("==================================================")
+    print(f"{'Experiment':<25} | {'F1-Score':<8} | {'RMSE':<8} | {'MAE':<8} | {'R² Score':<8}")
+    print("-" * 68)
+    for r in solo_results:
         print(f"{r['name']:<25} | {r['f1']:<8.4f} | {r['rmse']:<8.4f} | {r['mae']:<8.4f} | {r['r2']:<8.4f}")
     print("==================================================")
     
@@ -250,10 +345,18 @@ def main():
     
     with open(study_file, "w") as f:
         f.write("# Isolated Impairment Impact Experiment Study\n\n")
-        f.write("This document logs the incremental impact of adding physical receiver and link impairments on rainfall narrowcasting.\n\n")
+        f.write("This document logs the impact of physical receiver and link impairments on rainfall narrowcasting, evaluating both incremental addition and individual (solo) effects.\n\n")
+        
+        f.write("## 1. Incremental Degradation\n")
         f.write("| Experiment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |\n")
         f.write("| :--- | :---: | :---: | :---: | :---: |\n")
-        for r in results:
+        for r in inc_results:
+            f.write(f"| {r['name']} | {r['f1']:.4f} | {r['rmse']:.4f} | {r['mae']:.4f} | {r['r2']:.4f} |\n")
+            
+        f.write("\n## 2. Solo Impairment Effects\n")
+        f.write("| Experiment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |\n")
+        f.write("| :--- | :---: | :---: | :---: | :---: |\n")
+        for r in solo_results:
             f.write(f"| {r['name']} | {r['f1']:.4f} | {r['rmse']:.4f} | {r['mae']:.4f} | {r['r2']:.4f} |\n")
             
     print(f"Results recorded in: {study_file}")
