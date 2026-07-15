@@ -16,6 +16,9 @@ class ObservationConfig:
     
     # Multipath environment: "rural" (low reflections), "marine" (water reflections), "urban" (high reflections)
     environment: str = "rural"
+    
+    # Optional tracking loop noise override
+    tracking_sigma_override: float = None
 
 class ObservationModel:
     """
@@ -121,6 +124,9 @@ class ObservationModel:
                 k_base_db = 12.0
             else:
                 k_base_db = 18.0
+
+        if self.config.tracking_sigma_override is not None:
+            sigma_track_nominal = self.config.tracking_sigma_override
 
         # Apply global config overrides for isolated impairment experiments
         enable_tracking = self.config.enable_tracking and (scenario != "ideal")
