@@ -27,5 +27,10 @@ venv/
 # Datasets
 datasets/
 
-# Notebooks
+# Notebooks & Checkpoints
 notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Frontend
+frontend/
