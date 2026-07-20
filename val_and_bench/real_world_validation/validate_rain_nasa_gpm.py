@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import sys
-import os
-import math
-import random
+# Ensure root_dir and src are in sys.path
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_dir)
+sys.path.insert(0, os.path.join(root_dir, "src"))
 
 from satlinksim import physicsengine
 from satlinksim.ground_stations import GROUND_STATIONS
@@ -92,22 +92,18 @@ def main():
     
     all_metrics = []
     
-    # Create output directory for individual plots
-    os.makedirs("real_world_validation/plots", exist_ok=True)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    plots_dir = os.path.join(base_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
     
     for station in GROUND_STATIONS:
         name = station["name"]
         print(f"\nValidating {name}...")
         
-        # 1. ITU-R Implementation (from simulator)
-        # We need to monkey-patch or temporarily override the global params in physicsengine
-        # for each station's stats to use the existing CorrelatedRainProcess class logic.
-        # Alternatively, we just use the generator function with station stats.
         itu_stats = station["itu_rain"]
         itu_mu, itu_sigma = get_lognormal_params(itu_stats)
         itu_series = generate_correlated_series(n_steps, itu_mu, itu_sigma, itu_stats["P_rain"])
         
-        # 2. NASA GPM Reference
         gpm_stats = GPM_REFERENCES.get(name)
         if not gpm_stats:
             print(f"Warning: No GPM reference for {name}, skipping.")
@@ -116,7 +112,6 @@ def main():
         gpm_mu, gpm_sigma = get_lognormal_params(gpm_stats)
         gpm_series = generate_correlated_series(n_steps, gpm_mu, gpm_sigma, gpm_stats["P_r"])
         
-        # 3. Compute Metrics
         def get_q(s):
             return np.percentile(s, [99, 99.9, 99.99])
         
@@ -130,7 +125,6 @@ def main():
         }
         all_metrics.append(metrics)
         
-        # 4. Individual Plot
         plt.figure(figsize=(10, 6))
         itu_s, itu_p = compute_ccdf(itu_series)
         gpm_s, gpm_p = compute_ccdf(gpm_series)
@@ -146,18 +140,17 @@ def main():
         plt.xlim(0, 150)
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
         plt.legend()
-        plt.savefig(f"real_world_validation/plots/val_{name.lower().replace(' ', '_')}.png")
+        plt.savefig(os.path.join(plots_dir, f"val_{name.lower().replace(' ', '_')}.png"))
         plt.close()
 
-    # 5. Summary Table
     df = pd.DataFrame(all_metrics)
     print("\n--- Global Comparison Table ---")
     summary_df = df[["Station", "ITU_R001", "GPM_R001", "ITU_Pr", "GPM_Pr"]]
     print(summary_df.to_string(index=False))
     
-    df.to_parquet("real_world_validation/global_rain_validation.parquet", index=False)
+    parquet_path = os.path.join(base_dir, "global_rain_validation.parquet")
+    df.to_parquet(parquet_path, index=False)
 
-    # 6. Global Summary Plot
     plt.figure(figsize=(12, 6))
     x = np.arange(len(df))
     width = 0.35
@@ -170,12 +163,13 @@ def main():
     plt.xticks(x, df["Station"])
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.savefig("real_world_validation/global_comparison_summary.png")
+    summary_img_path = os.path.join(base_dir, "global_comparison_summary.png")
+    plt.savefig(summary_img_path)
 
     print(f"\nValidation complete.")
-    print(f"Global table: real_world_validation/global_rain_validation.parquet")
-    print(f"Summary plot: real_world_validation/global_comparison_summary.png")
-    print(f"Individual station plots in real_world_validation/plots/")
+    print(f"Global table: {parquet_path}")
+    print(f"Summary plot: {summary_img_path}")
+    print(f"Individual station plots in {plots_dir}")
 
 if __name__ == "__main__":
     main()

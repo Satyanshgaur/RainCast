@@ -22,18 +22,18 @@ SatNOGS provides a global network of ground stations that record satellite passe
 
 ### Running the Validation
 ```bash
-python3 real_world_validation/validate_sgp4_satnogs.py
+python3 val_and_bench/real_world_validation/validate_sgp4_satnogs.py
 ```
 
 ### Outputs
-- `real_world_validation/plots/val_sgp4_satnogs.png`: Comparison of predicted elevation curve vs. reality.
+- `val_and_bench/real_world_validation/plots/val_sgp4_satnogs.png`: Comparison of predicted elevation curve vs. reality.
 
 ### Why NASA GPM?
 Recent research (e.g., studies at Delhi Earth Station) indicates that ITU-R P.837 often underestimates peak rainfall rates in subtropical monsoon regions like Delhi. NASA's Global Precipitation Measurement (GPM) constellation provides more accurate estimates of convective rain intensities ($R_{0.01}$), often showing values 40-100% higher than ITU maps.
 
 ### Running the Validation
 ```bash
-python3 real_world_validation/validate_rain_nasa_gpm.py
+python3 val_and_bench/real_world_validation/validate_rain_nasa_gpm.py
 ```
 
 ### Outputs

@@ -1,8 +1,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 import os
+import sys
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, root_dir)
+sys.path.insert(0, os.path.join(root_dir, "src"))
+
 from datetime import datetime, timezone, timedelta
 
 from satlinksim.propogate import Propagator, Satellite
@@ -79,9 +84,12 @@ def main():
     plt.legend()
     plt.grid(True)
     
-    os.makedirs("real_world_validation/plots", exist_ok=True)
-    plt.savefig("real_world_validation/plots/val_sgp4_satnogs.png")
-    print(f"Plot saved to real_world_validation/plots/val_sgp4_satnogs.png")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    plots_dir = os.path.join(base_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+    out_plot = os.path.join(plots_dir, "val_sgp4_satnogs.png")
+    plt.savefig(out_plot)
+    print(f"Plot saved to {out_plot}")
 
     if not is_visible or abs(max_el_calc - OBSERVATION['max_el_expected']) > 10:
         print("\n[!] VALIDATION FAILED")

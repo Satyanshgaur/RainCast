@@ -83,14 +83,14 @@ jobs:
         PYTHONPATH: src
         MPLBACKEND: Agg
       run: |
-        python real_world_validation/validate_rain_nasa_gpm.py
+        python val_and_bench/real_world_validation/validate_rain_nasa_gpm.py
 
     - name: Run SGP4 SatNOGS Validation
       env:
         PYTHONPATH: src
         MPLBACKEND: Agg
       run: |
-        python real_world_validation/validate_sgp4_satnogs.py
+        python val_and_bench/real_world_validation/validate_sgp4_satnogs.py
 
     - name: Run Benchmarks
       env:
@@ -108,5 +108,5 @@ jobs:
         if-no-files-found: ignore
         path: |
           val_and_bench/*.png
-          real_world_validation/*.png
-          real_world_validation/plots/*.png
+          val_and_bench/real_world_validation/*.png
+          val_and_bench/real_world_validation/plots/*.png

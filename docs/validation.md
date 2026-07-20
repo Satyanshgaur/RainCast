@@ -154,13 +154,13 @@ Synthetic and stochastic scenarios are used to verify the link availability and 
 ### 4.4 Regional CCDF Analysis
 The CCDF (Complementary Cumulative Distribution Function) plots verify that while the simulator captures the general log-normal distribution, GPM data reveals higher extreme-intensity tails in monsoon regions like Delhi.
 
-![Global Summary](../real_world_validation/global_comparison_summary.png)
+![Global Summary](../val_and_bench/real_world_validation/global_comparison_summary.png)
 *Figure 5: Summary of peak rain rate discrepancies across climate zones.*
 
-![Delhi Validation](../real_world_validation/plots/val_delhi.png)
+![Delhi Validation](../val_and_bench/real_world_validation/plots/val_delhi.png)
 *Figure 5: Exceedance probability comparison for Delhi (Monsoon Zone).*
 
-![Berlin Validation](../real_world_validation/plots/val_berlin.png)
+![Berlin Validation](../val_and_bench/real_world_validation/plots/val_berlin.png)
 *Figure 6: Exceedance probability comparison for Berlin (Temperate Zone).*
 
 ---
