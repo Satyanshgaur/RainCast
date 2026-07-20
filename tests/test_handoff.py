@@ -1,4 +1,10 @@
+import os
 import sys
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
+sys.path.insert(0, os.path.join(root_dir, "src"))
+
 from satlinksim.satellite_link_sim import simulate_all_batched
 from satlinksim.domain.models import Constellation
 

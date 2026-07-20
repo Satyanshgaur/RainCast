@@ -1,5 +1,10 @@
 import os
 import sys
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
+sys.path.insert(0, os.path.join(root_dir, "src"))
+
 from satlinksim.satellite_link_sim import SimulationEngine, GROUND_STATIONS
 
 # We'll patch HandoffManager to crash at step 15,000 for Station 0
