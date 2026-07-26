@@ -92,6 +92,12 @@ jobs:
       run: |
         python val_and_bench/real_world_validation/validate_sgp4_satnogs.py
 
+    - name: Run Physics Models Validation
+      env:
+        PYTHONPATH: src
+      run: |
+        python val_and_bench/real_world_validation/validate_physics_models.py
+
     - name: Run Benchmarks
       env:
         PYTHONPATH: src
