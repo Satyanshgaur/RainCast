@@ -13,4 +13,4 @@ This document evaluates the performance of a 1D Temporal Convolutional Network (
 | Model Architecture | Feature Representation | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **XGBoost (Stage C)** | Rolling Mean, Rolling Std, Lags | 0.8487 | 5.3262 | 3.0163 | 0.5162 |
-| **Temporal CNN (1D CNN)** | **60-Min Raw Sequence Window** | **0.8126** | **5.0375** | **2.6989** | **0.4938** |
+| **Temporal CNN (1D CNN)** | **60-Min Raw Sequence Window** | **0.8115** | **4.9787** | **2.7968** | **0.5055** |
