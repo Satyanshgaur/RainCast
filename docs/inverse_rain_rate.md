@@ -12,6 +12,7 @@ This work demonstrates that rain rate can be inferred from link telemetry throug
 | **Analytical Inversion (Stage A)** | 9.0% | 86.7% | 0.163 |
 | **XGBoost Cascade (Stage B)** | 99.96% | 99.82% | 0.999 |
 | **Frequency-Aware XGBoost (Stage C)** | 99.98% | 99.92% | 0.999 |
+| **1D Temporal CNN (Stage D - 60m Seq)** | 84.5% | 78.3% | 0.813 |
 
 ### Rain Rate Estimation Performance (Regression during rain)
 | Model | RMSE (mm/h) | MAE (mm/h) | Correlation | R² |
@@ -19,16 +20,17 @@ This work demonstrates that rain rate can be inferred from link telemetry throug
 | **Analytical Inversion (Stage A)** | 2.10 | 0.76 | 0.346 | 0.111 |
 | **XGBoost Cascade (Stage B)** | 0.49 | 0.06 | 0.997 | 0.995 |
 | **Frequency-Aware XGBoost (Stage C)** | 0.28 | 0.04 | 0.999 | 0.998 |
+| **1D Temporal CNN (Stage D - 60m Seq)** | 5.04 | 2.70 | 0.710 | 0.494 |
 
 ### Consolidated Model Comparison
-| Metric | Stage A | Stage B | Stage C |
-| :--- | :---: | :---: | :---: |
-| **F1 Score** | 0.163 | 0.999 | 0.999 |
-| **R²** | 0.111 | 0.995 | 0.998 |
-| **RMSE (mm/h)** | 2.10 | 0.49 | 0.28 |
-| **Correlation** | 0.346 | 0.997 | 0.999 |
+| Metric | Stage A | Stage B | Stage C | Stage D (TCNN 60m) |
+| :--- | :---: | :---: | :---: | :---: |
+| **F1 Score** | 0.163 | 0.999 | 0.999 | 0.813 |
+| **R²** | 0.111 | 0.995 | 0.998 | 0.494 |
+| **RMSE (mm/h)** | 2.10 | 0.49 | 0.28 | 5.04 |
+| **Correlation** | 0.346 | 0.997 | 0.999 | 0.710 |
 
-*Note: Stage A summary metrics represent regression performance during active rain periods only, averaged across all stochastic-rain ground station validation runs.*
+*Note: Stage A metrics represent active rain periods. Stage D operates directly on raw 60-minute sequence matrices without hand-crafted rolling features under typical receiver impairments.*
 
 > [!WARNING]
 > **Simulator-Domain Validation Limitation**
