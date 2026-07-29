@@ -37,6 +37,23 @@ Under operational receiver impairments (scintillation, pointing jitter, calibrat
 1. **Proof of XGBoost's Reliance on Rolling Features**: Removing hand-crafted rolling features causes XGBoost's $R^2$ score to collapse from **0.4996 down to 0.2924** (a 41.5% drop), proving that decision trees lack temporal memory without engineered rolling statistics.
 2. **Hybrid TCN Dominance**: Combining domain-engineered rolling channels with Bai et al.'s 1D dilated causal convolutions achieves the **best overall performance across all metrics** ($F1 = 0.9142$, $\text{RMSE} = 4.87\text{ mm/h}$, $R^2 = 0.5265$).
 
+### Probabilistic Narrowcasting & Physics-Informed Loss (PINN)
+
+#### 1. Physics-Informed Loss Function (PINN Penalty)
+Rather than solely minimizing data MSE ($\| \hat{R} - R \|^2$), the network is explicitly penalized whenever its predicted rain rate $\hat{R}$ violates ITU-R P.618 propagation physics:
+
+$$\hat{A}_{\text{physics}} = k \cdot (\hat{R})^\alpha \cdot L_{\text{eff}}$$
+$$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{data}} + \lambda_{\text{physics}} \cdot \| \hat{A}_{\text{physics}} - A_{\text{excess}} \|^2$$
+
+#### 2. Probabilistic Models Benchmark Summary
+
+| Probabilistic Method | Uncertainty Representation | Point RMSE (mm/h) | Interval Coverage / Uncertainty Bounds | Regressor $R^2$ |
+| :--- | :--- | :---: | :---: | :---: |
+| **Quantile Regression (q10, q50, q90)** | Pinball Loss (80% Target Interval) | 5.1498 | **81.86% Coverage** (±2.59 mm/h) | 0.4710 |
+| **Physics-Informed TCN (PINN)** | Forward Attenuation Physics Penalty | **4.9681** | Direct Physics Penalty | **0.5076** |
+| **Bayesian NN (MC Dropout 30 Passes)** | Epistemic Model Parameter Sampling | 6.2443 | Epistemic Bounds (±1.5445 mm/h) | 0.2222 |
+| **Deep Ensembles (5 Diverse Seeds)** | Aleatoric + Epistemic Joint Sampling | **4.7169** | Total Ensemble Bounds (±0.6537 mm/h) | **0.5562** |
+
 > [!WARNING]
 > **Simulator-Domain Validation Limitation**
 > Both features and target rain-rate labels originate from the same underlying simulator. Consequently, Stage C demonstrates strong recovery of simulator-defined physics but does not yet establish equivalent performance on real-world telemetry.
