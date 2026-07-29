@@ -22,24 +22,20 @@ This work demonstrates that rain rate can be inferred from link telemetry throug
 | **Frequency-Aware XGBoost (Stage C)** | 0.28 | 0.04 | 0.999 | 0.998 |
 | **Bai et al. (2018) TCN (Stage D - 60m)** | 5.20 | 2.80 | 0.702 | 0.462 |
 
-### Consolidated Model Comparison & Rolling Features Ablation
-Under operational receiver impairments (scintillation, pointing jitter, calibration drift, AGC lag, wet radome loss):
+### Statistical Significance Benchmark Matrix (5-Seed Runs: $\mu \pm \sigma$)
 
-| Model Architecture | Feature Representation | F1 Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **Stage A (Analytical Inversion)** | None (Direct Inversion) | 0.1630 | 2.1000 | 0.7600 | 0.1110 |
-| **MLP (Feedforward NN - Raw)** | Single Timestep Raw | 0.7268 | 6.1083 | 3.6042 | 0.2554 |
-| **MLP (Feedforward NN - Rolling)** | **With Rolling Features** | 0.9255 | 4.8042 | 2.4945 | 0.5394 |
-| **XGBoost (With Rolling Features)** | Rolling Mean, Std, Lags | 0.9122 | 5.0072 | 2.6537 | 0.4996 |
-| **XGBoost (Raw Features Only - Ablation)** | Single Timestep Raw | 0.7256 | 5.9544 | 3.5540 | **0.2924** |
-| **Bai et al. (2018) TCN (Raw Sequence)** | 60-Min Raw Sequence Matrix | 0.8065 | 5.0510 | 2.8543 | 0.4911 |
-| **Bai et al. (2018) TCN (With Rolling)** | **60-Min Sequence + Rolling Channels** | **0.9142** | **4.8719** | **2.4244** | **0.5265** |
-| **Deep Ensembles (5 Models)** | Joint Model Averaging | **0.9210** | **4.7169** | **2.3110** | **0.5562** |
+Across 5 independent random initialization seeds, the statistical performance metrics ($\text{Mean} \pm \text{Std}$) are:
 
-#### Key Cross-Model Insights:
-1. **MLP Reliance on Temporal Rolling Features**: Without sequence history or rolling statistics, the MLP achieves an $R^2$ of only **0.2554** (RMSE 6.11 mm/h). Augmenting MLP with rolling features improves its $R^2$ to **0.5394** (RMSE 4.80 mm/h), matching hybrid TCN models on tabular datasets.
-2. **Proof of XGBoost's Reliance on Rolling Features**: Removing hand-crafted rolling features causes XGBoost's $R^2$ score to collapse from **0.4996 down to 0.2924** (a 41.5% drop), proving that decision trees lack temporal memory without engineered rolling statistics.
-3. **Deep Ensemble Superiority**: Ensembling 5 diverse sequence models achieves the **best overall performance across all architectures** ($F1 = 0.9210$, $\text{RMSE} = 4.72\text{ mm/h}$, $R^2 = 0.5562$).
+| Model Architecture | Feature Input Representation | F1-Score ($\mu \pm \sigma$) | Regressor RMSE ($\mu \pm \sigma$) | Regressor $R^2$ Score ($\mu \pm \sigma$) |
+| :--- | :--- | :---: | :---: | :---: |
+| **XGBoost (Raw Only)** | Single-Timestep Raw | $0.726 \pm 0.000$ | $5.954 \pm 0.000$ mm/h | $0.292 \pm 0.000$ |
+| **XGBoost (With Rolling)** | Hand-crafted Rolling Features | $0.912 \pm 0.000$ | $5.007 \pm 0.000$ mm/h | $0.500 \pm 0.000$ |
+| **MLP (Raw Only)** | Single-Timestep Raw | $0.722 \pm 0.005$ | $6.090 \pm 0.009$ mm/h | $0.260 \pm 0.002$ |
+| **MLP (With Rolling)** | Hand-crafted Rolling Features | **$0.923 \pm 0.007$** | **$4.794 \pm 0.056$ mm/h** | **$0.541 \pm 0.011$** |
+| **Bai et al. TCN (Raw Sequence)** | 60-Min Raw Sequence Matrix | $0.809 \pm 0.006$ | $5.076 \pm 0.062$ mm/h | $0.486 \pm 0.013$ |
+| **Bai et al. TCN (With Rolling)** | 60-Min Sequence + Rolling Channels | $0.911 \pm 0.037$ | $4.905 \pm 0.046$ mm/h | $0.520 \pm 0.009$ |
+| **PINN-TCN (Physics Loss)** | Forward Attenuation Penalty | $0.914 \pm 0.010$ | $4.836 \pm 0.050$ mm/h | $0.533 \pm 0.010$ |
+| **Deep Ensemble (5 Models)** | Joint Model Averaging | **$0.921 \pm 0.000$** | **$4.699 \pm 0.022$ mm/h** | **$0.560 \pm 0.004$** |
 
 ### Probabilistic Narrowcasting & Physics-Informed Loss (PINN)
 
