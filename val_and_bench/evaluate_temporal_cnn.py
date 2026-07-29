@@ -21,8 +21,8 @@ from satlinksim.domain.observation import ObservationConfig
 from satlinksim.infrastructure.ml.tcnn_model import TemporalSequenceDataset, TemporalCNN
 from val_and_bench.evaluate_stage_b import extract_features_and_targets
 
-def run_temporal_cnn_experiment(seq_len: int = 60, epochs: int = 25, batch_size: int = 128):
-    print(f"--- Training 1D Temporal CNN (Sequence Length: {seq_len} minutes) ---")
+def run_temporal_cnn_experiment(seq_len: int = 60, epochs: int = 30, batch_size: int = 256):
+    print(f"--- Training Bai et al. (2018) Dilated Causal TCN (Sequence Length: {seq_len} minutes) ---")
     
     # Configure Typical Scenario Observation Model
     config = ObservationConfig(scenario="typical", environment="rural")
@@ -109,7 +109,7 @@ def run_temporal_cnn_experiment(seq_len: int = 60, epochs: int = 25, batch_size:
     
     # Instantiate PyTorch Model
     in_channels = len(raw_feature_cols)
-    model = TemporalCNN(in_channels=in_channels, seq_len=seq_len).to(device)
+    model = TemporalCNN(in_channels=in_channels).to(device)
     
     criterion_bce = nn.BCELoss()
     criterion_mse = nn.MSELoss()
@@ -180,18 +180,20 @@ def run_temporal_cnn_experiment(seq_len: int = 60, epochs: int = 25, batch_size:
     study_file = os.path.join(docs_dir, "temporal_cnn_study.md")
     
     with open(study_file, "w") as f:
-        f.write("# 1D Temporal CNN (60-Minute Sequence) Experiment Study\n\n")
-        f.write("This document evaluates the performance of a 1D Temporal Convolutional Network (TCNN) trained directly on raw 60-minute telemetry sequences under typical receiver impairments.\n\n")
+        f.write("# Bai et al. (2018) Dilated Causal TCN Experiment Study\n\n")
+        f.write("This document evaluates the performance of the official Bai et al. (2018) Temporal Convolutional Network (TCN) architecture trained directly on raw 60-minute telemetry sequences under typical receiver impairments.\n\n")
         f.write("## 1. Model Architecture & Input Structure\n")
+        f.write("- **Architecture**: Bai et al. (2018) Dilated Causal Residual TCN.\n")
         f.write("- **Input Window**: 60 consecutive timesteps (60 minutes of raw telemetry).\n")
         f.write("- **Input Channels**: 8 raw features (Observed SNR, Excess Attenuation, Elevation, Slant Range, SNR Uncertainty, Calibration State, Carrier Frequency, Effective Path Length).\n")
-        f.write("- **Conv Layers**: Conv1D(8->32, k=5) -> Conv1D(32->64, k=5, s=2) -> Conv1D(64->128, k=3, s=2).\n")
-        f.write("- **Head**: Dual-head architecture outputting Rain Detection Probability (BCE) and Rain Rate mm/h (MSE).\n\n")
-        f.write("## 2. Benchmark Comparison (XGBoost Stage C vs. Temporal CNN)\n\n")
+        f.write("- **Dilated Residual Blocks**: 5 stacked blocks with exponential dilations $d \\in [1, 2, 4, 8, 16]$, kernel size $k=3$, and spatial dropout = 0.20.\n")
+        f.write("- **Receptive Field**: $1 + 2 \\times (3-1) \\times (1+2+4+8+16) = 125$ timesteps ($> 60$ minutes).\n")
+        f.write("- **Head**: Dual-head architecture outputting Rain Detection Probability (BCE) and Rain Rate mm/h (MSE) from final causal timestep $t=60$.\n\n")
+        f.write("## 2. Benchmark Comparison (XGBoost Stage C vs. Bai et al. TCN)\n\n")
         f.write("| Model Architecture | Feature Representation | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |\n")
         f.write("| :--- | :--- | :---: | :---: | :---: | :---: |\n")
-        f.write(f"| **XGBoost (Stage C)** | Rolling Mean, Rolling Std, Lags | 0.8487 | 5.3262 | 3.0163 | 0.5162 |\n")
-        f.write(f"| **Temporal CNN (1D CNN)** | **60-Min Raw Sequence Window** | **{f1:.4f}** | **{rmse:.4f}** | **{mae:.4f}** | **{r2:.4f}** |\n")
+        f.write(f"| **XGBoost (Stage C)** | Hand-crafted Rolling Mean, Std, Lags | 0.8487 | 5.3262 | 3.0163 | 0.5162 |\n")
+        f.write(f"| **Bai et al. (2018) TCN** | **60-Min Raw Sequence Window** | **{f1:.4f}** | **{rmse:.4f}** | **{mae:.4f}** | **{r2:.4f}** |\n")
         
     print(f"\nResults recorded in: {study_file}")
     return {"f1": f1, "rmse": rmse, "mae": mae, "r2": r2}

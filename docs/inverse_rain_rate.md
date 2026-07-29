@@ -20,17 +20,17 @@ This work demonstrates that rain rate can be inferred from link telemetry throug
 | **Analytical Inversion (Stage A)** | 2.10 | 0.76 | 0.346 | 0.111 |
 | **XGBoost Cascade (Stage B)** | 0.49 | 0.06 | 0.997 | 0.995 |
 | **Frequency-Aware XGBoost (Stage C)** | 0.28 | 0.04 | 0.999 | 0.998 |
-| **1D Temporal CNN (Stage D - 60m Seq)** | 4.98 | 2.80 | 0.718 | 0.506 |
+| **Bai et al. (2018) TCN (Stage D - 60m)** | 5.20 | 2.80 | 0.702 | 0.462 |
 
 ### Consolidated Model Comparison
-| Metric | Stage A | Stage B | Stage C | Stage D (TCNN 60m) |
+| Metric | Stage A | Stage B | Stage C | Stage D (Bai et al. TCN) |
 | :--- | :---: | :---: | :---: | :---: |
-| **F1 Score** | 0.163 | 0.999 | 0.999 | 0.812 |
-| **R²** | 0.111 | 0.995 | 0.998 | 0.506 |
-| **RMSE (mm/h)** | 2.10 | 0.49 | 0.28 | 4.98 |
-| **Correlation** | 0.346 | 0.997 | 0.999 | 0.718 |
+| **F1 Score** | 0.163 | 0.999 | 0.999 | 0.804 |
+| **R²** | 0.111 | 0.995 | 0.998 | 0.462 |
+| **RMSE (mm/h)** | 2.10 | 0.49 | 0.28 | 5.20 |
+| **Correlation** | 0.346 | 0.997 | 0.999 | 0.702 |
 
-*Note: Stage A metrics represent active rain periods. Stage D operates directly on raw 60-minute sequence matrices without hand-crafted rolling features under typical receiver impairments.*
+*Note: Stage A metrics represent active rain periods. Stage D implements the official Bai et al. (2018) Dilated Causal TCN architecture with residual connections and causal padding over raw 60-minute sequence matrices.*
 
 > [!WARNING]
 > **Simulator-Domain Validation Limitation**
