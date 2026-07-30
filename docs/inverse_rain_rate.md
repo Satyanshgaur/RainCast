@@ -22,20 +22,21 @@ This work demonstrates that rain rate can be inferred from link telemetry throug
 | **Frequency-Aware XGBoost (Stage C)** | 0.28 | 0.04 | 0.999 | 0.998 |
 | **Bai et al. (2018) TCN (Stage D - 60m)** | 5.20 | 2.80 | 0.702 | 0.462 |
 
-### Statistical Significance Benchmark Matrix (5-Seed Runs: $\mu \pm \sigma$)
+### Model Computational Efficiency & Complexity Benchmark Matrix
 
-Across 5 independent random initialization seeds, the statistical performance metrics ($\text{Mean} \pm \text{Std}$) are:
+Comparing parameter footprint, training wall-clock time, GPU inference latency (ms per 1,000 samples), and $R^2$ accuracy:
 
-| Model Architecture | Feature Input Representation | F1-Score ($\mu \pm \sigma$) | Regressor RMSE ($\mu \pm \sigma$) | Regressor $R^2$ Score ($\mu \pm \sigma$) |
-| :--- | :--- | :---: | :---: | :---: |
-| **XGBoost (Raw Only)** | Single-Timestep Raw | $0.726 \pm 0.000$ | $5.954 \pm 0.000$ mm/h | $0.292 \pm 0.000$ |
-| **XGBoost (With Rolling)** | Hand-crafted Rolling Features | $0.912 \pm 0.000$ | $5.007 \pm 0.000$ mm/h | $0.500 \pm 0.000$ |
-| **MLP (Raw Only)** | Single-Timestep Raw | $0.722 \pm 0.005$ | $6.090 \pm 0.009$ mm/h | $0.260 \pm 0.002$ |
-| **MLP (With Rolling)** | Hand-crafted Rolling Features | **$0.923 \pm 0.007$** | **$4.794 \pm 0.056$ mm/h** | **$0.541 \pm 0.011$** |
-| **Bai et al. TCN (Raw Sequence)** | 60-Min Raw Sequence Matrix | $0.809 \pm 0.006$ | $5.076 \pm 0.062$ mm/h | $0.486 \pm 0.013$ |
-| **Bai et al. TCN (With Rolling)** | 60-Min Sequence + Rolling Channels | $0.911 \pm 0.037$ | $4.905 \pm 0.046$ mm/h | $0.520 \pm 0.009$ |
-| **PINN-TCN (Physics Loss)** | Forward Attenuation Penalty | $0.914 \pm 0.010$ | $4.836 \pm 0.050$ mm/h | $0.533 \pm 0.010$ |
-| **Deep Ensemble (5 Models)** | Joint Model Averaging | **$0.921 \pm 0.000$** | **$4.699 \pm 0.022$ mm/h** | **$0.560 \pm 0.004$** |
+| Model Architecture | Trainable Parameters | Training Time (s) | Inference Latency (ms / 1k) | Regressor $R^2$ Score |
+| :--- | :---: | :---: | :---: | :---: |
+| **Analytical Inversion (Stage A)** | 0 (Physics Equation) | 0.00 s | **0.08 ms / 1k** | 0.1110 |
+| **XGBoost (Raw Only)** | 3,000 Nodes (200 Trees) | 3.25 s | 0.49 ms / 1k | 0.2924 |
+| **XGBoost (With Rolling)** | 3,000 Nodes (200 Trees) | **1.18 s** | **0.30 ms / 1k** | 0.4996 |
+| **MLP (Raw Only)** | 44,482 | 16.50 s | 5.24 ms / 1k | 0.2552 |
+| **MLP (With Rolling)** | 50,114 | 15.94 s | 5.42 ms / 1k | **0.5346** |
+| **Bai et al. TCN (Raw Sequence)** | 147,746 | 75.84 s | 29.68 ms / 1k | 0.4496 |
+| **Bai et al. TCN (With Rolling)** | 150,562 | 76.54 s | 27.66 ms / 1k | 0.5214 |
+| **PINN-TCN (Physics Loss)** | 150,822 | 73.73 s | 27.26 ms / 1k | 0.5257 |
+| **Deep Ensemble (5 Models)** | 752,810 (5x TCN) | 217.46 s | 134.75 ms / 1k | **0.5643** |
 
 ### Probabilistic Narrowcasting & Physics-Informed Loss (PINN)
 
