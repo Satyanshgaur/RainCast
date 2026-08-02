@@ -188,6 +188,7 @@ The dashboard will be available at `http://localhost:8501`.
 
 ## Documentation Links
 - [REST API Documentation](docs/api_documentation.md)
+- [Observation Model Validation](docs/observation_model_validation.md)
 - [Narrowcasting Results](docs/inverse_rain_rate.md)
 - [Physics Models](docs/physics_models.md)
 - [Rain Model (Maseng-Bakken)](docs/rain_model.md)
