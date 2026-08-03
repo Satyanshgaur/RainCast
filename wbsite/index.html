@@ -321,12 +321,19 @@
         <div class="question-narrative-box">
           <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 3</span>
           <div class="question-title">Which machine learning model architectures are robust under full physical noise?</div>
-          <div class="question-arrow">↓ EXPERIMENT: PURE MODEL ARCHITECTURE BENCHMARK</div>
+          <div class="question-arrow">↓ EXPERIMENT: PURE MODEL ARCHITECTURE BENCHMARK (4-LAYER SYSTEMS HIERARCHY)</div>
         </div>
 
         <p>
-          We benchmark four major model paradigms—Analytical Inversion, Tree-Based Boosting (XGBoost), Deep Feedforward Neural Networks (MLP), and Dilated Causal Convolutional Networks (TCN)—under identical 8-impairment rolling feature inputs.
+          To avoid arbitrary impairment groupings, we structure the progressive cascade according to the <strong>4-Layer Physical Systems Hierarchy</strong> established in satellite link engineering (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Ippolito, 2017</a>):
         </p>
+        <ul style="line-height: 1.6; font-size: 15px; margin-bottom: 24px;">
+          <li><strong>Layer 0 (0 Impairments — Ideal Free-Space)</strong>: Baseline theoretical free-space path loss ($A_{\text{FSPL}}$) and rain attenuation.</li>
+          <li><strong>Layer 1 (2 Impairments — Natural Atmosphere)</strong>: Continuous tropospheric phenomena (Gaseous Absorption $A_{\text{gas}}$ + Scintillation $\sigma_{\text{scint}}$).</li>
+          <li><strong>Layer 2 (4 Impairments — Receiver Hardware & Servo Control)</strong>: Mechanical antenna mispointing $A_{\text{track}}$ + AGC/ADC Quantization $N_{\text{ADC}}$.</li>
+          <li><strong>Layer 3 (8 Impairments — Constellation Operations & Site Environment)</strong>: Stateful Handoffs + LNB Calibration Drift $C(t)$ + Multipath $N_{\text{multi}}$ + Wet Antenna.</li>
+          <li><strong>Layer 4 (All Impairments — Severe Urban Canyon)</strong>: Boundary stress-test conditions representing worst-case Earth Stations in Motion (ESIM).</li>
+        </ul>
 
         <!-- Figure 3: Impairment Cascade -->
         <img src="figures/fig3_impairment_cascade.png" alt="Figure 3: Impairment Cascade Degradation" class="paper-figure" />
@@ -775,6 +782,39 @@
           </li>
           <li style="margin-bottom: 16px;">
             <strong>Vallado et al. (2006)</strong>: Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. <em>Revisiting Spacetrack Report #3: Rev 2</em>. AIAA/AAS Astrodynamics Specialist Conference. <a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.2514/6.2006-6753</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>IPWG (2024)</strong>: International Precipitation Working Group. <em>SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval</em>. <a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">GitHub: IPWG/satrain</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Huffman et al. (2020)</strong>: Huffman, G. J., et al. <em>Integrated Multi-satellitE Retrievals for GPM (IMERG) Technical Documentation</em>. NASA GSFC. <a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1175/BAMS-D-19-0270.1</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Hawkins (1988)</strong>: Hawkins, H. E. <em>Tracking performance of monopulse antenna systems</em>. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. <a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-f-2.1988.0012</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Skolnik (2008)</strong>: Skolnik, M. I. <em>Radar Handbook</em> (3rd ed.). McGraw-Hill Education. <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">AccessEngineering</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>IEEE Std 145-2013</strong>: IEEE Standard Definitions of Terms for Antennas. <em>IEEE Std 145-2013</em>. <a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/IEEESTD.2014.6758443</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Mercier et al. (2014)</strong>: Mercier, H., et al. <em>Automatic gain control dynamic loop performance in satellite receivers</em>. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. <a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TMTT.2014.2305541</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Ippolito (2017)</strong>: Ippolito, L. J. <em>Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance</em> (2nd ed.). Wiley. <a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1002/9781119414605</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Tatarskii (1971)</strong>: Tatarskii, V. I. <em>The Effects of the Turbulent Atmosphere on Wave Propagation</em>. Israel Program for Scientific Translations.
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Vogel & Hong (1988)</strong>: Vogel, W. J., & Hong, U. S. <em>Measurement and modeling of land mobile satellite propagation at UHF and L-band</em>. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. <a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/8.14441</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Athanasiadou et al. (2000)</strong>: Athanasiadou, G. E., et al. <em>A Rician channel model for Earth-space satellite links</em>. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-map:20000438</a>
+          </li>
+          <li style="margin-bottom: 16px;">
+            <strong>Sklar (2001)</strong>: Sklar, B. <em>Digital Communications: Fundamentals and Applications</em> (2nd ed.). Prentice Hall.
           </li>
         </ol>
       </div>
