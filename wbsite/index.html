@@ -64,7 +64,7 @@
         <img src="figures/fig1_pipeline.png" alt="Figure 1: SatLinkSim Pipeline" class="paper-figure" />
 
         <p>
-          Under each impairment level, we evaluate four representative model architectures: <strong>Analytical Inversion</strong>, <strong>Gradient Boosted Decision Trees (XGBoost)</strong>, <strong>Multi-Layer Perceptrons (MLP)</strong>, and <strong>Dilated Causal Temporal Convolutional Networks (TCN)</strong>. Our empirical tracking sweeps prove that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$.
+          Under each impairment level, we evaluate four representative model architectures: <strong>Analytical Inversion</strong>, <strong>Gradient Boosted Decision Trees (XGBoost)</strong>, <strong>Multi-Layer Perceptrons (MLP)</strong>, and <strong>Dilated Causal Temporal Convolutional Networks (TCN)</strong>. Our empirical tracking sweeps demonstrate that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$.
         </p>
         <p>
           Controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$). Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
@@ -393,13 +393,13 @@
 
         <div class="inference-box">
           <strong>Key Inference 3</strong>: Analytical physics inversion fails completely under noise ($\text{F1}=0.1630, R^2=0.1110$) because static linear filters cannot distinguish scintillation from rain. Machine learning architectures overcome analytical failure, with Dilated TCN ($R^2=0.5076, \text{RMSE}=4.9681\text{ mm/h}$) demonstrating superior stability over feedforward networks.
-          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Does controlled feature ablation prove that temporal memory is required? What is the PSD mechanism?</em>
+          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Does controlled feature ablation demonstrate that temporal memory is required? What is the PSD mechanism?</em>
         </div>
 
         <!-- QUESTION 4 -->
         <div class="question-narrative-box">
           <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 4</span>
-          <div class="question-title">Does controlled feature ablation prove that temporal memory is required?</div>
+          <div class="question-title">Does controlled feature ablation demonstrate that temporal memory is required?</div>
           <div class="question-arrow">↓ EXPERIMENT: CONTROLLED FEATURE ABLATION STUDY</div>
         </div>
 
@@ -685,9 +685,9 @@
 
         <h3 class="sub-heading">6.1 Empirical Learnability Hierarchy</h3>
         <ol>
-          <li><strong>Level 1 — Physical Observation Quality (Dominant Factor)</strong>: Tracking mispointing sweeps prove that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.</li>
-          <li><strong>Level 2 — Temporal Feature Representation (Critical Factor)</strong>: Controlled ablations prove that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.</li>
-          <li><strong>Level 3 — Physics Parameter Embedding (Generalization Factor)</strong>: Cross-frequency benchmarks prove that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.</li>
+          <li><strong>Level 1 — Physical Observation Quality (Dominant Factor)</strong>: Tracking mispointing sweeps demonstrate that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.</li>
+          <li><strong>Level 2 — Temporal Feature Representation (Critical Factor)</strong>: Controlled ablations provide empirical evidence that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.</li>
+          <li><strong>Level 3 — Physics Parameter Embedding (Generalization Factor)</strong>: Cross-frequency benchmarks indicate that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.</li>
           <li><strong>Level 4 — Model Architectural Depth (Secondary Factor)</strong>: Under identical feature representations, architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce minor performance variations compared to feature and noise factors.</li>
         </ol>
 
@@ -730,7 +730,7 @@
         <h3 class="sub-heading">Main Scientific Takeaways</h3>
         <ul>
           <li><strong>Tracking Error Dominance</strong>: Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.</li>
-          <li><strong>Temporal Feature Requirement</strong>: Controlled feature ablations prove that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).</li>
+          <li><strong>Temporal Feature Requirement</strong>: Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).</li>
           <li><strong>Cross-Frequency Generalization</strong>: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.</li>
           <li><strong>Learnability Hierarchy</strong>: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
         </ul>

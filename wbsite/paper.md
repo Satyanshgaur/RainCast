@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions. In this paper, we investigate the central research question: **How do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?** We formulate a forward observation model incorporating SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng-Bakken stochastic rain synthesis, and stateful multi-satellite handoffs. We evaluate representative learning paradigms—Analytical Inversion, Gradient Boosted Decision Trees (XGBoost), Multi-Layer Perceptrons (MLP), and Dilated Causal Temporal Convolutional Networks (TCN)—across progressive impairment cascades ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$). Our empirical tracking sweeps prove that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$. Controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$). Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
+Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions. In this paper, we investigate the central research question: **How do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?** We formulate a forward observation model incorporating SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng-Bakken stochastic rain synthesis, and stateful multi-satellite handoffs. We evaluate representative learning paradigms—Analytical Inversion, Gradient Boosted Decision Trees (XGBoost), Multi-Layer Perceptrons (MLP), and Dilated Causal Temporal Convolutional Networks (TCN)—across progressive impairment cascades ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$). Our empirical tracking sweeps demonstrate that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$. Controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$). Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
 
 ---
 
@@ -151,7 +151,7 @@ We evaluate pure model architectures across five cumulative degradation levels.
 
 ---
 
-## 5.4 Question 4 — Does Controlled Feature Ablation Prove That Temporal Memory Is Required?
+## 5.4 Question 4 — Does Controlled Feature Ablation Demonstrate That Temporal Memory Is Required?
 
 ### Motivation
 Instead of speculating on why neural networks succeed, we conduct a controlled feature ablation experiment: removing temporal rolling features from XGBoost, MLP, and TCN models under identical 8-impairment conditions.
@@ -213,9 +213,9 @@ We evaluate the effect of embedding carrier-specific physics parameters $[f, k(f
 ## 6.1 Empirical Interpretation & Physical Hierarchy
 Our empirical findings establish a 4-level **Observation Learnability Hierarchy** (Figure 8):
 
-1. **Level 1 — Physical Observation Quality (Dominant Factor)**: Tracking mispointing sweeps (Table 3, Figure 4) prove that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.
-2. **Level 2 — Temporal Feature Representation (Critical Factor)**: Controlled ablations (Table 5, Figure 7) prove that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.
-3. **Level 3 — Physics Parameter Embedding (Generalization Factor)**: Cross-frequency benchmarks (Table 6, Figure 6) prove that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.
+1. **Level 1 — Physical Observation Quality (Dominant Factor)**: Tracking mispointing sweeps (Table 3, Figure 4) demonstrate that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.
+2. **Level 2 — Temporal Feature Representation (Critical Factor)**: Controlled ablations (Table 5, Figure 7) provide empirical evidence that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.
+3. **Level 3 — Physics Parameter Embedding (Generalization Factor)**: Cross-frequency benchmarks (Table 6, Figure 6) indicate that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.
 4. **Level 4 — Model Architectural Depth (Secondary Factor)**: Under identical feature representations (Table 4, Figure 5), architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce minor performance variations compared to feature and noise factors.
 
 ## 6.2 Critical Methodological Flaws & Limitations
@@ -241,6 +241,6 @@ We identify five major limitations and flaws in this study:
 # 7. Conclusion
 
 1. **Tracking Error Dominance**: Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.
-2. **Temporal Feature Requirement**: Controlled feature ablations prove that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).
+2. **Temporal Feature Requirement**: Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).
 3. **Cross-Frequency Generalization**: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.
 4. **Learnability Hierarchy**: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
