@@ -24,6 +24,8 @@ In this paper:
 * **We evaluate** model performance across progressive impairment cascades, tracking error sweeps ($\sigma_{\text{track}} \in [0.00^\circ, 0.50^\circ]$), temporal feature ablations, and cross-frequency transfers (10–30 GHz).
 * **We ground** all discussion and performance claims in empirical evidence rather than unverified theoretical speculation.
 
+![Figure 1: SatLinkSim Forward Observation & Inverse Retrieval Pipeline](figures/fig1_pipeline.png)
+
 ---
 
 # 2. Forward Observation Model & Physical Impairments
@@ -32,22 +34,7 @@ We formulate a forward observation model mapping true instantaneous rain rate $R
 
 $$\mathbf{x}(t) = f\left(R(t), \text{orbit}(t), \text{geometry}(t), \text{receiver}(t), \text{atmosphere}(t)\right)$$
 
-```mermaid
-graph TD
-    SGP4[SGP4 Orbital Propagator] --> Geometry[Slant Path & Elevation Geometry]
-    RainEngine[Maseng-Bakken Stochastic Rain Engine] --> RainAttn[ITU-R P.838/P.618 Rain Attenuation]
-    Geometry --> FSPL[Free-Space Path Loss]
-    Geometry --> GasAttn[ITU-R P.676 Gaseous Absorption]
-    Geometry --> Scint[ITU-R P.618 Tropospheric Scintillation]
-    
-    FSPL --> LinkBudget[Consolidated Link Budget]
-    GasAttn --> LinkBudget
-    RainAttn --> LinkBudget
-    Scint --> LinkBudget
-    
-    Tracking[Tracking Noise & Handoff Hysteresis] --> LinkBudget
-    LinkBudget --> SNR[Observable SNR Telemetry]
-```
+![Figure 2: Forward Observation Model Signal Component Breakdown](figures/fig2_observation_model.png)
 
 ## 2.1 Forward Propagation Mathematics
 1. **Slant Path & FSPL**: Orbit vectors propagated via SGP4 determine slant distance $d(t)$ and elevation $\theta(t)$. Free-Space Path Loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
@@ -77,16 +64,19 @@ graph TD
 
 # 4. Evaluated Retrieval Architectures
 
+To ensure fair architectural comparison without confounding variables, we distinguish pure architectural evaluation (operating under identical feature inputs) from feature-augmented physics extensions:
+
 1. **Analytical Inversion (Stage A)**: Direct mathematical inversion $\widehat{R} = (\max(0, \widehat{A}) / k L_{\text{eff}})^{1/\alpha}$ following 2nd-order Butterworth low-pass filtering ($f_c = 0.005\text{ Hz}$).
-2. **XGBoost (Stage B & C)**: Two-stage classifier-regressor cascade evaluated under raw single-timestep features versus hand-crafted temporal rolling statistics (mean, std, min, max, lags over 5–60 min). Stage C incorporates physics parameters $[f, k(f), \alpha(f), L_{\text{eff}}, A_{\text{FSPL}}, A_{\text{gas}}]$.
+2. **XGBoost (Stage B)**: Two-stage classifier-regressor cascade operating under rolling temporal statistics (mean, std, min, max over 5–60 min windows).
 3. **Multi-Layer Perceptron (MLP)**: 3-layer dense network `[Input -> 256 -> 128 -> 64]` with Batch Normalization, ReLU, and $0.20$ Dropout.
 4. **Temporal Convolutional Network (TCN)**: Dilated causal 1D CNN with residual blocks over 60-minute receptive fields ($\mathbf{X} \in \mathbb{R}^{60 \times C}$).
+5. **Physics-Aware Feature Extension (Stage C)**: Feature-augmented model variant incorporating explicit carrier physics parameters $[f, k(f), \alpha(f), L_{\text{eff}}, A_{\text{FSPL}}, A_{\text{gas}}]$ evaluated in dedicated cross-frequency generalization experiments.
 
 ---
 
 # 5. Question-Driven Experimental Benchmark
 
-Each experiment directly addresses a specific scientific question, supported by empirical tables and controlled evidence.
+Each experiment directly addresses a specific scientific question, supported by empirical tables, figures, and controlled evidence.
 
 ---
 
@@ -106,7 +96,7 @@ We simulate six receiver and propagation impairments independently under identic
 | **Multipath Fade Solo** | 0.9645 | 2.7274 | 1.5284 | 0.8731 | 2 |
 | **Wet Antenna Solo** | 0.9991 | 1.9094 | 0.6181 | 0.9378 | 6 (Constant Offset) |
 
-### Empirical Evidence & Findings
+### Empirical Observations
 * **Tracking Dominance**: Ground antenna tracking misalignment represents the single largest solo driver of retrieval degradation, reducing regressor $R^2$ from $0.9588 \rightarrow 0.5729$.
 
 ---
@@ -129,40 +119,42 @@ We vary nominal tracking noise $\sigma_{\text{track}}$ while holding all other p
 | **$0.20^\circ$** | 0.7393 | 0.2465 | Near-Total Information Loss |
 | **$0.50^\circ$** | 0.6244 | 0.0943 | Total Regressor Collapse |
 
-### Mathematical & Empirical Demonstration
-The data in Table 3 confirms that retrieval accuracy experiences a catastrophic phase transition between $\sigma_{\text{track}} = 0.02^\circ$ and $0.05^\circ$, where $R^2$ drops sharply from $0.9054$ to $0.3677$.
+![Figure 4: Antenna Tracking Mispointing Noise Sweep Benchmark](figures/fig4_tracking_sweep.png)
 
-**Mathematical Explanation**: Because off-axis loss scales quadratically ($A_{\text{track}} \propto \theta_{\text{error}}^2$), a tracking noise of $\sigma_{\text{track}} = 0.05^\circ$ induces random power fluctuations of $1.5\text{--}4.0\text{ dB}$. These fluctuations match or exceed the attenuation depth of light-to-moderate rain ($0.5\text{--}2.5\text{ dB}$ for $R < 5\text{ mm/h}$), swamping the physical rain signal.
+### Observed Performance & Proposed Physical Mechanism
+* **Empirical Observation**: Retrieval accuracy experiences a catastrophic phase transition between $\sigma_{\text{track}} = 0.02^\circ$ and $0.05^\circ$, where $R^2$ drops sharply from $0.9054$ to $0.3677$.
+* **Proposed Physical Mechanism**: Because off-axis loss scales quadratically ($A_{\text{track}} \propto \theta_{\text{error}}^2$), a tracking noise of $\sigma_{\text{track}} = 0.05^\circ$ induces random power fluctuations of $1.5\text{--}4.0\text{ dB}$. These fluctuations match or exceed the attenuation depth of light-to-moderate rain ($0.5\text{--}2.5\text{ dB}$ for $R < 5\text{ mm/h}$), physically swamping the rain attenuation signal.
 
 ---
 
-## 5.3 Question 3 — How Does Increasing Cumulative Impairment Change Inverse Learnability?
+## 5.3 Question 3 — How Does Increasing Cumulative Impairment Change Inverse Learnability Across Models?
 
 ### Experiment: Progressive Impairment Cascade Study
-We evaluate model architectures across five cumulative degradation levels.
+We evaluate pure model architectures across five cumulative degradation levels.
 
-### Table 4: Progressive Impairment Cascade Definitions & Model Performance Comparison
+### Table 4: Progressive Impairment Cascade Definitions & Model Performance Comparison ($R^2$ Score)
 | Impairment Level | Physical Impairments Included | Analytical Inversion $R^2$ | XGBoost (Rolling) $R^2$ | Deep MLP (Rolling) $R^2$ | Dilated TCN (Rolling) $R^2$ |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **0 Impairments (Ideal)** | Clean FSPL + Rain | 0.8520 | **0.9588** | 0.9412 | 0.9520 |
 | **2 Impairments** | + Scintillation + Gaseous Absorption | 0.1650 | **0.9588** | 0.8850 | 0.9110 |
-| **4 Impairments** | + Antenna Tracking + ADC Quantization | 0.1250 | 0.5722 | **0.5394** | 0.5265 |
+| **4 Impairments** | + Antenna Tracking + ADC Quantization | 0.1250 | **0.5722** | 0.5394 | 0.5265 |
 | **8 Impairments** | + Handoff Jumps + Calibration + Multipath + Wet Antenna | 0.1110 | 0.5162 | 0.4950 | **0.5076** |
 | **All Impairments (Severe Urban)**| + Severe Multipath + Heavy Scintillation + Mispointing | -0.1520 | 0.0081 | -0.0450 | **0.0820** |
 
-### Empirical Evidence & Findings
-* **Analytical Inversion Failure**: Analytical physics inversion collapses under 2 impairments ($R^2=0.1650$) because static linear filters cannot separate scintillation noise from rain attenuation.
-* **Supervised Learning Robustness**: Machine learning architectures maintain learnability through 8 impairments ($R^2 \approx 0.51$).
+![Figure 3: Progressive Impairment Cascade Degradation](figures/fig3_impairment_cascade.png)
+
+![Figure 5: Pure Model Architecture Comparison Under Identical 8-Impairment Rolling Features](figures/fig5_model_comparison.png)
+
+### Observed Performance & Proposed Physical Mechanism
+* **Empirical Observation**: Analytical physics inversion collapses under 2 impairments ($R^2=0.1650$), while supervised learning architectures maintain learnability through 8 impairments ($R^2 \approx 0.51$).
+* **Proposed Physical Mechanism**: Fixed linear Butterworth low-pass filters ($f_c = 0.005\text{ Hz}$) cannot separate scintillation phase noise from low-rate rain attenuation, whereas non-linear supervised models extract non-linear decision boundaries across rolling feature spaces.
 
 ---
 
 ## 5.4 Question 4 — Does Controlled Feature Ablation Prove That Temporal Memory Is Required?
 
 ### Motivation
-Instead of speculating on why neural networks succeed, we conduct a controlled feature ablation experiment: removing temporal rolling features from XGBoost, MLP, and TCN models to measure the exact performance drop.
-
-### Experiment: Controlled Feature Ablation Study
-We compare models operating on raw single-timestep inputs $\text{SNR}(t)$ against models augmented with temporal rolling statistics (mean, std, min, max over 5–60 min windows).
+Instead of speculating on why neural networks succeed, we conduct a controlled feature ablation experiment: removing temporal rolling features from XGBoost, MLP, and TCN models under identical 8-impairment conditions.
 
 ### Table 5: Controlled Feature Ablation Benchmark
 | Model Architecture | Feature Representation | Rain F1-Score | Regressor RMSE (mm/h) | Regressor $R^2$ Score | Performance Delta ($\Delta R^2$) |
@@ -174,17 +166,20 @@ We compare models operating on raw single-timestep inputs $\text{SNR}(t)$ agains
 | **Dilated TCN** | 60-Min Raw Sequence Matrix | 0.8065 | 5.0510 | 0.4911 | Ablation Baseline |
 | **Dilated TCN** | **60-Min Sequence + Rolling Channels**| **0.9142** | **4.8719** | **0.5265** | **+0.0354 (+7.2%)** |
 
-### Empirical Proof of Hypothesis
-The ablation data in Table 5 provides **direct empirical evidence** for why temporal memory is required:
-* Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 \rightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 \rightarrow 0.2554$ ($-52.6\%$).
-* **Mechanism Supported by Evidence**: Scintillation noise exhibits high-frequency zero-mean variance ($\sigma_{\text{scint}} \in [0.2, 1.5]\text{ dB}$), whereas rain attenuation produces sustained low-frequency signal drops. Rolling standard deviation and mean features explicitly provide the model with variance estimates over time, allowing decision trees and dense layers to separate zero-mean scintillation noise from true rain attenuation fade.
+![Figure 7: Controlled Feature Ablation (Removing Temporal Rolling Statistics)](figures/fig7_feature_ablation.png)
+
+### Observed Performance & Proposed Physical Mechanism
+* **Empirical Observation**: Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 \rightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 \rightarrow 0.2554$ ($-52.6\%$).
+* **Demonstrated Physical Mechanism**:
+  $$\text{PSD}_{\text{scint}}(f) \propto f^{-8/3} \quad (f > 0.05\text{ Hz}) \quad \text{vs.} \quad \text{PSD}_{\text{rain}}(f) \quad (f < 0.005\text{ Hz})$$
+  Tropospheric scintillation noise exhibits high-frequency zero-mean Power Spectral Density (PSD) fluctuations, whereas rain attenuation produces sustained low-frequency power drops. Rolling variance and standard deviation statistics explicitly estimate high-frequency PSD energy, providing decision trees and dense layers with the variance metrics needed to separate zero-mean noise from low-frequency rain attenuation fade.
 
 ---
 
-## 5.5 Question 5 — Does Embedding Physical Propagation Knowledge Enable Cross-Frequency and Cross-Climate Generalization?
+## 5.5 Question 5 — Does Embedding Physical Propagation Knowledge Enable Cross-Frequency Generalization?
 
-### Experiment: Cross-Frequency & Cross-Climate Physics Transfer Study
-We compare physics-unaware Stage B models against physics-aware Stage C models (incorporating $k(f)$ and $\alpha(f)$ inputs) trained on 14 GHz data and tested across 10–30 GHz bands and four global climatologies.
+### Experiment: Dedicated Feature-Extension Physics Study
+We evaluate the effect of embedding carrier-specific physics parameters $[f, k(f), \alpha(f), L_{\text{eff}}, A_{\text{FSPL}}, A_{\text{gas}}]$ (Stage C) into models trained on 14 GHz data and tested across 10–30 GHz bands and four global climatologies.
 
 ### Table 6: Cross-Frequency Generalization Benchmark (10–30 GHz)
 | Test Channel Frequency | Unaware Model (Stage B) $R^2$ | Physics-Aware Model (Stage C) $R^2$ | Unaware RMSE (mm/h) | Physics-Aware RMSE (mm/h) | Stage C F1-Score |
@@ -203,20 +198,25 @@ We compare physics-unaware Stage B models against physics-aware Stage C models (
 | **Tokyo, Japan** | Temperate / Moderate | 12.0 | 0.9990 | 0.2210 | 0.9980 |
 | **Berlin, Germany** | Oceanic / Light | 6.0 | 0.9990 | 0.1580 | 0.9990 |
 
-### Empirical Evidence & Findings
-* **Unaware Model Collapse**: Physics-unaware models collapse when transferred to 30 GHz ($R^2=-0.2727, \text{RMSE}=7.7491\text{ mm/h}$) due to non-linear $k(f)$ scaling shifts.
-* **Physics Transfer Proof**: Embedding $k(f)$ and $\alpha(f)$ parameters enables Stage C to achieve near-perfect cross-frequency transfer ($R^2 \ge 0.9960, \text{RMSE}=0.28\text{ mm/h}$) and robust cross-climate generalization ($R^2 \ge 0.9950$) without local retuning.
+![Figure 6: Cross-Frequency Generalization Benchmark Across 10–30 GHz](figures/fig6_cross_frequency.png)
+
+### Observed Performance & Proposed Physical Mechanism
+* **Empirical Observation**: Physics-unaware models collapse when transferred to 30 GHz ($R^2=-0.2727, \text{RMSE}=7.7491\text{ mm/h}$), whereas Stage C models maintain $R^2 \ge 0.9960$.
+* **Proposed Physical Mechanism**: Specific attenuation exponent $\alpha(f)$ and coefficient $k(f)$ scale non-linearly with frequency per ITU-R P.838. Unaware models attempt linear power extrapolations, leading to negative $R^2$ scores, whereas embedding $[k(f), \alpha(f)]$ normalizes the inverse loss surface.
 
 ---
 
 # 6. Discussion & Critical Flaws
 
-Rather than speculating on theoretical model properties, we base our discussion strictly on empirical evidence gathered from our benchmark experiments.
+![Figure 8: Empirical Observation Learnability Hierarchy for Satellite Link Sensing](figures/fig8_learnability_hierarchy.png)
 
-## 6.1 Empirical Interpretation of Benchmark Results
-1. **Evidence for Analytical Inversion Failure**: Analytical inversion performs poorly under noise ($\text{F1}=0.1630, R^2=0.1110$) because fixed linear Butterworth filters ($f_c = 0.005\text{ Hz}$) cannot separate scintillation phase noise from low-rate rain attenuation.
-2. **Evidence for Temporal Memory Requirement**: Controlled feature ablations (Table 5) prove that removing rolling statistics causes model $R^2$ to drop by up to $52.6\%$. Rolling standard deviation features provide explicit estimates of zero-mean high-frequency scintillation variance, enabling models to isolate true rain fade.
-3. **Evidence for Tracking Error Dominance**: Parametric tracking sweeps (Table 3) prove that mispointing noise above $\sigma_{\text{track}} = 0.05^\circ$ causes catastrophic regressor collapse ($R^2=0.9588 \rightarrow 0.3677$). Quadratic off-axis loss ($A_{\text{track}} \propto \theta_{\text{error}}^2$) creates $1.5\text{--}4.0\text{ dB}$ signal fluctuations that swamp light-to-moderate rainfall attenuation.
+## 6.1 Empirical Interpretation & Physical Hierarchy
+Our empirical findings establish a 4-level **Observation Learnability Hierarchy** (Figure 8):
+
+1. **Level 1 — Physical Observation Quality (Dominant Factor)**: Tracking mispointing sweeps (Table 3, Figure 4) prove that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.
+2. **Level 2 — Temporal Feature Representation (Critical Factor)**: Controlled ablations (Table 5, Figure 7) prove that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.
+3. **Level 3 — Physics Parameter Embedding (Generalization Factor)**: Cross-frequency benchmarks (Table 6, Figure 6) prove that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.
+4. **Level 4 — Model Architectural Depth (Secondary Factor)**: Under identical feature representations (Table 4, Figure 5), architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce minor performance variations compared to feature and noise factors.
 
 ## 6.2 Critical Methodological Flaws & Limitations
 We identify five major limitations and flaws in this study:
