@@ -680,6 +680,19 @@ table.minimal-table tr:hover td {
   border-left-color: var(--color-carbon);
 }
 
+/* Paper Figures Image Styling */
+img.paper-figure {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--color-carbon);
+  margin: var(--spacing-32) 0;
+}
+
+.dark-section img.paper-figure {
+  border-color: var(--color-plaster-white);
+}
+
 /* Footer */
 footer.minimal-footer {
   border-top: 1px solid var(--color-hairline-dark);
