@@ -26,7 +26,7 @@ The repository contains:
 - **NASA GPM climatology validation**: Multi-decade GPM benchmarking.
 - **Corrected stochastic rain generator biases** in the simulation engine.
 - **Dynamic multi-satellite handoff simulation**: Elev/SNR stateful switches.
-- **1,300+ satellite database** with live TLE updates from CelesTrak.
+- **Seeded satellite database (38 satellites)** with automated live TLE updates from CelesTrak.
 
 ### Research Contributions
 - **Rain Rate Narrowcasting**: Developed a frequency-aware machine learning pipeline (Stage C) that infers rainfall intensity directly from satellite link telemetry across communication bands.
@@ -432,7 +432,7 @@ Two generator biases in the stochastic rain synthesis engine were identified and
 
 ---
 
-## 7. Performance & Execution Benchmarks
+## 7. Performance, Benchmarks & Specialized Studies
 
 ### Benchmarking Environment
 - CPU: Intel i5 13420H
@@ -442,7 +442,7 @@ Two generator biases in the stochastic rain synthesis engine were identified and
 
 ### 1. Simulation Throughput & Performance
 - **Throughput**: Single-satellite NumPy core processes **~275,000 timesteps/sec**.
-- **Constellation Propagation**: SGP4 multi-satellite tracking (1,335 satellites) processes **~74,000 timesteps/sec** (equivalent to 1 year of 1-minute resolution data in ~8 seconds).
+- **Constellation Propagation**: SGP4 multi-satellite tracking (38 seeded satellites, expandable to 1,000+ via live TLEs) processes **~74,000 timesteps/sec** (equivalent to 1 year of 1-minute resolution data in ~8 seconds).
 - **Handoff Overhead**: Dynamic stateful switches introduce negligible overhead (~1.6%), processing **~73,000 timesteps/sec**.
 
 ### 2. Parallel Scaling (Monte Carlo iterations)
@@ -450,13 +450,39 @@ Two generator biases in the stochastic rain synthesis engine were identified and
 | :--- | :---: | :---: |
 | 1 | 1.0 | 100% |
 | 2 | 1.6 | 80% |
-| 4 | 2.4 | 59% |
-| 8 | 3.0 | 38% |
+| 3 | 2.4 | 59% |
+| 4 | 3.0 | 38% |
 | 12 | 3.4 | 28% |
 
 ### 3. Computational Breakdown & Optimization
 - **Numba JIT compilation** of the Maseng-Bakken generator yielded a **~192x speedup** (execution time reduced from 96.1 ms to 0.5 ms per run, reducing rain model computational share from 50.6% to 0.7%).
 - **Current Runtime share**: NumPy Overhead (34.7%), SGP4/Geometry (24.1%), Data Handling (12.4%), Handoff Logic (11.0%), Sim Control (7.8%), Link Budget (1.8%), Rain Process (1.8%), Misc (6.4%).
+
+### 4. Specialized Studies Summary
+* **Rolling Features Ablation Study ([`temporal_cnn_study.md`](file:///home/satyansh/RainCast/docs/temporal_cnn_study.md))**:
+  Proves XGBoost's heavy reliance on rolling features (F1 drops from 0.9122 to 0.7256 without rolling features), while Dilated Causal TCN achieves 0.9142 F1 and 4.87 mm/h RMSE when augmented with rolling channels.
+* **MLP Benchmark Study ([`mlp_study.md`](file:///home/satyansh/RainCast/docs/mlp_study.md))**:
+  Evaluates 3-layer deep feedforward MLP against tree-based XGBoost and temporal TCN. Deep ensembles of 5 TCN seeds achieve top performance ($R^2=0.5562$, $\text{RMSE}=4.71\text{ mm/h}$).
+* **Probabilistic Narrowcasting & PINN ([`probabilistic_narrowcasting.md`](file:///home/satyansh/RainCast/docs/probabilistic_narrowcasting.md))**:
+  Evaluates Quantile Regression (81.86% 80-interval coverage), Physics-Informed TCN (PINN RMSE 4.9681 mm/h), MC Dropout Bayesian NNs, and Deep Ensembles for uncertainty estimation.
+* **Impairment Study ([`impairment_study.md`](file:///home/satyansh/RainCast/docs/impairment_study.md))**:
+  Quantifies narrowcaster robustness under isolated atmospheric impairments (scintillation noise, gaseous absorption, rain attenuation).
+* **Tracking Sweep & Scenario Studies ([`tracking_sweep_study.md`](file:///home/satyansh/RainCast/docs/tracking_sweep_study.md), [`scenario_study.md`](file:///home/satyansh/RainCast/docs/scenario_study.md))**:
+  Sweeps handoff hysteresis (0–6 dB) and minimum dwell time constraints across varied regional climatologies.
+
+### 5. Developer & Researcher Benchmark Execution
+All benchmark and validation suites can be executed via standalone scripts under `val_and_bench/`:
+```bash
+python3 val_and_bench/run_computational_efficiency_benchmark.py
+python3 val_and_bench/run_rolling_features_ablation.py
+python3 val_and_bench/run_impairment_experiments.py
+python3 val_and_bench/run_scenario_benchmarks.py
+python3 val_and_bench/run_statistical_significance.py
+python3 val_and_bench/run_tracking_sweep.py
+python3 val_and_bench/evaluate_stage_b5.py
+python3 val_and_bench/validate_stage_c.py
+python3 val_and_bench/profile_sim.py
+```
 
 ---
 

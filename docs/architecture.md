@@ -42,7 +42,18 @@ The codebase follows a Clean Architecture layout to strictly separate domain phy
     - `server.py`: FastAPI server exposing the simulation engine.
     - `schemas.py`: Pydantic V2 models for JSON serialization and validation.
     - `client.py`: High-level Python client for consuming the REST API.
-- **`src/satlinksim/infrastructure/`**: Handles other external integrations, including the Streamlit dashboard (`ui/`), SGP4 TLE propagation (`tle/`), database persistence (`persistence/`), and ML model training/inference (`ml/`).
+- **`src/satlinksim/infrastructure/`**: Handles external integrations, hardware adapters, and machine learning components:
+    - **`ui/`**: Streamlit interactive visualization dashboard (`streamlit_app.py`).
+    - **`tle/`**: SGP4 satellite orbital propagation kernels (`service.py`) and live CelesTrak TLE fetching updates (`updater.py`).
+    - **`persistence/`**: SQLite database manager (`database.py`) maintaining `satellites.db`.
+      - **Schema (`satellites` Table)**: `norad_id` (INTEGER PRIMARY KEY), `name` (TEXT), `tle_line1` (TEXT), `tle_line2` (TEXT), `updated_at` (TIMESTAMP).
+    - **`ml/`**: Machine learning model suite:
+      - **Real-Time Link Quality Scorer**: [`trainer.py`](file:///home/satyansh/RainCast/src/satlinksim/infrastructure/ml/trainer.py) trains an `XGBRegressor` on link telemetry, serializing `xgb_link_model.pkl` and `feature_scaler.pkl` used by the Streamlit UI.
+      - **Temporal CNN (`tcnn_model.py`)**: PyTorch 1D Dilated Causal Convolutional Network with rolling feature channels.
+      - **Multi-Layer Perceptron (`mlp_model.py`)**: PyTorch 3-layer dense neural network with dual classification (Sigmoid BCE) and regression (Linear MSE) heads.
+      - **Probabilistic TCNN (`probabilistic_tcnn.py`)**: PyTorch TCNN supporting Monte Carlo Dropout and Gaussian likelihood uncertainty estimation.
+    - **`metrics.py`**: Prometheus client instrumentation (`SIMULATIONS_RUN`, `SIMULATION_LATENCY`) exposed at `/metrics`.
+    - **`config.py` & `config.yaml`**: Hierarchical configuration subsystem supporting default Pydantic parameters (`AppConfig`, `SimulationConfig`, `HandoffConfig`, `LinkConfig`, `RainConfig`) and environment variable overrides via `SATLINKSIM_CONFIG`.
 
 ## Service Architecture (REST API)
 The simulator has been transformed into a service-oriented platform, allowing for distributed execution and integration with external tools:

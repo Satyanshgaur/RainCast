@@ -371,10 +371,11 @@ Simulation execution is asynchronous to accommodate long-running parameter sweep
 * **Response Payload**: Standard simulation output timeseries object (SNR, Availability, Handoffs, Rain Loss).
 
 #### Download Simulation Data
-Explicit endpoints for direct raw data extraction in CSV or Parquet format:
-* **JSON/CSV/Parquet Auto-negotiation**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download?format=parquet`
+Explicit endpoints for direct raw data extraction in JSON, CSV, Parquet, or NetCDF format:
+* **Format Query Parameter**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download?format=parquet` (Supported formats: `json`, `csv`, `parquet`, `netcdf`)
 * **CSV Explicit File**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download.csv`
 * **Parquet Explicit File**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download.parquet`
+* **NetCDF Explicit File**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/download.netcdf` (Uses `scipy.io.netcdf` binary array serialization)
 
 #### Sub-Resource Query Paths
 * **Attenuation**: `GET https://api.satlinksim.com/api/v1/simulations/{id}/attenuation`
@@ -665,6 +666,45 @@ Interactive OpenAPI specs are automatically generated and served:
     "last_tle_update": "2026-06-26T03:20:00Z"
   }
   ```
+
+---
+
+### 3.13 Prometheus Metrics Endpoint
+
+* **Endpoint**: `GET /metrics`
+* **Content-Type**: `text/plain; version=0.0.4`
+* **Description**: Exposes Prometheus client instrumentation metrics tracking platform usage and latency.
+* **Key Metrics Exposed**:
+  * `satlinksim_simulations_total{mode="sync|async|summary"}`: Counter tracking total completed simulation runs by mode.
+  * `satlinksim_simulation_latency_seconds{mode="sync|async|summary"}`: Histogram tracking end-to-end simulation compute latency.
+
+---
+
+### 3.14 Top-Level & Quick-Access REST Endpoints
+
+In addition to the versioned `/api/v1/simulations` stateful resources, SatLinkSim exposes a high-performance top-level REST suite used by the CLI (`satlinksim simulate`) and Streamlit frontend:
+
+#### Top-Level Simulation Endpoints
+* `POST /simulate`: Synchronous simulation endpoint supporting custom and predefined ground stations.
+  * **Query Params**: `format` (`json`, `csv`, `parquet`, `netcdf`).
+* `POST /simulate/async`: Submits a background simulation task and returns a `JobResponse` containing `job_id`.
+* `GET /job/{job_id}`: Polls the status of an asynchronous job (`pending`, `running`, `completed`, `failed`).
+* `POST /simulate/summary`: Simplified summary simulation request returning availability percentage and handoff count for named constellations (`Starlink`, `OneWeb`, `Iridium`).
+
+#### Top-Level Calculator & Physics Endpoints
+* `POST /link-budget`: Generates time-series data for FSPL, gaseous absorption, rain loss, scintillation, RX power, and SNR.
+* `POST /attenuation`: Returns detailed gaseous, rain, scintillation, and total attenuation arrays.
+* `POST /visibility`: Computes satellite elevation, azimuth, and line-of-sight visibility masks.
+* `POST /availability`: Determines link outage events, duration, and overall availability fraction for a given SNR threshold.
+
+#### Machine Learning & Operational Services
+* `POST /predict-rain`: Predicts instantaneous rainfall intensity from link attenuation telemetry using the Stage C XGBoost narrowcaster.
+* `POST /forecast-rain`: Generates forward rain rate forecasts over a specified lookahead window.
+* `POST /handoff/live`: Evaluates satellite switching triggers based on elevation and SNR hysteresis rules.
+* `POST /orbit` & `POST /coverage`: Direct orbit propagation and spatial grid coverage evaluation.
+* `GET /stations` & `GET /satellites`: Directory endpoints for ground station specifications and satellite database querying.
+* `GET /constellation` & `POST /constellation`: Query and register satellite constellation configurations.
+* `GET /openapi.yaml`: Generates and exports the raw OpenAPI 3.0 specification in YAML format.
 
 ---
 

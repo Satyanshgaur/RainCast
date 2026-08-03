@@ -10,9 +10,7 @@ src/satlinksim/ground_stations.py
 src/satlinksim/link_quality.py
 src/satlinksim/physicsengine.py
 src/satlinksim/propogate.py
-src/satlinksim/satellite.db
 src/satlinksim/satellite_link_sim.py
-src/satlinksim/satellites.db
 src/satlinksim.egg-info/PKG-INFO
 src/satlinksim.egg-info/SOURCES.txt
 src/satlinksim.egg-info/dependency_links.txt
@@ -22,6 +20,7 @@ src/satlinksim.egg-info/top_level.txt
 src/satlinksim/application/simulation_engine.py
 src/satlinksim/domain/interfaces.py
 src/satlinksim/domain/models.py
+src/satlinksim/domain/observation.py
 src/satlinksim/domain/geometry/physics.py
 src/satlinksim/domain/handoff/manager.py
 src/satlinksim/domain/link/budget.py
@@ -34,13 +33,18 @@ src/satlinksim/infrastructure/api/schemas.py
 src/satlinksim/infrastructure/api/server.py
 src/satlinksim/infrastructure/ml/feature_scaler.pkl
 src/satlinksim/infrastructure/ml/link_training_data.parquet
+src/satlinksim/infrastructure/ml/mlp_model.py
+src/satlinksim/infrastructure/ml/probabilistic_tcnn.py
+src/satlinksim/infrastructure/ml/tcnn_model.py
 src/satlinksim/infrastructure/ml/trainer.py
 src/satlinksim/infrastructure/ml/xgb_link_model.pkl
 src/satlinksim/infrastructure/persistence/database.py
 src/satlinksim/infrastructure/tle/service.py
 src/satlinksim/infrastructure/tle/updater.py
 src/satlinksim/infrastructure/ui/streamlit_app.py
+tests/test_checkpoint.py
 tests/test_cloud_native_api.py
+tests/test_handoff.py
 tests/test_outage_softness.py
 tests/test_parallelism.py
 tests/test_physics_invariants.py

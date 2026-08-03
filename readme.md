@@ -31,7 +31,7 @@ The repository contains:
 - **NASA GPM climatology validation**: Multi-decade GPM benchmarking.
 - **Corrected stochastic rain generator biases** in the simulation engine.
 - **Dynamic multi-satellite handoff simulation**: Elev/SNR stateful switches.
-- **1,300+ satellite database** with live TLE updates from CelesTrak.
+- **Seeded satellite database (38 satellites)** with automated live TLE updates from CelesTrak.
 
 ---
 
@@ -143,23 +143,77 @@ RainCast includes publicly available benchmark datasets and accompanying tutoria
 # 1. Install the package in editable mode
 pip install -e .
 
-# 2. Update satellite database with live TLEs
+# 2. Update satellite database with live CelesTrak TLEs
 satlinksim-update
 
 # 3. RUN AS A SERVICE (Recommended)
 # Terminal 1: Start the API server
-satlinksim api
+satlinksim api   # or satlinksim-api
 
 # Terminal 2: Start the UI and select "REST API (Remote)" execution mode
-satlinksim ui
+satlinksim ui    # or satlinksim-ui
 
-# 4. Terminal 2: Or run a simulation directly via REST CLI
-satlinksim simulate --steps 3600 --freq 28e9 --output results.json
+# 4. Run a headless simulation directly via REST CLI
+satlinksim simulate --url http://localhost:8000 --stations Delhi,Tokyo --steps 3600 --freq 28e9 --bw 36e6 --force-rain --output results.json
 
 # 5. Run tests & validation
 python3 -m pytest
 python3 val_and_bench/validation_correctness.py
 ```
+
+---
+
+## CLI & Entrypoint Reference
+
+SatLinkSim provides a main CLI executable `satlinksim` along with specific command shortcuts:
+
+### Executable Commands
+* **`satlinksim ui`** / **`satlinksim-ui`**: Launches the Streamlit interactive visualization dashboard.
+* **`satlinksim api`** / **`satlinksim-api`**: Launches the FastAPI REST backend server.
+* **`satlinksim-update`**: Fetches the latest satellite TLEs from CelesTrak and updates `src/satlinksim/satellites.db`.
+* **`satlinksim simulate`**: Triggers headless simulation runs against the REST API.
+  * `--url`: API server base URL (default: `http://localhost:8000`).
+  * `--stations`: Comma-separated list of target station names (e.g. `--stations Delhi,Berlin`).
+  * `--steps`: Total simulation duration in steps (default: `3600`).
+  * `--dt`: Time step resolution in seconds (default: `1.0`).
+  * `--freq`: Carrier frequency in Hz (default: `14e9`).
+  * `--bw`: Transponder bandwidth in Hz (default: `36e6`).
+  * `--force-rain`: Force active rainfall generation regardless of climatology probabilities.
+  * `--output`: File path to serialize JSON simulation output.
+
+---
+
+## Configuration & Environment Variables
+
+SatLinkSim loads default settings from [`config.yaml`](file:///home/satyansh/RainCast/config.yaml) via Pydantic model schemas ([`config.py`](file:///home/satyansh/RainCast/src/satlinksim/config.py)):
+
+* **`SATLINKSIM_CONFIG`**: Environment variable specifying a custom YAML configuration file path.
+  ```bash
+  export SATLINKSIM_CONFIG="/path/to/custom_config.yaml"
+  ```
+* **Key Configuration Parameters**:
+  * `simulation.handoff.hysteresis_db`: Handoff switching threshold (default: `3.0` dB).
+  * `simulation.handoff.dwell_steps`: Minimum dwell duration steps before next handoff (default: `5`).
+  * `simulation.link.carrier_freq_hz`: Base carrier frequency (default: `14e9` Hz).
+  * `simulation.link.snr_threshold_db`: Outage threshold (default: `10.0` dB).
+  * `rain.tau_c`: Rain correlation time constant (default: `300.0` s).
+
+---
+
+## Real-Time UI ML Link Quality Scoring
+
+In addition to Stage C rain narrowcasting, SatLinkSim integrates real-time machine learning scoring into its Streamlit dashboard:
+* **Training Pipeline**: [`src/satlinksim/infrastructure/ml/trainer.py`](file:///home/satyansh/RainCast/src/satlinksim/infrastructure/ml/trainer.py) trains an `XGBRegressor` on multi-station telemetry.
+* **Artifacts**: Serialized into `xgb_link_model.pkl` and `feature_scaler.pkl`.
+* **UI Integration**: The Streamlit interface automatically loads these models to compute a live **Link Quality Score (0–100%)** per station based on current geometric and environmental telemetry.
+
+---
+
+## Dataset Generation Scripts
+
+For ML model research and training, dataset generation scripts are available under `generate_datasets/`:
+* **`python3 generate_datasets/generate_dataset.py --size [small|medium]`**: Generates multi-station, multi-frequency satellite link performance parquet datasets (`small` ~100k rows, `medium` ~1M rows) complete with metadata and sample diagnostic plots.
+* **`python3 generate_datasets/generate_narrowcasting_dataset.py`**: Generates narrowcasting benchmark datasets tailored for Stage A/B/C classifier-regressor training.
 
 ---
 

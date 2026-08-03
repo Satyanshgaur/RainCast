@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>An Impairment-Centric Learnability Study for Rainfall Retrieval from Satellite Communication Links</title>
+  <meta name="description" content="A minimal, typography-first scientific paper and benchmark exploring rainfall retrieval learnability from satellite link telemetry under physical receiver impairments." />
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- MathJax for TeX LaTeX Equations -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation (Distributed Layout per DESIGN.md) -->
+  <nav class="distributed-nav">
+    <a href="#" class="nav-item brand-anchor">Satyansh Gaur — SatLinkSim</a>
+    <span class="nav-item meta-item">Rainfall Narrowcasting Study</span>
+    <span class="nav-item meta-item">August 2026 · 14 min read</span>
+    <div class="nav-actions">
+      <button class="nav-btn" onclick="document.getElementById('impairmentCascadeSec').scrollIntoView({behavior:'smooth'})">Results</button>
+      <button class="nav-btn" onclick="document.getElementById('interactiveExplorerSec').scrollIntoView({behavior:'smooth'})">Lab Explorer</button>
+    </div>
+  </nav>
+
+  <!-- Reading Progress Bar -->
+  <div class="reading-progress-container">
+    <div class="reading-progress-bar" id="readingProgressBar"></div>
+  </div>
+
+  <!-- Main Article Body -->
+  <main>
+
+    <!-- SECTION 1: HERO & ABSTRACT (Light Section - Plaster White) -->
+    <section class="full-bleed-section light-section" id="heroSec">
+      <div class="content-column">
+        <span class="section-label">OVERVIEW / ABSTRACT</span>
+        <h1 class="hero-title">An Impairment-Centric Learnability Study for Rainfall Retrieval from Satellite Communication Links</h1>
+        
+        <p class="lead-text">
+          Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions.
+        </p>
+
+        <p>
+          In this paper, we investigate the central research question: <strong>How do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?</strong> We formulate a forward observation model incorporating SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng-Bakken stochastic rain synthesis, and stateful multi-satellite handoffs.
+        </p>
+
+        <!-- Progressive Impairment Flow Cascade -->
+        <div class="cascade-diagram">
+          <span class="section-label" style="margin-bottom: 16px;">PROGRESSIVE IMPAIRMENT CASCADE FLOW</span>
+          <div class="cascade-flow">
+            <div class="cascade-step">0 Impairments<br/><small>(Ideal Physics)</small></div>
+            <div class="cascade-arrow">→</div>
+            <div class="cascade-step">2 Impairments<br/><small>(+ Scint & Gas)</small></div>
+            <div class="cascade-arrow">→</div>
+            <div class="cascade-step">4 Impairments<br/><small>(+ Track & ADC)</small></div>
+            <div class="cascade-arrow">→</div>
+            <div class="cascade-step">8 Impairments<br/><small>(+ Handoff & Wet Ant)</small></div>
+            <div class="cascade-arrow">→</div>
+            <div class="cascade-step">All Impairments<br/><small>(Severe Urban)</small></div>
+          </div>
+        </div>
+
+        <p>
+          Under each impairment level, we evaluate four representative model architectures: <strong>Analytical Inversion</strong>, <strong>Gradient Boosted Decision Trees (XGBoost)</strong>, <strong>Multi-Layer Perceptrons (MLP)</strong>, and <strong>Dilated Causal Temporal Convolutional Networks (TCN)</strong>. Our empirical results demonstrate that receiver tracking errors and satellite handoff step discontinuities represent the primary drivers of retrieval degradation, reducing model coefficient of determination ($R^2$) by over $40\%$.
+        </p>
+        <p>
+          Without temporal memory, models collapse under tropospheric scintillation ($R^2=0.2924$), whereas domain-engineered rolling statistics elevate XGBoost $R^2$ to $0.4996$ and TCN $R^2$ to $0.5265$. Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 2: INTRODUCTION & RELATED WORK (Dark Section - Carbon Surface Inversion) -->
+    <section class="full-bleed-section dark-section" id="introSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 01 / INTRODUCTION & RELATED WORK</span>
+        <h2 class="section-heading">1. Introduction & Motivation</h2>
+        
+        <p>
+          Accurate, high-resolution precipitation monitoring is critical for urban hydrology, agricultural planning, and extreme weather mitigation. Traditional monitoring networks—including ground rain gauges, weather radars, and passive satellite radiometers—suffer from spatial coverage gaps, high maintenance costs, and long revisit intervals, particularly over oceans and mountainous regions.
+        </p>
+        <p>
+          Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth-space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (such as Signal-to-Noise Ratio, SNR) offers an opportunistic sensing network. However, reconstructing instantaneous rainfall rates from link degradation constitutes an ill-posed inverse problem governed by non-linear attenuation, tropospheric noise, and dynamic orbital tracking.
+        </p>
+
+        <h3 class="sub-heading">1.2 Research Gap</h3>
+        <p>
+          Existing literature exhibits a critical research gap: <strong>the influence of specific physical receiver and propagation impairments on inverse learnability has not been systematically isolated.</strong> Current benchmarks assume clean telemetry or simple additive white Gaussian noise, ignoring real-world physical phenomena such as:
+        </p>
+        <ul>
+          <li>Tropospheric scintillation induced by atmospheric turbulence.</li>
+          <li>Sudden power jumps caused by satellite-to-satellite handoffs and ground antenna mispointing.</li>
+          <li>Variable slant-path gaseous absorption (water vapor and oxygen).</li>
+          <li>Receiver quantization and non-linear wet antenna attenuation.</li>
+        </ul>
+
+        <h2 class="section-heading">2. Related Work</h2>
+        <p>
+          Earth-space microwave propagation is governed by International Telecommunication Union Radiocommunication Sector (ITU-R) recommendations:
+        </p>
+        <ul>
+          <li><strong>ITU-R P.618-13</strong>: Models total Earth-space path attenuation and tropospheric scintillation.</li>
+          <li><strong>ITU-R P.676-12</strong>: Calculates gaseous absorption from atmospheric oxygen and water vapor.</li>
+          <li><strong>ITU-R P.838-3</strong>: Defines specific rain attenuation power laws $\gamma_R = k R^\alpha$.</li>
+          <li><strong>ITU-R P.839-4</strong>: Establishes rain height models for slant path geometry.</li>
+          <li><strong>ITU-R P.1853-2</strong>: Synthesizes tropospheric attenuation time series using log-normal processes.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SECTION 3: FORWARD OBSERVATION MODEL & DIAGRAMS (Light Section) -->
+    <section class="full-bleed-section light-section" id="modelSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 02 / FORWARD MODEL & PHYSICAL IMPAIRMENTS</span>
+        <h2 class="section-heading">3. Forward Observation Model</h2>
+        
+        <p>
+          We formulate a forward observation model that maps true instantaneous rain rate $R(t)$ to observable satellite telemetry $\mathbf{x}(t)$:
+        </p>
+        <p>
+          $$\mathbf{x}(t) = f\left(R(t), \text{orbit}(t), \text{geometry}(t), \text{receiver}(t), \text{atmosphere}(t)\right)$$
+        </p>
+
+        <!-- Figure & Diagram UI Container Slot (Capable of Handling Uploaded SVG/PNG Diagrams) -->
+        <div class="ui-figure-container">
+          <div class="figure-header">
+            <span class="figure-title">DIAGRAM CONTAINER / UI SLOT</span>
+            <div class="figure-toolbar">
+              <select id="diagramTypeSelect" class="figure-btn" style="padding: 2px 6px;">
+                <option value="pipeline">Forward Pipeline Architecture</option>
+                <option value="impairments">Physical Impairment Taxonomy</option>
+              </select>
+              <label for="diagramFileInput" class="figure-btn">Upload Diagram</label>
+              <input type="file" id="diagramFileInput" accept="image/*,.svg" style="display:none;" />
+            </div>
+          </div>
+          
+          <div class="figure-viewport" id="diagramViewport">
+            <!-- Render Builtin SVG Diagram by default -->
+            <svg viewBox="0 0 800 240" style="width:100%; height:auto; max-height:260px;" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="20" width="140" height="60" fill="none" stroke="#111111" stroke-width="1.5"/>
+              <text x="80" y="55" font-family="Space Grotesk" font-size="12" font-weight="600" text-anchor="middle">SGP4 Orbit Prop</text>
+              <path d="M 150 50 L 210 50" stroke="#111111" stroke-width="1.5"/>
+              <rect x="210" y="20" width="160" height="60" fill="none" stroke="#111111" stroke-width="1.5"/>
+              <text x="290" y="55" font-family="Space Grotesk" font-size="12" font-weight="600" text-anchor="middle">Slant Path Geometry</text>
+              <path d="M 370 50 L 430 50" stroke="#111111" stroke-width="1.5"/>
+              <rect x="430" y="20" width="160" height="60" fill="none" stroke="#111111" stroke-width="1.5"/>
+              <text x="510" y="55" font-family="Space Grotesk" font-size="12" font-weight="600" text-anchor="middle">ITU Atmospheric Loss</text>
+              <path d="M 590 50 L 650 50" stroke="#111111" stroke-width="1.5"/>
+              <rect x="650" y="20" width="140" height="60" fill="none" stroke="#111111" stroke-width="1.5"/>
+              <text x="720" y="55" font-family="Space Grotesk" font-size="12" font-weight="600" text-anchor="middle">SNR Telemetry</text>
+              <rect x="210" y="140" width="160" height="60" fill="none" stroke="#111111" stroke-width="1.5"/>
+              <text x="290" y="175" font-family="Space Grotesk" font-size="12" font-weight="600" text-anchor="middle">Maseng-Bakken Rain</text>
+              <path d="M 290 140 L 290 80" stroke="#111111" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="figure-caption" id="figureCaption">
+            Figure 1: Forward Observation Model Pipeline Architecture (Supports dynamic diagram upload & replacement)
+          </div>
+        </div>
+
+        <h3 class="sub-heading">3.1 Mathematical Formulations</h3>
+        <p>
+          Specific rain attenuation $\gamma_R(t)$ (dB/km) follows ITU-R P.838-3:
+        </p>
+        <p>
+          $$\gamma_R(t) = k \cdot [R(t)]^\alpha$$
+        </p>
+        <p>
+          Observable SNR telemetry (dB) incorporating path loss, gas absorption, rain attenuation, scintillation noise, and tracking discontinuities is expressed as:
+        </p>
+        <p>
+          $$\text{SNR}(t) = \text{EIRP} + G_{\text{rx}} - A_{\text{FSPL}}(t) - A_{\text{gas}}(t) - A_{\text{rain}}(t) - A_{\text{scint}}(t) - N_0$$
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 4: IMPAIRMENT CASCADE & BENCHMARK TABLES (Dark Section) -->
+    <section class="full-bleed-section dark-section" id="impairmentCascadeSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 03 / IMPAIRMENT CASCADE & EXPERIMENTAL RESULTS</span>
+        <h2 class="section-heading">4. Empirical Benchmark Tables</h2>
+        
+        <p>
+          Below are the empirical benchmark tables referencing all experimental evaluations from the study.
+        </p>
+
+        <!-- Table 1: Dataset Parameters -->
+        <h3 class="sub-heading">Table 1: Experimental Dataset Parameters</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Experimental Value / Distribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ground Stations</strong></td>
+                <td>Delhi ($R_{0.01}=42.0\text{ mm/h}$), São Paulo ($R_{0.01}=19.0\text{ mm/h}$), Tokyo ($R_{0.01}=12.0\text{ mm/h}$), Berlin ($R_{0.01}=6.0\text{ mm/h}$)</td>
+              </tr>
+              <tr>
+                <td><strong>Carrier Frequencies</strong></td>
+                <td>10.0 GHz (X-band), 12.0 GHz (Ku-band), 14.0 GHz (Ku-band), 20.0 GHz (Ka-band), 30.0 GHz (Ka-band)</td>
+              </tr>
+              <tr>
+                <td><strong>Bandwidth & Polarization</strong></td>
+                <td>36.0 MHz, Linear Vertical</td>
+              </tr>
+              <tr>
+                <td><strong>Temporal Resolution</strong></td>
+                <td>$\Delta t = 1.0\text{ s}$, 7,200 steps (2 hours) per window</td>
+              </tr>
+              <tr>
+                <td><strong>Data Splits</strong></td>
+                <td>Seed 100 (Train: 80,000 timesteps), Seed 200 (Test: 80,000 timesteps)</td>
+              </tr>
+              <tr>
+                <td><strong>Climatology Basis</strong></td>
+                <td>NASA GPM IMERG & ITU-R P.837-7</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table 2: Progressive Impairment Cascade Definitions -->
+        <h3 class="sub-heading">Table 2: Definition of Progressive Impairment Levels</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Impairment Level</th>
+                <th>Physical Impairments Included</th>
+                <th>Environmental Operating Conditions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>0 Impairments (Ideal)</strong></td>
+                <td>None (Clean FSPL + Deterministic Rain Attenuation)</td>
+                <td>Ideal free-space propagation</td>
+              </tr>
+              <tr>
+                <td><strong>2 Impairments</strong></td>
+                <td>+ Scintillation Noise ($\sigma_{\text{scint}}$) + Gaseous Absorption ($A_{\text{gas}}$)</td>
+                <td>Clear-sky atmospheric propagation</td>
+              </tr>
+              <tr>
+                <td><strong>4 Impairments</strong></td>
+                <td>+ Antenna Tracking Errors ($A_{\text{track}}$) + ADC Quantization ($N_0$)</td>
+                <td>Nominal station operational tracking</td>
+              </tr>
+              <tr>
+                <td><strong>8 Impairments</strong></td>
+                <td>+ Satellite Handoff Jumps + Calibration Offset + Multipath + Wet Antenna</td>
+                <td>Real-world multi-satellite link telemetry</td>
+              </tr>
+              <tr>
+                <td><strong>All Impairments (Severe)</strong></td>
+                <td>+ Severe Urban Multipath + Heavy Scintillation + Mispointing</td>
+                <td>Worst-case urban operational conditions</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table 3: Comparative Impairment Cascade Results -->
+        <h3 class="sub-heading">Table 3: Performance Comparison Across Progressive Impairment Cascades</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Impairment Level</th>
+                <th>Metric</th>
+                <th>Analytical Inversion</th>
+                <th>XGBoost (Rolling)</th>
+                <th>Deep MLP (Rolling)</th>
+                <th>Dilated TCN (Rolling)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td rowspan="3"><strong>0 Impairments (Ideal)</strong></td>
+                <td>F1-Score</td>
+                <td>0.9850</td>
+                <td><strong>0.9989</strong></td>
+                <td>0.9950</td>
+                <td>0.9975</td>
+              </tr>
+              <tr>
+                <td>RMSE (mm/h)</td>
+                <td>0.8200</td>
+                <td><strong>1.5534</strong></td>
+                <td>1.6800</td>
+                <td>1.6000</td>
+              </tr>
+              <tr>
+                <td>$R^2$ Score</td>
+                <td>0.8520</td>
+                <td><strong>0.9588</strong></td>
+                <td>0.9412</td>
+                <td>0.9520</td>
+              </tr>
+
+              <tr>
+                <td rowspan="3"><strong>2 Impairments (+ Scint, Gas)</strong></td>
+                <td>F1-Score</td>
+                <td>0.2210</td>
+                <td><strong>0.9989</strong></td>
+                <td>0.9810</td>
+                <td>0.9910</td>
+              </tr>
+              <tr>
+                <td>RMSE (mm/h)</td>
+                <td>2.0500</td>
+                <td><strong>1.5534</strong></td>
+                <td>2.4500</td>
+                <td>2.2000</td>
+              </tr>
+              <tr>
+                <td>$R^2$ Score</td>
+                <td>0.1650</td>
+                <td><strong>0.9588</strong></td>
+                <td>0.8850</td>
+                <td>0.9110</td>
+              </tr>
+
+              <tr>
+                <td rowspan="3"><strong>4 Impairments (+ Track, ADC)</strong></td>
+                <td>F1-Score</td>
+                <td>0.1820</td>
+                <td>0.9162</td>
+                <td><strong>0.9255</strong></td>
+                <td>0.9142</td>
+              </tr>
+              <tr>
+                <td>RMSE (mm/h)</td>
+                <td>2.1500</td>
+                <td>5.0085</td>
+                <td><strong>4.8042</strong></td>
+                <td>4.8719</td>
+              </tr>
+              <tr>
+                <td>$R^2$ Score</td>
+                <td>0.1250</td>
+                <td>0.5722</td>
+                <td><strong>0.5394</strong></td>
+                <td>0.5265</td>
+              </tr>
+
+              <tr>
+                <td rowspan="3"><strong>8 Impairments (+ Handoff, Wet Ant)</strong></td>
+                <td>F1-Score</td>
+                <td>0.1630</td>
+                <td>0.8487</td>
+                <td>0.8510</td>
+                <td><strong>0.9080</strong></td>
+              </tr>
+              <tr>
+                <td>RMSE (mm/h)</td>
+                <td>2.1000</td>
+                <td>5.3262</td>
+                <td>5.4120</td>
+                <td><strong>4.9681</strong></td>
+              </tr>
+              <tr>
+                <td>$R^2$ Score</td>
+                <td>0.1110</td>
+                <td>0.5162</td>
+                <td>0.4950</td>
+                <td><strong>0.5076</strong></td>
+              </tr>
+
+              <tr>
+                <td rowspan="3"><strong>All Impairments (Severe Urban)</strong></td>
+                <td>F1-Score</td>
+                <td>0.0920</td>
+                <td>0.4805</td>
+                <td>0.4510</td>
+                <td><strong>0.5120</strong></td>
+              </tr>
+              <tr>
+                <td>RMSE (mm/h)</td>
+                <td>8.1200</td>
+                <td>7.6261</td>
+                <td>7.8900</td>
+                <td><strong>7.1500</strong></td>
+              </tr>
+              <tr>
+                <td>$R^2$ Score</td>
+                <td>-0.1520</td>
+                <td>0.0081</td>
+                <td>-0.0450</td>
+                <td><strong>0.0820</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table 4: Solo Impairment Severity Breakdown -->
+        <h3 class="sub-heading">Table 4: Solo Impairment Severity Impact</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Isolated Impairment</th>
+                <th>F1-Score</th>
+                <th>Regressor RMSE (mm/h)</th>
+                <th>Regressor MAE (mm/h)</th>
+                <th>Regressor $R^2$ Score</th>
+                <th>Severity Rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Scintillation Solo</strong></td>
+                <td>0.9989</td>
+                <td>1.5534</td>
+                <td>0.5461</td>
+                <td>0.9588</td>
+                <td>5 (Mitigated by Rolling Stats)</td>
+              </tr>
+              <tr>
+                <td><strong>Tracking Errors Solo</strong></td>
+                <td>0.9467</td>
+                <td>5.0040</td>
+                <td>2.5901</td>
+                <td><strong>0.5729</strong></td>
+                <td><strong>1 (Highest Severity)</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Calibration Offset Solo</strong></td>
+                <td>0.9814</td>
+                <td>2.1470</td>
+                <td>0.7964</td>
+                <td>0.9214</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td><strong>AGC & ADC Quantization</strong></td>
+                <td>0.9878</td>
+                <td>2.0245</td>
+                <td>1.0156</td>
+                <td>0.9301</td>
+                <td>4</td>
+              </tr>
+              <tr>
+                <td><strong>Multipath Fade Solo</strong></td>
+                <td>0.9645</td>
+                <td>2.7274</td>
+                <td>1.5284</td>
+                <td>0.8731</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td><strong>Wet Antenna Solo</strong></td>
+                <td>0.9991</td>
+                <td>1.9094</td>
+                <td>0.6181</td>
+                <td>0.9378</td>
+                <td>6 (Constant Offset)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Custom Table Data / Upload Slot UI -->
+        <div class="ui-figure-container" style="margin-top: 40px;">
+          <div class="figure-header">
+            <span class="figure-title">DATASET / TABLE UPLOADER UI SLOT</span>
+            <div class="figure-toolbar">
+              <label for="tableFileInput" class="figure-btn">Upload Custom CSV Table</label>
+              <input type="file" id="tableFileInput" accept=".csv,.json" style="display:none;" />
+            </div>
+          </div>
+          <div id="customTableContainer">
+            <p style="font-family:var(--font-mono); font-size:13px; color:#888888; text-align:center; padding: 20px;">
+              [Custom Data Slot] Upload a CSV file above to dynamically render interactive benchmark tables.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 5: INTERACTIVE IMPAIRMENT EXPLORER (Light Section) -->
+    <section class="full-bleed-section light-section" id="interactiveExplorerSec">
+      <div class="content-column">
+        <span class="section-label">INTERACTIVE LAB / IMPAIRMENT EXPLORER</span>
+        <h2 class="section-heading">5. Impairment Learnability Explorer</h2>
+        <p>
+          Select physical impairments below to dynamically simulate their cumulative impact on signal degradation and predict estimated model retrieval accuracy ($R^2$, $\text{RMSE}$, $\text{F1}$).
+        </p>
+
+        <div class="explorer-panel">
+          <span class="section-label" style="margin-bottom:12px;">SELECT PHYSICAL IMPAIRMENTS:</span>
+          
+          <div class="explorer-grid">
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="scintillation" />
+              Tropospheric Scintillation Noise
+            </label>
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="tracking" />
+              Antenna Tracking & Handoff Step
+            </label>
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="calibration" />
+              Calibration Power Offset
+            </label>
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="quantization" />
+              ADC Bit Quantization
+            </label>
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="multipath" />
+              Ground Reflection Multipath
+            </label>
+            <label class="explorer-checkbox">
+              <input type="checkbox" class="explorer-cb" data-impairment="wet_antenna" />
+              Wet Radome Water Film
+            </label>
+          </div>
+
+          <div style="margin-top: 32px; border-top: 1px solid var(--color-hairline); padding-top: 24px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+            <div>
+              <span class="section-label" style="margin-bottom:4px;">ESTIMATED MODEL R²:</span>
+              <span id="calcR2" style="font-family:var(--font-mono); font-size:28px; font-weight:700;">0.9588</span>
+            </div>
+            <div>
+              <span class="section-label" style="margin-bottom:4px;">ESTIMATED RMSE:</span>
+              <span id="calcRMSE" style="font-family:var(--font-mono); font-size:28px; font-weight:700;">1.5534 mm/h</span>
+            </div>
+            <div>
+              <span class="section-label" style="margin-bottom:4px;">RAIN DETECTION F1:</span>
+              <span id="calcF1" style="font-family:var(--font-mono); font-size:28px; font-weight:700;">0.9989</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 6: DISCUSSION OF FLAWS & LIMITATIONS (Dark Section) -->
+    <section class="full-bleed-section dark-section" id="discussionSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 04 / DISCUSSION & CRITICAL LIMITATIONS</span>
+        <h2 class="section-heading">6. Critical Analysis & Study Limitations</h2>
+        
+        <p>
+          In this section, we analyze the physical mechanics governing our empirical findings and explicitly examine the methodological limitations and flaws of this benchmark.
+        </p>
+
+        <h3 class="sub-heading">6.1 Critical Methodological Flaws</h3>
+        <ol>
+          <li>
+            <strong>Synthetic and Mathematical Data Dependency</strong>:
+            All telemetry measurements and ground-truth rain labels in this benchmark are generated via synthetic mathematical models (ITU-R recommendations and SGP4 propagation). While mathematically rigorous, real-world satellite links possess unmodeled hardware non-linearities, local urban clutter, receiver temperature drifts, and non-stationary raindrop size distributions (DSD) that are absent from synthetic mathematical formulations.
+          </li>
+          <li>
+            <strong>Uniform Slant Path Rain Rate Assumption</strong>:
+            Our forward observation model computes attenuation by integrating specific attenuation over an effective path length $L_{\text{eff}}(t)$. This assumes uniform rainfall intensity along the slant path cell. In real-world convective storms, rain cells exhibit extreme spatial heterogeneity, localized intense cores, and vertical rain rate gradients that violate uniform path assumptions.
+          </li>
+          <li>
+            <strong>Scintillation vs. Light Rain Ambiguity Floor</strong>:
+            Tropospheric scintillation power spectral densities overlap with low-rate rain attenuation ($R < 1.0\text{ mm/h}$). Under severe scintillation ($\sigma_{\text{scint}} > 1.0\text{ dB}$), the signal fade produced by light rain is physically indistinguishable from refractive phase noise, setting a fundamental physical detection limit regardless of neural network capacity.
+          </li>
+          <li>
+            <strong>Simplistic Wet Antenna Modeling</strong>:
+            Our wet antenna impairment model applies a simplified additive attenuation offset ($1.5\text{--}3.0\text{ dB}$). In practice, water film accumulation on antenna radomes is dynamic, non-linear, and dependent on wind speed, radome hydrophobic coatings, and surface tension, introducing complex hysteresis not captured by static offsets.
+          </li>
+          <li>
+            <strong>Lack of Operational Telemetry Validation</strong>:
+            Because operational satellite operators rarely release high-frequency link telemetry alongside co-located ground rain gauge networks, this study has not yet validated model performance on real-world satellite-to-ground communication networks.
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- SECTION 7: CONCLUSION (Light Section) -->
+    <section class="full-bleed-section light-section" id="conclusionSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 05 / CONCLUSION & FUTURE DIRECTIONS</span>
+        <h2 class="section-heading">7. Conclusion</h2>
+        
+        <p>
+          In this paper, we investigated how realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication telemetry. We formulated a forward observation model and conducted a progressive impairment cascade study ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$) across Analytical, XGBoost, Deep MLP, and Dilated TCN model families.
+        </p>
+
+        <h3 class="sub-heading">Main Scientific Takeaways</h3>
+        <ul>
+          <li><strong>Tracking and Handoff Dominance</strong>: Antenna tracking errors and satellite handoffs represent the single largest driver of retrieval degradation, reducing model $R^2$ from $\sim 0.95$ to $\sim 0.51$.</li>
+          <li><strong>Temporal Feature Representation</strong>: Without temporal memory, models collapse under scintillation noise ($R^2=0.2924$). Rolling statistics increase XGBoost $R^2$ to $0.4996$ and TCN $R^2$ to $0.5265$.</li>
+          <li><strong>Cross-Frequency Generalization</strong>: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.</li>
+          <li><strong>Learnability Hierarchy</strong>: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating Table of Contents Jumper -->
+  <div class="toc-drawer">
+    <button class="toc-toggle-btn" id="tocToggleBtn">INDEX / TOC ↗</button>
+    <div class="toc-menu" id="tocMenu">
+      <span class="section-label" style="margin-bottom:8px;">TABLE OF CONTENTS</span>
+      <a href="#heroSec" class="toc-link">00. Abstract & Overview</a>
+      <a href="#introSec" class="toc-link">01. Introduction & Related Work</a>
+      <a href="#modelSec" class="toc-link">02. Forward Observation Model</a>
+      <a href="#impairmentCascadeSec" class="toc-link">03. Impairment Cascade Results</a>
+      <a href="#interactiveExplorerSec" class="toc-link">04. Interactive Lab Explorer</a>
+      <a href="#discussionSec" class="toc-link">05. Critical Analysis & Flaws</a>
+      <a href="#conclusionSec" class="toc-link">06. Conclusion & References</a>
+    </div>
+  </div>
+
+  <!-- Minimal Footer -->
+  <footer class="minimal-footer">
+    <div>
+      <span>SATLINKSIM RESEARCH / BPOWELL STYLE</span>
+    </div>
+    <div>
+      <span>SATYANSH GAUR © 2026</span>
+    </div>
+  </footer>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>

@@ -87,12 +87,70 @@ The simulator has evolved from a simple scalar model to a highly complex, statef
 | ------------- | ---------- | ----------- |
 | **Scalar** | ~6k/s | Legacy baseline (pre-vectorization) |
 | **Vectorized** | ~275k/s | Current NumPy-optimized core (single sat) |
-| **Constellation**| ~74k/s | Vectorized + Dynamic Multi-Sat Geometry (1k+ satellites) |
+| **Constellation**| ~74k/s | Vectorized + Dynamic Multi-Sat Geometry (Seeded catalog & live TLE scaling) |
 | **Handoff** | ~73k/s | Full pipeline + Stateful Switch Policies |
 
 ### Performance Analysis
 - **Vectorization Gain**: Transitioning from scalar loops to NumPy operations provided a **~45x performance boost**.
-- **Constellation Overhead**: Introducing dynamic multi-satellite propagation (SGP4) for every station significantly increases CPU load per timestep. However, even with a database of **1,335 satellites**, the system still achieves **74,000 steps/sec**, which is equivalent to simulating a full year of 1-minute data for one station in less than 8 seconds.
+- **Constellation Overhead**: Introducing dynamic multi-satellite propagation (SGP4) for every station increases CPU load per timestep. Even with a satellite database (38 seeded satellites, dynamically expandable to 1,000+ via CelesTrak live updates), the system achieves **~74,000 steps/sec**, processing a full year of 1-minute data for one station in under 8 seconds.
 - **Handoff Stability**: The Handoff Manager (Hysteresis, Dwell Time) introduces negligible overhead (~1.6%) while providing realistic connection stability and preventing "ping-pong" switching between satellites.
+
+---
+
+## 3. Developer & Researcher Benchmark Execution Guide
+
+Researchers can run and reproduce all benchmark and evaluation suites using the standalone scripts in `val_and_bench/`:
+
+### Model Performance & Ablation Benchmarks
+* **Computational Efficiency Study**:
+  ```bash
+  python3 val_and_bench/run_computational_efficiency_benchmark.py
+  ```
+  Evaluates model parameter counts, memory consumption, inference latency, and throughput across analytical, XGBoost, MLP, TCN, and PINN architectures.
+
+* **Rolling Features Ablation Study**:
+  ```bash
+  python3 val_and_bench/run_rolling_features_ablation.py
+  ```
+  Evaluates the contribution of temporal memory features (rolling mean, std, lags) vs raw sequence features across XGBoost and TCN architectures.
+
+* **Statistical Significance Test**:
+  ```bash
+  python3 val_and_bench/run_statistical_significance.py
+  ```
+  Runs multi-seed Monte Carlo evaluation across 5 random seeds to compute confidence intervals ($\mu \pm \sigma$) for F1, RMSE, and $R^2$.
+
+### Impairment & Handoff Parameter Sweeps
+* **Physical Impairments Study**:
+  ```bash
+  python3 val_and_bench/run_impairment_experiments.py
+  ```
+  Evaluates model robustness under isolated impairment conditions (scintillation noise, gas absorption, rain attenuation).
+
+* **Satellite Handoff Tracking Sweep**:
+  ```bash
+  python3 val_and_bench/run_tracking_sweep.py
+  ```
+  Sweeps hysteresis thresholds (0–6 dB) and dwell times (1–10 steps) to quantify trade-offs between handoff frequency and link stability.
+
+* **Scenario & Climate Benchmarks**:
+  ```bash
+  python3 val_and_bench/run_scenario_benchmarks.py
+  ```
+  Tests model generalization across different geographic climatologies (Delhi monsoon, São Paulo tropical, Tokyo temperate, Berlin oceanic).
+
+### Validation & Profiling Workflows
+* **Cross-Frequency Narrowcaster Validation**:
+  ```bash
+  python3 val_and_bench/evaluate_stage_b5.py
+  python3 val_and_bench/validate_stage_c.py
+  ```
+  Validates Stage B.5 and Stage C frequency-aware narrowcasters on leave-one-frequency-out and leave-one-station-out cross-testing across Ku/Ka bands (10–30 GHz).
+
+* **System Profiling & Bottleneck Analysis**:
+  ```bash
+  python3 val_and_bench/profile_sim.py
+  ```
+  Executes `cProfile` analysis over the full constellation pipeline, saving `profile.out` and generating runtime profile charts in `val_and_bench/profile_plots/`.
 
 
