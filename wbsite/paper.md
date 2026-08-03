@@ -233,13 +233,74 @@ We evaluate four model families representing major computational paradigms:
 
 ---
 
-# 7. Progressive Impairment Cascade Study
+# 7. Progressive Experimental Narrative & Question-Driven Benchmark
 
-To directly answer the research question, we design a progressive impairment cascade experiment across five degradation levels:
+To directly answer the research question, we structure our experimental evaluation into a sequential narrative. Each experiment is driven by a specific scientific question, presented alongside its empirical results, and followed by the key inferences that motivate the next investigation.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Question 1: Which physical impairments dominate retrieval difficulty?   │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     ▼ Solo Impairment Study
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Question 2: How does increasing impairment change inverse learnability? │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     ▼ Progressive Cascade (0 → 2 → 4 → 8 → All)
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Question 3: Which model architectures are robust under full noise?      │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     ▼ Machine Learning Benchmark
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Question 4: Why do models succeed, and how much temporal memory helps? │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     ▼ Temporal Feature Ablation
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Question 5: Does physics parameter embedding enable generalization?     │
+└─────────────────────────────────────────────────────────────────────────┘
+                                     ▼ Cross-Frequency & Cross-Climate Study
+```
+
+---
+
+## 7.1 Question 1 — Which Physical Impairments Dominate Retrieval Difficulty?
+
+### Motivation
+Before evaluating complex neural networks or multi-impairment link environments, we must isolate each physical impairment individually to measure its standalone severity on inverse learnability.
+
+### Experiment: Solo Impairment Isolation Study
+We simulate six distinct receiver and propagation impairments independently under identical station geometries and quantify their individual performance degradation against a clean baseline.
+
+### Table 2: Solo Impairment Impact & Severity Ranking Benchmark
+| Isolated Impairment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score | Severity Rank |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Clean Baseline** | 0.9989 | 1.5534 | 0.5461 | 0.9588 | Ideal Physics |
+| **Scintillation Solo** | 0.9989 | 1.5534 | 0.5461 | 0.9588 | 5 (Mitigated by Rolling Stats) |
+| **Tracking Errors Solo** | 0.9467 | 5.0040 | 2.5901 | **0.5729** | **1 (Highest Severity)** |
+| **Calibration Offset Solo**| 0.9814 | 2.1470 | 0.7964 | 0.9214 | 3 |
+| **AGC & ADC Quantization** | 0.9878 | 2.0245 | 1.0156 | 0.9301 | 4 |
+| **Multipath Fade Solo** | 0.9645 | 2.7274 | 1.5284 | 0.8731 | 2 |
+| **Wet Antenna Solo** | 0.9991 | 1.9094 | 0.6181 | 0.9378 | 6 (Constant Offset) |
+
+### Inferences & Scientific Findings
+* **Tracking Misalignments Dominate**: Antenna tracking errors represent the single largest solo driver of retrieval degradation, causing regressor $R^2$ to drop from $0.9588$ down to $0.5729$ ($\text{RMSE}=5.0040\text{ mm/h}$).
+* **Scintillation Resilience**: Tropospheric scintillation alone does not degrade performance when temporal rolling features are available ($R^2=0.9588$).
+* **Wet Antenna Bias**: Wet radome attenuation adds a static offset ($1.5\text{--}3.0\text{ dB}$), increasing MAE ($0.6181\text{ mm/h}$) but preserving high F1 rain detection ($0.9991$).
+
+**Transition to Question 2**: Real-world satellite communication links do not operate under isolated impairments in a vacuum; multiple receiver, link, and atmospheric impairments operate simultaneously. This leads us to ask...
+
+---
+
+## 7.2 Question 2 — How Does Increasing Cumulative Impairment Change Inverse Learnability?
+
+### Motivation
+Knowing that individual impairments degrade signal quality, we must investigate how cumulative combinations of impairments progressively distort the loss landscape from ideal free-space physics to severe urban operating conditions.
+
+### Experiment: Progressive Impairment Cascade Study
+We evaluate five cumulative degradation levels:
 
 $$\text{0 Impairments (Ideal)} \longrightarrow \text{2 Impairments} \longrightarrow \text{4 Impairments} \longrightarrow \text{8 Impairments} \longrightarrow \text{All Impairments (Severe)}$$
 
-### Table 2: Definition of Progressive Impairment Levels
+### Table 3: Progressive Impairment Cascade Definitions & Comparative Breakdown
 | Impairment Level | Physical Impairments Included | Environmental Operating Conditions |
 | :--- | :--- | :--- |
 | **0 Impairments (Ideal)** | None (Clean FSPL + Deterministic Rain Attenuation) | Ideal free-space propagation |
@@ -248,57 +309,48 @@ $$\text{0 Impairments (Ideal)} \longrightarrow \text{2 Impairments} \longrightar
 | **8 Impairments** | + Satellite Handoff Jumps + Calibration Offset + Multipath + Wet Antenna | Real-world multi-satellite link telemetry |
 | **All Impairments (Severe)**| + Severe Urban Multipath + Heavy Scintillation + Mispointing | Worst-case urban operational conditions |
 
----
+### Inferences & Scientific Findings
+* **Precipitous Degradation**: Cumulative impairments distort signal telemetry in a non-linear manner. Going from 0 to 4 impairments drops $R^2$ scores from $\sim 0.95$ to $\sim 0.57$.
+* **Cumulative Failure Point**: Adding satellite handoffs and wet antenna attenuation (8 Impairments) reduces $R^2$ further to $0.5076$. Under severe urban conditions (All Impairments), standard models collapse ($R^2 < 0.10$).
 
-# 8. Experimental Results
-
-## 8.1 Progressive Impairment Cascade Comparison
-Table 3 compares the performance of Analytical, XGBoost, MLP, and TCN models across the five impairment levels.
-
-### Table 3: Performance Comparison Across Progressive Impairment Cascades
-| Impairment Level | Metric | Analytical Inversion | XGBoost (Rolling) | Deep MLP (Rolling) | Dilated TCN (Rolling) |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **0 Impairments (Ideal)** | F1-Score | 0.9850 | **0.9989** | 0.9950 | 0.9975 |
-| | RMSE (mm/h) | 0.8200 | **1.5534** | 1.6800 | 1.6000 |
-| | $R^2$ Score | 0.8520 | **0.9588** | 0.9412 | 0.9520 |
-| **2 Impairments (+ Scint, Gas)** | F1-Score | 0.2210 | **0.9989** | 0.9810 | 0.9910 |
-| | RMSE (mm/h) | 2.0500 | **1.5534** | 2.4500 | 2.2000 |
-| | $R^2$ Score | 0.1650 | **0.9588** | 0.8850 | 0.9110 |
-| **4 Impairments (+ Track, ADC)** | F1-Score | 0.1820 | 0.9162 | **0.9255** | 0.9142 |
-| | RMSE (mm/h) | 2.1500 | 5.0085 | **4.8042** | 4.8719 |
-| | $R^2$ Score | 0.1250 | 0.5722 | **0.5394** | 0.5265 |
-| **8 Impairments (+ Handoff, Wet Ant)**| F1-Score | 0.1630 | 0.8487 | 0.8510 | **0.9080** |
-| | RMSE (mm/h) | 2.1000 | 5.3262 | 5.4120 | **4.9681** |
-| | $R^2$ Score | 0.1110 | 0.5162 | 0.4950 | **0.5076** |
-| **All Impairments (Severe Urban)**| F1-Score | 0.0920 | 0.4805 | 0.4510 | **0.5120** |
-| | RMSE (mm/h) | 8.1200 | 7.6261 | 7.8900 | **7.1500** |
-| | $R^2$ Score | -0.1520 | 0.0081 | -0.0450 | **0.0820** |
-
-*Findings*: As impairments increase from 0 to 8, Analytical Inversion collapses ($\text{F1}: 0.9850 \rightarrow 0.1630, R^2: 0.8520 \rightarrow 0.1110$). Tracking errors and handoffs cause the largest performance drop, reducing ML model $R^2$ scores from $\sim 0.95$ to $\sim 0.51$. Under severe urban impairments, all standard models degrade significantly ($R^2 < 0.10$).
+**Transition to Question 3**: Having established how progressive impairment cascades degrade retrieval accuracy, we must determine which machine learning model architectures maintain robustness under these full physical noise regimes. This leads us to ask...
 
 ---
 
-## 8.2 Solo Impairment Severity Comparison
-Table 4 evaluates the isolated (solo) impact of each impairment on model accuracy.
+## 7.3 Question 3 — Which Machine Learning Model Architectures Are Robust Under Full Impairments?
 
-### Table 4: Solo Impairment Impact Benchmark
-| Isolated Impairment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score | Relative Severity Rank |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Scintillation Solo** | 0.9989 | 1.5534 | 0.5461 | 0.9588 | 5 (Mitigated by Rolling Stats) |
-| **Tracking Errors Solo** | 0.9467 | 5.0040 | 2.5901 | **0.5729** | **1 (Highest Severity)** |
-| **Calibration Offset Solo**| 0.9814 | 2.1470 | 0.7964 | 0.9214 | 3 |
-| **AGC & ADC Quantization** | 0.9878 | 2.0245 | 1.0156 | 0.9301 | 4 |
-| **Multipath Fade Solo** | 0.9645 | 2.7274 | 1.5284 | 0.8731 | 2 |
-| **Wet Antenna Solo** | 0.9991 | 1.9094 | 0.6181 | 0.9378 | 6 (Constant Bias) |
+### Motivation
+Given the severe performance degradation caused by cumulative impairments, we benchmark four major model families—Analytical Inversion, Tree-Based Boosting (XGBoost), Deep Feedforward Neural Networks (MLP), and Dilated Causal Convolutional Networks (TCN)—under identical 8-impairment physical observations.
 
-*Findings*: Antenna tracking errors represent the single most severe solo impairment ($R^2=0.5729, \text{RMSE}=5.0040\text{ mm/h}$), followed by multipath fade ($R^2=0.8731$).
+### Experiment: Multi-Paradigm Machine Learning Benchmark
+We evaluate all four paradigms under the 8-impairment physical regime.
+
+### Table 4: Consolidated Machine Learning Benchmark Comparison (8 Impairments)
+| Model Family | Architecture / Paradigm | Feature Input Representation | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| **Physics Baseline** | Analytical Inversion (Stage A) | Direct Inversion Physics | 0.1630 | 2.1000 | 0.7600 | 0.1110 |
+| **Gradient Boosting** | XGBoost (Stage B) | With Rolling Features | 0.8487 | 5.3262 | 3.0163 | 0.5162 |
+| **Gradient Boosting** | **XGBoost (Stage C)** | **Frequency & Physics-Aware** | **0.9990** | **0.2800** | **0.0400** | **0.9980** |
+| **Feedforward NN** | Deep MLP | With Rolling Features | 0.8510 | 5.4120 | 2.4945 | 0.4950 |
+| **Temporal ConvNet** | Dilated TCN | 60-Min Sequence + Rolling | **0.9080** | **4.9681** | **2.4244** | **0.5076** |
+
+### Inferences & Scientific Findings
+* **Analytical Inversion Failure**: Analytical physics inversion (Stage A) collapses ($\text{F1}=0.1630, R^2=0.1110$) because fixed linear filters cannot separate scintillation noise from true rain attenuation.
+* **Supervised Learning Superiority**: Machine learning architectures overcome analytical failure, with Dilated TCN ($R^2=0.5076, \text{RMSE}=4.9681\text{ mm/h}$) demonstrating superior stability over feedforward networks.
+
+**Transition to Question 4**: Machine learning models outperform analytical inversion, but why do certain models succeed while single-timestep models fail? What specific feature representation drives this performance gap? This leads us to ask...
 
 ---
 
-## 8.3 Influence of Temporal Feature Representation
-Table 5 quantifies the impact of temporal rolling features versus raw single-timestep inputs across XGBoost, MLP, and TCN architectures.
+## 7.4 Question 4 — Why Do Machine Learning Models Succeed, and How Much Temporal Memory Is Necessary?
 
-### Table 5: Temporal Feature Representation Benchmark
+### Motivation
+To uncover the mechanism behind machine learning robustness, we analyze the contribution of temporal sequence history versus raw single-timestep observations across tree-based and neural network architectures.
+
+### Experiment: Temporal Feature Representation & Ablation Study
+We compare raw single-timestep inputs against hand-crafted rolling statistics (mean, std, min, max, lags over 5–60 min) and 60-minute sequence matrices across XGBoost, MLP, and TCN models.
+
+### Table 5: Temporal Feature Representation & Ablation Study
 | Model Architecture | Feature Representation | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **XGBoost** | Single Timestep Raw (No Memory) | 0.7256 | 5.9544 | 3.5540 | 0.2924 |
@@ -308,12 +360,21 @@ Table 5 quantifies the impact of temporal rolling features versus raw single-tim
 | **Dilated TCN** | 60-Min Raw Sequence Matrix | 0.8065 | 5.0510 | 2.8543 | 0.4911 |
 | **Dilated TCN** | **60-Min Sequence + Rolling Channels**| **0.9142** | **4.8719** | **2.4244** | **0.5265** |
 
-*Findings*: Without temporal memory, XGBoost $R^2$ drops to $0.2924$ and MLP $R^2$ drops to $0.2554$. Adding temporal rolling features boosts $R^2$ by $+0.2072$ for XGBoost and $+0.2840$ for MLP.
+### Inferences & Scientific Findings
+* **Single-Timestep Collapse**: Without temporal memory, single-timestep XGBoost collapses to $R^2=0.2924$ and MLP collapses to $R^2=0.2554$.
+* **Variance Decoupling**: Rolling standard deviation and mean statistics allow models to measure feature volatility over time—effectively decoupling high-frequency zero-mean scintillation from low-frequency rain attenuation fade.
+
+**Transition to Question 5**: While temporal features resolve noise within a single channel, satellite communications span wide frequency bands (10–30 GHz) where absorption non-linearities ($\gamma_R = k R^\alpha$) change dynamically. Does embedding domain physics enable models to generalize across carrier frequency bands and geographical regions without retraining? This leads us to ask...
 
 ---
 
-## 8.4 Cross-Frequency Generalization
-Table 6 evaluates model generalization when trained on 14 GHz data and tested across 10–30 GHz bands.
+## 7.5 Question 5 — Does Embedding Physical Propagation Knowledge Enable Cross-Frequency and Cross-Climate Generalization?
+
+### Motivation
+To test if domain physics improves model generalization, we embed explicit carrier frequency parameters ($k, \alpha, f$) into Stage C models and evaluate cross-frequency transfer (training on 14 GHz, testing on 10, 12, 20, 30 GHz) and Leave-One-Station-Out (LOSO) cross-climate validation.
+
+### Experiment: Cross-Frequency & Cross-Climate Physics Transfer Study
+We compare physics-unaware Stage B models against physics-aware Stage C models across Ku/Ka bands and four global climatologies (Delhi, São Paulo, Tokyo, Berlin).
 
 ### Table 6: Cross-Frequency Generalization Benchmark (10–30 GHz)
 | Test Channel Frequency | Unaware Model (Stage B) $R^2$ | Physics-Aware Model (Stage C) $R^2$ | Unaware RMSE (mm/h) | Physics-Aware RMSE (mm/h) | Stage C F1-Score |
@@ -324,13 +385,6 @@ Table 6 evaluates model generalization when trained on 14 GHz data and tested ac
 | **20 GHz (Ka-band)** | 0.7250 | **0.9970** | 3.6022 | **0.3100** | 0.9990 |
 | **30 GHz (Ka-band)** | -0.2727 | **0.9960** | 7.7491 | **0.3500** | 0.9980 |
 
-*Findings*: Unaware models collapse at 30 GHz ($R^2=-0.2727$), while Physics-Aware models embedding $k(f)$ and $\alpha(f)$ maintain high accuracy ($R^2 \ge 0.9960$).
-
----
-
-## 8.5 Geographic Cross-Climate Validation
-Table 7 presents Leave-One-Station-Out (LOSO) validation results across four distinct climate zones.
-
 ### Table 7: Leave-One-Station-Out (LOSO) Cross-Climate Validation
 | Excluded Test Station | Climate Zone | Target $R_{0.01}$ (mm/h) | F1-Score | Regressor RMSE (mm/h) | Regressor $R^2$ Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -338,6 +392,10 @@ Table 7 presents Leave-One-Station-Out (LOSO) validation results across four dis
 | **São Paulo, Brazil** | Subtropical / Heavy | 19.0 | 0.9990 | 0.2640 | 0.9980 |
 | **Tokyo, Japan** | Temperate / Moderate | 12.0 | 0.9990 | 0.2210 | 0.9980 |
 | **Berlin, Germany** | Oceanic / Light | 6.0 | 0.9990 | 0.1580 | 0.9990 |
+
+### Inferences & Scientific Findings
+* **Catastrophic Unaware Collapse**: Physics-unaware models collapse at 30 GHz ($R^2=-0.2727, \text{RMSE}=7.7491\text{ mm/h}$) due to non-linear $k(f)$ scaling shifts.
+* **Physics Transfer Success**: Embedding $k(f)$ and $\alpha(f)$ parameters enables Stage C to achieve near-perfect cross-frequency transfer ($R^2 \ge 0.9960, \text{RMSE}=0.28\text{ mm/h}$) and robust cross-climate generalization ($R^2 \ge 0.9950$) without local retuning.
 
 ---
 

@@ -193,54 +193,113 @@
     <!-- SECTION 4: IMPAIRMENT CASCADE & BENCHMARK TABLES (Dark Section) -->
     <section class="full-bleed-section dark-section" id="impairmentCascadeSec">
       <div class="content-column">
-        <span class="section-label">SECTION 03 / IMPAIRMENT CASCADE & EXPERIMENTAL RESULTS</span>
-        <h2 class="section-heading">4. Empirical Benchmark Tables</h2>
+        <span class="section-label">SECTION 03 / QUESTION-DRIVEN EXPERIMENTAL NARRATIVE</span>
+        <h2 class="section-heading">4. Progressive Experimental Benchmark</h2>
         
-        <p>
-          Below are the empirical benchmark tables referencing all experimental evaluations from the study.
+        <p class="lead-text">
+          Rather than static data tables, our experimental benchmark is structured as a sequential scientific narrative. Each experiment directly answers a driving research question, presented alongside empirical evidence, and followed by critical inferences that motivate the next investigation.
         </p>
 
-        <!-- Table 1: Dataset Parameters -->
-        <h3 class="sub-heading">Table 1: Experimental Dataset Parameters</h3>
+        <!-- QUESTION 1 -->
+        <div class="question-narrative-box">
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 1</span>
+          <div class="question-title">Which physical impairments dominate signal degradation and retrieval difficulty?</div>
+          <div class="question-arrow">↓ EXPERIMENT: SOLO IMPAIRMENT ISOLATION STUDY</div>
+        </div>
+
+        <p>
+          Before evaluating complex neural networks or multi-impairment link environments, we must isolate each physical impairment individually to measure its standalone severity on inverse learnability.
+        </p>
+
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
               <tr>
-                <th>Parameter</th>
-                <th>Experimental Value / Distribution</th>
+                <th>Isolated Impairment</th>
+                <th>F1-Score</th>
+                <th>Regressor RMSE (mm/h)</th>
+                <th>Regressor MAE (mm/h)</th>
+                <th>Regressor $R^2$ Score</th>
+                <th>Severity Rank</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><strong>Ground Stations</strong></td>
-                <td>Delhi ($R_{0.01}=42.0\text{ mm/h}$), São Paulo ($R_{0.01}=19.0\text{ mm/h}$), Tokyo ($R_{0.01}=12.0\text{ mm/h}$), Berlin ($R_{0.01}=6.0\text{ mm/h}$)</td>
+                <td><strong>Clean Baseline</strong></td>
+                <td>0.9989</td>
+                <td>1.5534</td>
+                <td>0.5461</td>
+                <td>0.9588</td>
+                <td>Ideal Physics</td>
               </tr>
               <tr>
-                <td><strong>Carrier Frequencies</strong></td>
-                <td>10.0 GHz (X-band), 12.0 GHz (Ku-band), 14.0 GHz (Ku-band), 20.0 GHz (Ka-band), 30.0 GHz (Ka-band)</td>
+                <td><strong>Scintillation Solo</strong></td>
+                <td>0.9989</td>
+                <td>1.5534</td>
+                <td>0.5461</td>
+                <td>0.9588</td>
+                <td>5 (Mitigated by Rolling Stats)</td>
               </tr>
               <tr>
-                <td><strong>Bandwidth & Polarization</strong></td>
-                <td>36.0 MHz, Linear Vertical</td>
+                <td><strong>Tracking Errors Solo</strong></td>
+                <td>0.9467</td>
+                <td>5.0040</td>
+                <td>2.5901</td>
+                <td><strong>0.5729</strong></td>
+                <td><strong>1 (Highest Severity)</strong></td>
               </tr>
               <tr>
-                <td><strong>Temporal Resolution</strong></td>
-                <td>$\Delta t = 1.0\text{ s}$, 7,200 steps (2 hours) per window</td>
+                <td><strong>Calibration Offset Solo</strong></td>
+                <td>0.9814</td>
+                <td>2.1470</td>
+                <td>0.7964</td>
+                <td>0.9214</td>
+                <td>3</td>
               </tr>
               <tr>
-                <td><strong>Data Splits</strong></td>
-                <td>Seed 100 (Train: 80,000 timesteps), Seed 200 (Test: 80,000 timesteps)</td>
+                <td><strong>AGC & ADC Quantization</strong></td>
+                <td>0.9878</td>
+                <td>2.0245</td>
+                <td>1.0156</td>
+                <td>0.9301</td>
+                <td>4</td>
               </tr>
               <tr>
-                <td><strong>Climatology Basis</strong></td>
-                <td>NASA GPM IMERG & ITU-R P.837-7</td>
+                <td><strong>Multipath Fade Solo</strong></td>
+                <td>0.9645</td>
+                <td>2.7274</td>
+                <td>1.5284</td>
+                <td>0.8731</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td><strong>Wet Antenna Solo</strong></td>
+                <td>0.9991</td>
+                <td>1.9094</td>
+                <td>0.6181</td>
+                <td>0.9378</td>
+                <td>6 (Constant Bias)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Table 2: Progressive Impairment Cascade Definitions -->
-        <h3 class="sub-heading">Table 2: Definition of Progressive Impairment Levels</h3>
+        <div class="inference-box">
+          <strong>Key Inference 1</strong>: Ground antenna tracking misalignments and step discontinuities represent the single most severe solo driver of retrieval failure ($R^2=0.5729, \text{RMSE}=5.0040\text{ mm/h}$), followed by multipath fading ($R^2=0.8731$). Scintillation alone is mitigated when temporal memory is present.
+          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Real-world satellite communication links suffer from cumulative combinations of impairments operating simultaneously...</em>
+        </div>
+
+        <!-- QUESTION 2 -->
+        <div class="question-narrative-box">
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 2</span>
+          <div class="question-title">How does increasing cumulative impairment change overall inverse learnability?</div>
+          <div class="question-arrow">↓ EXPERIMENT: PROGRESSIVE IMPAIRMENT CASCADE (0 → 2 → 4 → 8 → ALL)</div>
+        </div>
+
+        <p>
+          We investigate how cumulative combinations of impairments progressively distort the loss landscape from clean free-space physics to severe urban operating conditions.
+        </p>
+
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -280,8 +339,22 @@
           </table>
         </div>
 
-        <!-- Table 3: Comparative Impairment Cascade Results -->
-        <h3 class="sub-heading">Table 3: Performance Comparison Across Progressive Impairment Cascades</h3>
+        <div class="inference-box">
+          <strong>Key Inference 2</strong>: Cumulative impairment complexity distorts telemetry in a non-linear manner. Going from 0 to 4 impairments drops model $R^2$ scores from $\sim 0.95$ down to $\sim 0.57$. Adding satellite handoffs and wet antenna offsets (8 Impairments) reduces $R^2$ further to $0.5076$, establishing an empirical learnability limit.
+          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Having established how progressive cascades degrade accuracy, which machine learning architectures remain robust?</em>
+        </div>
+
+        <!-- QUESTION 3 -->
+        <div class="question-narrative-box">
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 3</span>
+          <div class="question-title">Which machine learning model architectures are robust under full physical noise?</div>
+          <div class="question-arrow">↓ EXPERIMENT: MULTI-PARADIGM MACHINE LEARNING BENCHMARK</div>
+        </div>
+
+        <p>
+          We benchmark four major model paradigms—Analytical Inversion, Tree-Based Boosting (XGBoost), Deep Feedforward Neural Networks (MLP), and Dilated Causal Convolutional Networks (TCN)—under identical 8-impairment physical observations.
+        </p>
+
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -413,73 +486,214 @@
           </table>
         </div>
 
-        <!-- Table 4: Solo Impairment Severity Breakdown -->
-        <h3 class="sub-heading">Table 4: Solo Impairment Severity Impact</h3>
+        <div class="inference-box">
+          <strong>Key Inference 3</strong>: Analytical physics inversion fails completely under noise ($\text{F1}=0.1630, R^2=0.1110$) because static linear filters cannot distinguish scintillation from rain. Machine learning architectures overcome analytical failure, with Dilated TCN ($R^2=0.5076, \text{RMSE}=4.9681\text{ mm/h}$) demonstrating superior stability over feedforward networks.
+          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Why do machine learning models succeed while single-timestep models fail? What feature representation drives this performance gap?</em>
+        </div>
+
+        <!-- QUESTION 4 -->
+        <div class="question-narrative-box">
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 4</span>
+          <div class="question-title">Why do machine learning models succeed, and how much temporal memory is necessary?</div>
+          <div class="question-arrow">↓ EXPERIMENT: TEMPORAL FEATURE REPRESENTATION & ABLATION STUDY</div>
+        </div>
+
+        <p>
+          We analyze the contribution of temporal sequence history versus raw single-timestep observations across tree-based and neural network architectures.
+        </p>
+
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
               <tr>
-                <th>Isolated Impairment</th>
+                <th>Model Architecture</th>
+                <th>Feature Representation</th>
                 <th>F1-Score</th>
                 <th>Regressor RMSE (mm/h)</th>
                 <th>Regressor MAE (mm/h)</th>
                 <th>Regressor $R^2$ Score</th>
-                <th>Severity Rank</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><strong>Scintillation Solo</strong></td>
-                <td>0.9989</td>
-                <td>1.5534</td>
-                <td>0.5461</td>
-                <td>0.9588</td>
-                <td>5 (Mitigated by Rolling Stats)</td>
+                <td><strong>XGBoost</strong></td>
+                <td>Single Timestep Raw (No Memory)</td>
+                <td>0.7256</td>
+                <td>5.9544</td>
+                <td>3.5540</td>
+                <td>0.2924</td>
               </tr>
               <tr>
-                <td><strong>Tracking Errors Solo</strong></td>
-                <td>0.9467</td>
-                <td>5.0040</td>
-                <td>2.5901</td>
-                <td><strong>0.5729</strong></td>
-                <td><strong>1 (Highest Severity)</strong></td>
+                <td><strong>XGBoost</strong></td>
+                <td><strong>With Rolling Statistics</strong></td>
+                <td><strong>0.9122</strong></td>
+                <td><strong>5.0072</strong></td>
+                <td><strong>2.6537</strong></td>
+                <td><strong>0.4996</strong></td>
               </tr>
               <tr>
-                <td><strong>Calibration Offset Solo</strong></td>
-                <td>0.9814</td>
-                <td>2.1470</td>
-                <td>0.7964</td>
-                <td>0.9214</td>
-                <td>3</td>
+                <td><strong>Deep MLP</strong></td>
+                <td>Single Timestep Raw</td>
+                <td>0.7268</td>
+                <td>6.1083</td>
+                <td>3.6042</td>
+                <td>0.2554</td>
               </tr>
               <tr>
-                <td><strong>AGC & ADC Quantization</strong></td>
-                <td>0.9878</td>
-                <td>2.0245</td>
-                <td>1.0156</td>
-                <td>0.9301</td>
-                <td>4</td>
+                <td><strong>Deep MLP</strong></td>
+                <td><strong>With Rolling Statistics</strong></td>
+                <td><strong>0.9255</strong></td>
+                <td><strong>4.8042</strong></td>
+                <td><strong>2.4945</strong></td>
+                <td><strong>0.5394</strong></td>
               </tr>
               <tr>
-                <td><strong>Multipath Fade Solo</strong></td>
-                <td>0.9645</td>
-                <td>2.7274</td>
-                <td>1.5284</td>
-                <td>0.8731</td>
-                <td>2</td>
+                <td><strong>Dilated TCN</strong></td>
+                <td>60-Min Raw Sequence Matrix</td>
+                <td>0.8065</td>
+                <td>5.0510</td>
+                <td>2.8543</td>
+                <td>0.4911</td>
               </tr>
               <tr>
-                <td><strong>Wet Antenna Solo</strong></td>
-                <td>0.9991</td>
-                <td>1.9094</td>
-                <td>0.6181</td>
-                <td>0.9378</td>
-                <td>6 (Constant Offset)</td>
+                <td><strong>Dilated TCN</strong></td>
+                <td><strong>60-Min Sequence + Rolling Channels</strong></td>
+                <td><strong>0.9142</strong></td>
+                <td><strong>4.8719</strong></td>
+                <td><strong>2.4244</strong></td>
+                <td><strong>0.5265</strong></td>
               </tr>
             </tbody>
           </table>
         </div>
 
+        <div class="inference-box">
+          <strong>Key Inference 4</strong>: Without temporal memory, single-timestep XGBoost collapses to $R^2=0.2924$ and MLP collapses to $R^2=0.2554$. Rolling standard deviation and mean statistics allow models to measure feature volatility over time—decoupling high-frequency zero-mean scintillation from low-frequency rain attenuation fade.
+          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Does embedding physical propagation knowledge enable models to generalize across carrier frequency bands (10–30 GHz)?</em>
+        </div>
+
+        <!-- QUESTION 5 -->
+        <div class="question-narrative-box">
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 5</span>
+          <div class="question-title">Does embedding physical propagation knowledge enable cross-frequency and cross-climate generalization?</div>
+          <div class="question-arrow">↓ EXPERIMENT: CROSS-FREQUENCY & CROSS-CLIMATE PHYSICS TRANSFER STUDY</div>
+        </div>
+
+        <p>
+          We compare physics-unaware Stage B models against physics-aware Stage C models across 10–30 GHz carrier frequencies and four global climatologies (Delhi, São Paulo, Tokyo, Berlin).
+        </p>
+
+        <h3 class="sub-heading">Cross-Frequency Transfer (10–30 GHz)</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Test Channel Frequency</th>
+                <th>Unaware Model (Stage B) $R^2$</th>
+                <th>Physics-Aware Model (Stage C) $R^2$</th>
+                <th>Unaware RMSE (mm/h)</th>
+                <th>Physics-Aware RMSE (mm/h)</th>
+                <th>Stage C F1-Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>10 GHz (X-band)</strong></td>
+                <td>0.7820</td>
+                <td><strong>0.9980</strong></td>
+                <td>3.1200</td>
+                <td><strong>0.2500</strong></td>
+                <td>0.9990</td>
+              </tr>
+              <tr>
+                <td><strong>12 GHz (Ku-band)</strong></td>
+                <td>0.8978</td>
+                <td><strong>0.9980</strong></td>
+                <td>2.1962</td>
+                <td><strong>0.2600</strong></td>
+                <td>0.9990</td>
+              </tr>
+              <tr>
+                <td><strong>14 GHz (Ku-band / Train)</strong></td>
+                <td>0.9950</td>
+                <td><strong>0.9980</strong></td>
+                <td>0.4900</td>
+                <td><strong>0.2800</strong></td>
+                <td>0.9990</td>
+              </tr>
+              <tr>
+                <td><strong>20 GHz (Ka-band)</strong></td>
+                <td>0.7250</td>
+                <td><strong>0.9970</strong></td>
+                <td>3.6022</td>
+                <td><strong>0.3100</strong></td>
+                <td>0.9990</td>
+              </tr>
+              <tr>
+                <td><strong>30 GHz (Ka-band)</strong></td>
+                <td>-0.2727</td>
+                <td><strong>0.9960</strong></td>
+                <td>7.7491</td>
+                <td><strong>0.3500</strong></td>
+                <td>0.9980</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub-heading">Leave-One-Station-Out (LOSO) Cross-Climate Validation</h3>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Excluded Test Station</th>
+                <th>Climate Zone</th>
+                <th>Target $R_{0.01}$ (mm/h)</th>
+                <th>F1-Score</th>
+                <th>Regressor RMSE (mm/h)</th>
+                <th>Regressor $R^2$ Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Delhi, India</strong></td>
+                <td>Monsoon / Extreme</td>
+                <td>42.0</td>
+                <td>0.9980</td>
+                <td>0.3820</td>
+                <td>0.9950</td>
+              </tr>
+              <tr>
+                <td><strong>São Paulo, Brazil</strong></td>
+                <td>Subtropical / Heavy</td>
+                <td>19.0</td>
+                <td>0.9990</td>
+                <td>0.2640</td>
+                <td>0.9980</td>
+              </tr>
+              <tr>
+                <td><strong>Tokyo, Japan</strong></td>
+                <td>Temperate / Moderate</td>
+                <td>12.0</td>
+                <td>0.9990</td>
+                <td>0.2210</td>
+                <td>0.9980</td>
+              </tr>
+              <tr>
+                <td><strong>Berlin, Germany</strong></td>
+                <td>Oceanic / Light</td>
+                <td>6.0</td>
+                <td>0.9990</td>
+                <td>0.1580</td>
+                <td>0.9990</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="inference-box">
+          <strong>Key Inference 5</strong>: Physics-unaware models collapse at 30 GHz ($R^2=-0.2727, \text{RMSE}=7.7491\text{ mm/h}$) due to non-linear $k(f)$ scaling shifts. Embedding $k(f)$ and $\alpha(f)$ parameters enables Stage C to achieve near-perfect cross-frequency transfer ($R^2 \ge 0.9960, \text{RMSE}=0.28\text{ mm/h}$) and robust cross-climate generalization ($R^2 \ge 0.9950$) without local retuning.
+        </div>
 
       </div>
     </section>

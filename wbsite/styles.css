@@ -632,6 +632,54 @@ table.minimal-table tr:hover td {
   font-weight: 700;
 }
 
+/* Question-Driven Narrative Callouts */
+.question-narrative-box {
+  border: 1px solid var(--color-plaster-white);
+  padding: var(--spacing-24);
+  margin-top: var(--spacing-40);
+  margin-bottom: var(--spacing-24);
+  background-color: #181818;
+}
+
+.light-section .question-narrative-box {
+  border-color: var(--color-carbon);
+  background-color: #f8f8f8;
+}
+
+.question-title {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-8);
+  color: var(--color-plaster-white);
+}
+
+.light-section .question-title {
+  color: var(--color-carbon);
+}
+
+.question-arrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.069em;
+  color: #aaaaaa;
+}
+
+.inference-box {
+  border-left: 3px solid var(--color-plaster-white);
+  padding-left: var(--spacing-20);
+  margin-top: var(--spacing-24);
+  margin-bottom: var(--spacing-40);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.light-section .inference-box {
+  border-left-color: var(--color-carbon);
+}
+
 /* Footer */
 footer.minimal-footer {
   border-top: 1px solid var(--color-hairline-dark);
