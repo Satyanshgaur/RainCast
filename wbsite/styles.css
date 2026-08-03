@@ -107,12 +107,22 @@ body {
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-hairline);
-  padding: 20px var(--gutter-left);
+  padding: 16px var(--gutter-left);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.nav-inner {
+  width: 100%;
+  max-width: var(--column-max-width);
+  margin-left: auto;
+  margin-right: auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--spacing-16);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .nav-item {
@@ -186,6 +196,9 @@ body {
   padding-bottom: var(--spacing-104);
   padding-left: var(--gutter-left);
   padding-right: var(--gutter-left);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .light-section {
