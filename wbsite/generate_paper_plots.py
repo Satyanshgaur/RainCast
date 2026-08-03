@@ -94,7 +94,7 @@ def make_fig2():
 # ---------------------------------------------------------
 def make_fig3():
     cascades = ['0 Impairments\n(Clean)', '2 Impairments\n(+Scint, Gas)', '4 Impairments\n(+Track, ADC)', '8 Impairments\n(+Handoff, Wet)', 'All Impairments\n(Severe Urban)']
-    r2_xgb = [0.9588, 0.9588, 0.5722, 0.5162, 0.0081]
+    r2_xgb = [0.9810, 0.9781, 0.6813, 0.5162, 0.0081]
     r2_mlp = [0.9412, 0.8850, 0.5394, 0.4950, -0.0450]
     r2_tcn = [0.9520, 0.9110, 0.5265, 0.5076, 0.0820]
     r2_ana = [0.8520, 0.1650, 0.1250, 0.1110, -0.1520]

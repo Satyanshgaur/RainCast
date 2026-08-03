@@ -88,13 +88,13 @@ We simulate six receiver and propagation impairments independently under identic
 ### Table 2: Solo Impairment Severity Impact Benchmark
 | Isolated Impairment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score | Severity Rank |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Clean Baseline** | 0.9989 | 1.5534 | 0.5461 | 0.9588 | Ideal Physics |
-| **Scintillation Solo** | 0.9989 | 1.5534 | 0.5461 | 0.9588 | 5 (Mitigated by Rolling Stats) |
-| **Tracking Errors Solo** | 0.9467 | 5.0040 | 2.5901 | **0.5729** | **1 (Highest Severity)** |
-| **Calibration Offset Solo**| 0.9814 | 2.1470 | 0.7964 | 0.9214 | 3 |
-| **AGC & ADC Quantization** | 0.9878 | 2.0245 | 1.0156 | 0.9301 | 4 |
-| **Multipath Fade Solo** | 0.9645 | 2.7274 | 1.5284 | 0.8731 | 2 |
-| **Wet Antenna Solo** | 0.9991 | 1.9094 | 0.6181 | 0.9378 | 6 (Constant Offset) |
+| **Clean Baseline** | 0.9989 | 1.0850 | 0.3850 | 0.9810 | Ideal Physics |
+| **Scintillation Solo** | 0.9989 | 1.1321 | 0.4030 | 0.9781 | 5 (Mitigated by Rolling Stats) |
+| **Tracking Errors Solo** | 0.9436 | 3.7713 | 1.8293 | **0.7574** | **1 (Highest Severity)** |
+| **Calibration Offset Solo**| 0.9922 | 1.2643 | 0.5656 | 0.9727 | 3 |
+| **AGC & ADC Quantization** | 0.9836 | 2.1833 | 1.0047 | 0.9187 | 4 |
+| **Multipath Fade Solo** | 0.9754 | 2.5520 | 1.4019 | 0.8889 | 2 |
+| **Wet Antenna Solo** | 0.9991 | 1.1099 | 0.3916 | 0.9790 | 6 (Constant Offset) |
 
 ### Empirical Observations
 * **Tracking Dominance**: Ground antenna tracking misalignment represents the single largest solo driver of retrieval degradation, reducing regressor $R^2$ from $0.9588 \rightarrow 0.5729$.
@@ -135,9 +135,9 @@ We evaluate pure model architectures across five cumulative degradation levels.
 ### Table 4: Progressive Impairment Cascade Definitions & Model Performance Comparison ($R^2$ Score)
 | Impairment Level | Physical Impairments Included | Analytical Inversion $R^2$ | XGBoost (Rolling) $R^2$ | Deep MLP (Rolling) $R^2$ | Dilated TCN (Rolling) $R^2$ |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **0 Impairments (Ideal)** | Clean FSPL + Rain | 0.8520 | **0.9588** | 0.9412 | 0.9520 |
-| **2 Impairments** | + Scintillation + Gaseous Absorption | 0.1650 | **0.9588** | 0.8850 | 0.9110 |
-| **4 Impairments** | + Antenna Tracking + ADC Quantization | 0.1250 | **0.5722** | 0.5394 | 0.5265 |
+| **0 Impairments (Ideal)** | Clean FSPL + Rain | 0.8520 | **0.9810** | 0.9412 | 0.9520 |
+| **2 Impairments** | + Scintillation + Gaseous Absorption | 0.1650 | **0.9781** | 0.8850 | 0.9110 |
+| **4 Impairments** | + Antenna Tracking + ADC Quantization | 0.1250 | **0.6813** | 0.5394 | 0.5265 |
 | **8 Impairments** | + Handoff Jumps + Calibration + Multipath + Wet Antenna | 0.1110 | 0.5162 | 0.4950 | **0.5076** |
 | **All Impairments (Severe Urban)**| + Severe Multipath + Heavy Scintillation + Mispointing | -0.1520 | 0.0081 | -0.0450 | **0.0820** |
 
