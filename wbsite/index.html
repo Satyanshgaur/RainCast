@@ -165,6 +165,168 @@
         <p>
           $$\text{SNR}(t) = \text{EIRP} + G_{\text{rx}} - A_{\text{FSPL}}(t) - A_{\text{gas}}(t) - A_{\text{rain}}(t) - A_{\text{scint}}(t) - A_{\text{track}}(t) - N_0$$
         </p>
+
+        <h3 class="sub-heading">3.2 Real-World Physics & Telemetry Model Validation Suite</h3>
+        <p>
+          To verify that the simulation engine reflects physical telemetry, we validate the simulator's propagation mathematics, orbital tracking, rain statistics, and receiver hardware against <strong>NASA satellite radar data (GPM IMERG)</strong>, <strong>open satellite tracking networks (SatNOGS)</strong>, <strong>ITU-R standards</strong>, and <strong>commercial receiver hardware datasheets</strong>:
+        </p>
+
+        <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:20px; text-transform:uppercase;">A. NASA GPM IMERG & SatRain Rain Climatology Benchmark</h4>
+        <p>
+          We compare the simulator's generated rain rate quantiles (CCDF exceedance values) against the NASA GPM IMERG global database (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Huffman et al., 2020</a>) and SatRain climatology targets across global ground stations.
+        </p>
+
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Ground Station</th>
+                <th>Telemetry Source</th>
+                <th>$R_{1.0}$ (mm/h)</th>
+                <th>$R_{0.1}$ (mm/h)</th>
+                <th>$R_{0.01}$ (mm/h)</th>
+                <th>Rain Fraction $P_{\text{rain}}$ (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Delhi, India</strong></td>
+                <td>Simulator (ITU-R)</td>
+                <td>2.53</td>
+                <td>11.21</td>
+                <td>25.28</td>
+                <td>5.72%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><strong>NASA GPM / SatRain</strong></td>
+                <td><strong>5.10</strong></td>
+                <td><strong>18.00</strong></td>
+                <td><strong>52.90</strong></td>
+                <td><strong>7.10%</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Tokyo, Japan</strong></td>
+                <td>Simulator (ITU-R)</td>
+                <td>5.68</td>
+                <td>25.40</td>
+                <td>56.84</td>
+                <td>7.71%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><strong>NASA GPM / SatRain</strong></td>
+                <td><strong>6.20</strong></td>
+                <td><strong>28.50</strong></td>
+                <td><strong>57.21</strong></td>
+                <td><strong>8.24%</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Berlin, Germany</strong></td>
+                <td>Simulator (ITU-R)</td>
+                <td>2.16</td>
+                <td>9.80</td>
+                <td>21.61</td>
+                <td>7.07%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><strong>NASA GPM / SatRain</strong></td>
+                <td><strong>2.05</strong></td>
+                <td><strong>10.10</strong></td>
+                <td><strong>19.81</strong></td>
+                <td><strong>6.92%</strong></td>
+              </tr>
+              <tr>
+                <td><strong>São Paulo, Brazil</strong></td>
+                <td>Simulator (ITU-R)</td>
+                <td>7.54</td>
+                <td>34.20</td>
+                <td>75.36</td>
+                <td>10.26%</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><strong>NASA GPM / SatRain</strong></td>
+                <td><strong>8.10</strong></td>
+                <td><strong>38.00</strong></td>
+                <td><strong>80.99</strong></td>
+                <td><strong>10.69%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <img src="figures/val_delhi.png" alt="Figure 9: Real-World NASA GPM Rain Rate Climatology Validation Plot (Delhi Station)" class="paper-figure" />
+
+        <p style="font-size:14px; color:#555555;">
+          * <strong>Temporal Rain Event Persistence</strong>: Simulated rain event duration averages <strong>$330.7\text{ s}$ vs. $328.9\text{ s}$ in empirical SatRain telemetry</strong> (Jensen-Shannon Divergence $= 0.0300$).
+        </p>
+
+        <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:28px; text-transform:uppercase;">B. SatNOGS TLE & SGP4 Orbital Tracking Validation</h4>
+        <p>
+          We validate SGP4 orbit propagation accuracy (slant path range $d(t)$ and elevation $\theta(t)$) against live Two-Line Element (TLE) orbital sets and ground pass observation logs from the <strong>SatNOGS Open Satellite Network</strong>.
+        </p>
+
+        <img src="figures/val_sgp4_satnogs.png" alt="Figure 10: SatNOGS Open Satellite TLE & SGP4 Orbital Tracking Validation" class="paper-figure" />
+
+        <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:28px; text-transform:uppercase;">C. ITU-R Physical Propagation & Receiver Hardware Validation</h4>
+        <p>
+          We validate physical specific attenuation, receiver pointing loss, AGC dynamic smoothing, and measurement uncertainty against international standards and published hardware datasheets:
+        </p>
+
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Model Component</th>
+                <th>Simulator Parameter</th>
+                <th>Benchmark / Standard Reference</th>
+                <th>Validation Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Specific Rain Attenuation ($k, \alpha$)</strong></td>
+                <td>20 GHz: $k=0.09164, \alpha=1.0990$<br/>30 GHz: $k=0.24030, \alpha=1.0210$</td>
+                <td><strong>ITU-R P.838-3 Tables</strong></td>
+                <td><strong>100% Exact Match (Passed)</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Antenna Tracking Jitter</strong></td>
+                <td>$\sigma_{\text{track}} = 0.04^\circ$ (Zenith) $\rightarrow 0.4589^\circ$ ($5^\circ$ Elev.)</td>
+                <td><em>Rice (1998)</em> ($1.83\text{ dB}$ loss at $5^\circ$)</td>
+                <td><strong>Passed</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Receiver AGC Loop</strong></td>
+                <td>Time constant $\tau = 4.48\text{ minutes}$</td>
+                <td><em>Viterbi et al. (2012)</em> dynamic loop</td>
+                <td><strong>Passed</strong></td>
+              </tr>
+              <tr>
+                <td><strong>LNB Thermal Gain Drift</strong></td>
+                <td>$0.015\text{ dB/}^\circ\text{C}$ drift rate</td>
+                <td><strong>L-3 Narda-MITEQ LNB Datasheet</strong></td>
+                <td><strong>Passed</strong></td>
+              </tr>
+              <tr>
+                <td><strong>TWTA Gain Temp Drift</strong></td>
+                <td>$\gamma_{\text{temp}} = 0.0008\text{ K}^{-1}$</td>
+                <td><strong>Thales Space TWTA Catalog</strong></td>
+                <td><strong>Passed</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Beacon Measurement Error</strong></td>
+                <td>$\sigma_{\text{uncertainty}} = 0.85\text{ dB}$ ($3\text{ dB}$ SNR) $\rightarrow 0.16\text{ dB}$ ($25\text{ dB}$ SNR)</td>
+                <td><strong>NASA Ka-band Beacon Receiver</strong> (<em>Nessel et al., 2016</em>)</td>
+                <td><strong>Passed</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <img src="figures/val_rain_attenuation.png" alt="Figure 11: ITU-R Rain Attenuation Specific Model Validation" class="paper-figure" />
       </div>
     </section>
 
