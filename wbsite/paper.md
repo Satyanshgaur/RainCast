@@ -1,5 +1,17 @@
 # An Impairment-Centric Learnability Study for Rainfall Retrieval from Satellite Communication Links
 
+> [!IMPORTANT]
+> **Pre-print & Work-in-Progress (WIP) Notice**
+> * **Code Repository**: The complete codebase, forward simulation engine, and benchmark scripts are publicly available at [https://github.com/Satyanshgaur/RainCast](https://github.com/Satyanshgaur/RainCast).
+> * **Document Status**: This manuscript is a pre-print and work-in-progress.
+> * **Methodological & Statistical Limitations**:
+>   - *Single-Run Point Estimates*: Current metrics are presented as single-run point estimates under a train/test split (Seed 100 train / Seed 200 test), which represents a split rather than a stochastic multi-trial robustness check. Ongoing work will incorporate multi-seed trials, error bars, confidence intervals, and statistical significance testing.
+>   - *TCN Reversal under Extreme Noise*: Under "All Impairments" (Layer 4), TCN ($R^2 = 0.0820$) outperforms XGBoost ($R^2 = 0.0081$), reversing earlier performance trends. This reversal is an active area of investigation—hypothesized to stem from TCN's 1D dilated temporal receptive field preserving structural signal context when static tabular rolling statistics collapse under heavy multi-path and mispointing noise.
+> * **High-Priority Future Research Roadmap**:
+>   1. **Validation on Real Satellite Beacon Telemetry (Highest Priority)**: Validating retrieval algorithms on operational Earth-space communication links using real satellite beacon measurements.
+>   2. **Learning Observation Model Parameters**: Estimating tracking jitter, calibration drift, AGC dynamics, multipath, and thermal parameters directly from measured telemetry using Bayesian inference and system identification to make the simulator site-specific.
+>   3. **Joint Observation and Retrieval Learning**: Jointly optimizing latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.
+
 ## Abstract
 
 Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions. In this paper, we investigate the central research question: **How do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?** We formulate a forward observation model incorporating SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng-Bakken stochastic rain synthesis, and stateful multi-satellite handoffs. We evaluate representative learning paradigms—Analytical Inversion, Gradient Boosted Decision Trees (XGBoost), Multi-Layer Perceptrons (MLP), and Dilated Causal Temporal Convolutional Networks (TCN)—across progressive impairment cascades ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$). Our empirical tracking sweeps demonstrate that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$. Controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$). Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
@@ -227,31 +239,46 @@ Our empirical findings establish a 4-level **Observation Learnability Hierarchy*
 4. **Level 4 — Model Architectural Depth (Secondary Factor)**: Under identical feature representations (Table 4, Figure 5), architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce minor performance variations compared to feature and noise factors.
 
 ## 6.2 Critical Methodological Flaws & Limitations
-We identify five major limitations and flaws in this study:
+We identify seven major limitations and flaws in this study:
 
-1. **Synthetic and Mathematical Data Dependency**:
+1. **Single-Run Point Estimates & Lack of Statistical Confidence Intervals**:
+   Current metrics are presented as single-run point estimates under a fixed seed split (Seed 100 train / Seed 200 test). A train/test seed split validates generalization across time windows, but does not provide a stochastic multi-trial robustness check. Point estimates—such as the $61.6\%$ $R^2$ drop at $\sigma_{\text{track}}=0.05^\circ$—must be evaluated across multi-seed random trials with reported standard errors, confidence intervals, and hypothesis significance testing (e.g., Wilcoxon signed-rank tests).
+
+2. **Unexplained Model Reversal under Severe Urban Impairments ("All Impairments")**:
+   In Table 4, XGBoost dominates earlier stages (Layers 0–2), but under "All Impairments" (Layer 4), Dilated TCN suddenly outperforms XGBoost ($R^2 = 0.0820$ vs. $0.0081$). This performance reversal is a critical WIP finding: we hypothesize that under catastrophic multi-path and mispointing noise, static tabular rolling statistics experience feature breakdown, whereas TCN's 1D dilated temporal convolutions extract residual structural sequence representations. Multi-seed trials are required to determine whether this reversal is a fundamental architectural property or single-trial variance.
+
+3. **Synthetic and Mathematical Data Dependency**:
    All telemetry measurements and ground-truth rain labels in this benchmark are generated via synthetic mathematical models (ITU-R recommendations and SGP4 propagation). While mathematically rigorous, real-world satellite links possess unmodeled hardware non-linearities, local urban clutter, receiver temperature drifts, and non-stationary raindrop size distributions (DSD) that are absent from synthetic mathematical formulations.
 
-2. **Uniform Slant Path Rain Rate Assumption**:
+4. **Uniform Slant Path Rain Rate Assumption**:
    Our forward observation model computes attenuation by integrating specific attenuation over an effective path length $L_{\text{eff}}(t)$. This assumes uniform rainfall intensity along the slant path cell. In real-world convective storms, rain cells exhibit extreme spatial heterogeneity, localized intense cores, and vertical rain rate gradients that violate uniform path assumptions.
 
-3. **Scintillation vs. Light Rain Ambiguity Floor**:
+5. **Scintillation vs. Light Rain Ambiguity Floor**:
    Tropospheric scintillation power spectral densities overlap with low-rate rain attenuation ($R < 1.0\text{ mm/h}$). Under severe scintillation ($\sigma_{\text{scint}} > 1.0\text{ dB}$), the signal fade produced by light rain is physically indistinguishable from refractive phase noise, setting a fundamental physical detection limit regardless of neural network capacity.
 
-4. **Simplistic Wet Antenna Modeling**:
+6. **Simplistic Wet Antenna Modeling**:
    Our wet antenna impairment model applies a simplified additive attenuation offset ($1.5\text{--}3.0\text{ dB}$). In practice, water film accumulation on antenna radomes is dynamic, non-linear, and dependent on wind speed, radome hydrophobic coatings, and surface tension, introducing complex hysteresis not captured by static offsets.
 
-5. **Lack of Operational Telemetry Validation**:
+7. **Lack of Operational Telemetry Validation**:
    Because operational satellite operators rarely release high-frequency link telemetry alongside co-located ground rain gauge networks, this study has not yet validated model performance on real-world satellite-to-ground communication networks.
 
 ---
 
-# 7. Conclusion
+# 7. Conclusion & Future Research Roadmap
 
+### 7.1 Key Takeaways
 1. **Tracking Error Dominance**: Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.
 2. **Temporal Feature Requirement**: Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).
 3. **Cross-Frequency Generalization**: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.
 4. **Learnability Hierarchy**: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
+
+### 7.2 Future Work Roadmap
+1. **Validation on Real Satellite Beacon Telemetry (Highest Priority)**:
+   The current work evaluates retrieval algorithms using a mathematically grounded simulator whose observation process is parameterized from ITU recommendations, hardware specifications, and published literature. The next step is to validate these findings using real satellite beacon measurements collected from operational Earth-space communication links.
+2. **Learning Observation Model Parameters**:
+   The present observation model uses literature-derived coefficients for tracking jitter, calibration drift, AGC dynamics, multipath, and thermal effects. A natural extension is to estimate these parameters directly from measured telemetry using Bayesian inference or system identification techniques, allowing the simulator to become site-specific rather than relying on generic literature values.
+3. **Joint Observation and Retrieval Learning**:
+   Rather than assuming the observation process is fixed, future work will jointly optimize latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.
 
 ---
 

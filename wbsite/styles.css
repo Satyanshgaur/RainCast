@@ -693,6 +693,38 @@ img.paper-figure {
   border-color: var(--color-plaster-white);
 }
 
+/* Pre-print & WIP Callout Box */
+.wip-callout-box {
+  border: 1px solid var(--color-carbon);
+  padding: var(--spacing-24);
+  margin: var(--spacing-32) 0;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark-section .wip-callout-box {
+  border-color: var(--color-plaster-white);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.wip-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: var(--spacing-12);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wip-list {
+  line-height: 1.7;
+  font-size: 15px;
+  margin-top: var(--spacing-12);
+}
+
+.wip-list li {
+  margin-bottom: var(--spacing-8);
+}
+
 /* Footer */
 footer.minimal-footer {
   border-top: 1px solid var(--color-hairline-dark);

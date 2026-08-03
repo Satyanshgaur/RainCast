@@ -52,6 +52,26 @@
         <span class="section-label">OVERVIEW / ABSTRACT</span>
         <h1 class="hero-title">An Impairment-Centric Learnability Study for Rainfall Retrieval from Satellite Communication Links</h1>
         
+        <!-- PRE-PRINT & WIP CALLOUT BOX -->
+        <div class="wip-callout-box">
+          <div class="wip-title">⚡ PRE-PRINT & WORK-IN-PROGRESS (WIP) NOTICE</div>
+          <p style="font-size: 15px; margin-bottom: 8px;">
+            <strong>Code Availability</strong>: The complete simulation codebase and experimental scripts are publicly available on GitHub at 
+            <a href="https://github.com/Satyanshgaur/RainCast" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">https://github.com/Satyanshgaur/RainCast</a>.
+          </p>
+          <ul class="wip-list">
+            <li><strong>Single-Run Point Estimates</strong>: Current metrics are presented as single-run point estimates under a train/test split (Seed 100 train / Seed 200 test). Ongoing work will incorporate multi-seed trials, error bars, confidence intervals, and hypothesis significance testing.</li>
+            <li><strong>TCN Reversal under Extreme Noise</strong>: Under "All Impairments" (Layer 4), TCN ($R^2 = 0.0820$) outperforms XGBoost ($R^2 = 0.0081$), reversing earlier performance trends. This reversal is an active area of investigation—hypothesized to stem from TCN's 1D dilated temporal receptive field preserving structural signal context when static tabular rolling statistics collapse under heavy noise.</li>
+            <li><strong>High-Priority Future Work Roadmap</strong>:
+              <ol style="margin-top:4px; padding-left:20px;">
+                <li><em>Validation on Real Satellite Beacon Telemetry (Highest Priority)</em>: Validating algorithms on operational Earth-space communication links using real satellite beacon measurements.</li>
+                <li><em>Learning Observation Model Parameters</em>: Estimating tracking jitter, calibration drift, AGC dynamics, multipath, and thermal parameters directly from measured telemetry using Bayesian inference and system identification.</li>
+                <li><em>Joint Observation and Retrieval Learning</em>: Jointly optimizing latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.</li>
+              </ol>
+            </li>
+          </ul>
+        </div>
+
         <p class="lead-text">
           Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions.
         </p>
@@ -701,6 +721,14 @@
         <h3 class="sub-heading">6.2 Critical Methodological Flaws & Limitations</h3>
         <ol>
           <li>
+            <strong>Single-Run Point Estimates & Lack of Statistical Confidence Intervals</strong>:
+            Current metrics are presented as single-run point estimates under a fixed seed split (Seed 100 train / Seed 200 test). A train/test seed split validates generalization across time windows, but does not provide a stochastic multi-trial robustness check. Point estimates—such as the $61.6\%$ $R^2$ drop at $\sigma_{\text{track}}=0.05^\circ$—must be evaluated across multi-seed random trials with reported standard errors, confidence intervals, and hypothesis significance testing.
+          </li>
+          <li>
+            <strong>Unexplained Model Reversal under Severe Urban Impairments ("All Impairments")</strong>:
+            In Table 4, XGBoost dominates earlier stages (Layers 0–2), but under "All Impairments" (Layer 4), Dilated TCN suddenly outperforms XGBoost ($R^2 = 0.0820$ vs. $0.0081$). This performance reversal is a critical WIP finding: we hypothesize that under catastrophic multi-path and mispointing noise, static tabular rolling statistics experience feature breakdown, whereas TCN's 1D dilated temporal convolutions extract residual structural sequence representations. Multi-seed trials are required to determine whether this reversal is a fundamental architectural property or single-trial variance.
+          </li>
+          <li>
             <strong>Synthetic and Mathematical Data Dependency</strong>:
             All telemetry measurements and ground-truth rain labels in this benchmark are generated via synthetic mathematical models (ITU-R recommendations and SGP4 propagation). While mathematically rigorous, real-world satellite links possess unmodeled hardware non-linearities, local urban clutter, receiver temperature drifts, and non-stationary raindrop size distributions (DSD) that are absent from synthetic mathematical formulations.
           </li>
@@ -727,20 +755,36 @@
     <!-- SECTION 7: CONCLUSION (Light Section) -->
     <section class="full-bleed-section light-section" id="conclusionSec">
       <div class="content-column">
-        <span class="section-label">SECTION 05 / CONCLUSION & FUTURE DIRECTIONS</span>
-        <h2 class="section-heading">7. Conclusion</h2>
+        <span class="section-label">SECTION 05 / CONCLUSION & FUTURE RESEARCH ROADMAP</span>
+        <h2 class="section-heading">7. Conclusion & Future Directions</h2>
         
         <p>
           In this paper, we investigated how realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication telemetry. We formulated a forward observation model and conducted a progressive impairment cascade study ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$) across Analytical, XGBoost, Deep MLP, and Dilated TCN model families.
         </p>
 
-        <h3 class="sub-heading">Main Scientific Takeaways</h3>
+        <h3 class="sub-heading">7.1 Main Scientific Takeaways</h3>
         <ul>
           <li><strong>Tracking Error Dominance</strong>: Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.</li>
           <li><strong>Temporal Feature Requirement</strong>: Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).</li>
           <li><strong>Cross-Frequency Generalization</strong>: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.</li>
           <li><strong>Learnability Hierarchy</strong>: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
         </ul>
+
+        <h3 class="sub-heading">7.2 Future Work Roadmap</h3>
+        <ol style="line-height: 1.7; font-size: 15px;">
+          <li style="margin-bottom: 12px;">
+            <strong>Validation on Real Satellite Beacon Telemetry (Highest Priority)</strong>:
+            The current work evaluates retrieval algorithms using a mathematically grounded simulator whose observation process is parameterized from ITU recommendations, hardware specifications, and published literature. The next step is to validate these findings using real satellite beacon measurements collected from operational Earth-space communication links.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Learning Observation Model Parameters</strong>:
+            The present observation model uses literature-derived coefficients for tracking jitter, calibration drift, AGC dynamics, multipath, and thermal effects. A natural extension is to estimate these parameters directly from measured telemetry using Bayesian inference or system identification techniques, allowing the simulator to become site-specific rather than relying on generic literature values.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Joint Observation and Retrieval Learning</strong>:
+            Rather than assuming the observation process is fixed, future work will jointly optimize latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.
+          </li>
+        </ol>
       </div>
     </section>
 
