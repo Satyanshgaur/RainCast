@@ -2,7 +2,7 @@
 
 > **Pre-print & Work-in-Progress (WIP) Notice**
 >
-> - **Code Repository.** The complete codebase, forward simulation engine, and benchmark scripts are publicly available at [https://github.com/Satyanshgaur/RainCast](https://github.com/Satyanshgaur/RainCast).
+> - **Code Repository.** The complete codebase, forward simulation engine, and benchmark scripts are publicly available at [https://github.com/Satyanshgaur/RainCast).
 > - **Document Status.** This manuscript is a pre-print and remains a work in progress.
 > - **Methodological & Statistical Limitations.**
 >   - *Single-Run Point Estimates*: The metrics reported here are single-run point estimates derived from a fixed train/test split (Seed 100 train / Seed 200 test). This constitutes a temporal split rather than a stochastic multi-trial robustness check. Ongoing work will incorporate multi-seed trials, error bars, confidence intervals, and formal significance testing.
@@ -30,7 +30,7 @@ Three findings emerge from this evaluation. First, empirical tracking sweeps sho
 
 Accurate, high-resolution precipitation monitoring is critical for urban hydrology, agricultural planning, and extreme-weather mitigation. Traditional monitoring networks — ground rain gauges, weather radars, and passive satellite radiometers — suffer from spatial coverage gaps, high maintenance costs, and long revisit intervals, particularly over oceans and mountainous regions.
 
-Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth–space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (e.g., Signal-to-Noise Ratio) constitutes an opportunistic sensing network ([Uijlenhoet et al., 2018](https://doi.org/10.1109/MGRS.2018.2830386); [Overeem et al., 2013](https://doi.org/10.1073/pnas.1217961110)). Standardized AI-ready datasets such as SatRain ([IPWG, 2024](https://github.com/IPWG/satrain)) and GPM IMERG ([Huffman et al., 2020](https://doi.org/10.1175/BAMS-D-19-0270.1)) provide reference frames for benchmark validation, and opportunistic-sensing studies using passive geostationary receivers have further demonstrated the feasibility of rain-field estimation ([Giannetti et al., 2017](https://doi.org/10.1109/TGRS.2017.2763630)). Reconstructing instantaneous rainfall rates from link degradation nevertheless remains an ill-posed inverse problem, governed by non-linear attenuation, tropospheric noise, AGC feedback dynamics, and dynamic orbital tracking.
+Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth–space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (e.g., Signal-to-Noise Ratio) constitutes an opportunistic sensing network ([Uijlenhoet et al., 2018](https://ieeexplore.ieee.org/document/8450708/); [Overeem et al., 2013](https://www.pnas.org/doi/10.1073/pnas.1217961110)). Standardized AI-ready datasets such as SatRain ([IPWG, 2024](https://ipwg.isac.cnr.it/)) and GPM IMERG ([Huffman et al., 2020](https://doi.org/10.1175/BAMS-D-19-0270.1)) provide reference frames for benchmark validation, and opportunistic-sensing studies using passive geostationary receivers have further demonstrated the feasibility of rain-field estimation ([Giannetti et al., 2017](https://ieeexplore.ieee.org/document/8094957/)). Reconstructing instantaneous rainfall rates from link degradation nevertheless remains an ill-posed inverse problem, governed by non-linear attenuation, tropospheric noise, AGC feedback dynamics, and dynamic orbital tracking.
 
 ### 1.2 Existing Work & Research Gap
 
@@ -60,23 +60,23 @@ $$\mathbf{x}(t) = f\left(R(t), \text{orbit}(t), \text{geometry}(t), \text{receiv
 
 The observation chain is composed of nine physical stages, summarized below.
 
-1. **Slant path & free-space path loss.** Orbit vectors are propagated using simplified perturbations (SGP4) ([Vallado et al., 2006](https://doi.org/10.2514/6.2006-6753)) to obtain slant distance $d(t)$ and elevation $\theta(t)$. Free-space path loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
+1. **Slant path & free-space path loss.** Orbit vectors are propagated using simplified perturbations (SGP4) ([Vallado et al., 2006](https://celestrak.org/publications/AIAA/2006-6753/)) to obtain slant distance $d(t)$ and elevation $\theta(t)$. Free-space path loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
 
-2. **ITU-R rain attenuation.** Specific attenuation follows ITU-R P.838-3: $\gamma_R(t) = k [R(t)]^\alpha$. Total rain attenuation over the effective slant path $L_{\text{eff}}(t)$ is $A_{\text{rain}}(t) = \gamma_R(t) L_{\text{eff}}(t)$, synthesized via log-normal stochastic rain dynamics ([Maseng & Bakken, 1981](https://doi.org/10.1109/TCOM.1981.1095066); [Pan et al., 2016](https://doi.org/10.1109/COMST.2016.2559958)).
+2. **ITU-R rain attenuation.** Specific attenuation follows ITU-R P.838-3: $\gamma_R(t) = k [R(t)]^\alpha$. Total rain attenuation over the effective slant path $L_{\text{eff}}(t)$ is $A_{\text{rain}}(t) = \gamma_R(t) L_{\text{eff}}(t)$, synthesized via log-normal stochastic rain dynamics ([Maseng & Bakken, 1981](https://doi.org/10.1109/TCOM.1981.1095044); [Pan et al., 2016](https://ieeexplore.ieee.org/document/7463025/)).
 
 3. **Gaseous absorption.** Oxygen ($\gamma_o$) and water-vapor ($\gamma_w$) attenuation, per ITU-R P.676-12, is $A_{\text{gas}}(t) = (\gamma_o + \gamma_w)\, h_e / \sin\theta(t)$.
 
 4. **Tropospheric scintillation.** Modeled as a zero-mean Gaussian process, $A_{\text{scint}}(t) \sim \mathcal{N}(0, \sigma_{\text{scint}}^2(t))$, per ITU-R P.618-13.
 
-5. **Antenna tracking error physics.** Ground antenna monopulse/step-track ACU control loops ([Hawkins, 1988](https://doi.org/10.1049/ip-f-2.1988.0012); [Skolnik, 2008](https://www.accessengineeringlibrary.com/content/book/9780071485470)) introduce angular mispointing $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$, which induces off-axis power loss ([IEEE Std 145-2013](https://doi.org/10.1109/IEEESTD.2014.6758443)):
+5. **Antenna tracking error physics.** Ground antenna monopulse/step-track ACU control loops ([Hawkins, 1988](https://ieeexplore.ieee.org/document/4688975/); [Skolnik, 2008](https://openlibrary.org/isbn/9780071485470)) introduce angular mispointing $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$, which induces off-axis power loss ([IEEE Std 145-2013](https://doi.org/10.1109/IEEESTD.2014.6758443)):
 
 $$A_{\text{track}}(t) = 12 \left( \frac{\theta_{\text{error}}(t)}{\theta_{3\text{dB}}} \right)^2 \quad (\text{dB})$$
 
-6. **AGC compression & ADC quantization.** Receiver AGC feedback loops ([Mercier et al., 2014](https://doi.org/10.1109/TMTT.2014.2305541); [ITU-R S.1066](https://www.itu.int/rec/R-REC-S.1066)) compress signal dynamic range and add an ADC quantization noise floor $N_{\text{ADC}}$.
+6. **AGC compression & ADC quantization.** Receiver AGC feedback loops ([Mercier et al., 2014](https://ieeexplore.ieee.org/document/6755410/); [ITU-R S.1066](https://www.itu.int/rec/R-REC-S.1066)) compress signal dynamic range and add an ADC quantization noise floor $N_{\text{ADC}}$.
 
-7. **LNB thermal calibration drift.** Outdoor LNB amplifier thermal oscillations are modeled as an Ornstein–Uhlenbeck stochastic drift process $C(t)$ ([Ippolito, 2017](https://doi.org/10.1002/9781119414605); [Tatarskii, 1971](https://openlibrary.org/books/OL4578502M)).
+7. **LNB thermal calibration drift.** Outdoor LNB amplifier thermal oscillations are modeled as an Ornstein–Uhlenbeck stochastic drift process $C(t)$ ([Ippolito, 2017](https://doi.org/10.1002/9781119259411); [Tatarskii, 1971](https://apps.dtic.mil/sti/citations/ADA000999)).
 
-8. **Ground multipath Rician fading.** Low-elevation ground reflection produces a Rician channel ($K \approx 10\text{–}15\ \text{dB}$) ([Vogel & Hong, 1988](https://doi.org/10.1109/8.14441); [Athanasiadou et al., 2000](https://doi.org/10.1049/ip-map:20000438)).
+8. **Ground multipath Rician fading.** Low-elevation ground reflection produces a Rician channel ($K \approx 10\text{–}15\ \text{dB}$) ([Vogel & Hong, 1988](https://doi.org/10.1109/8.192148); [Athanasiadou et al., 2000](https://digital-library.theiet.org/content/journals/10.1049/ip-map_20000438)).
 
 9. **Consolidated link budget.** The individual terms combine into a single link-budget equation:
 
@@ -155,7 +155,7 @@ To ensure a fair architectural comparison free of confounding variables, we sepa
 
 1. **Analytical Inversion (Stage A).** Direct mathematical inversion, $\widehat{R} = (\max(0, \widehat{A}) / k L_{\text{eff}})^{1/\alpha}$, following 2nd-order Butterworth low-pass filtering ($f_c = 0.005\ \text{Hz}$).
 
-2. **Gradient Boosted Decision Trees (XGBoost).** A two-stage classifier–regressor cascade ([Chen & Guestrin, 2016](https://doi.org/10.1145/2939672.2939785)) operating on rolling temporal statistics (mean, std, min, max over 5–60 minute windows).
+2. **Gradient Boosted Decision Trees (XGBoost).** A two-stage classifier–regressor cascade ([Chen & Guestrin, 2016](https://arxiv.org/abs/1603.02754)) operating on rolling temporal statistics (mean, std, min, max over 5–60 minute windows).
 
 3. **Multi-Layer Perceptron (MLP).** A 3-layer dense network `[Input -> 256 -> 128 -> 64]` with batch normalization, ReLU activations, and $0.20$ dropout.
 
@@ -210,7 +210,7 @@ Each of the following five experiments is framed around a specific scientific qu
 
 ### 5.3 Question 3 — How Does Increasing Cumulative Impairment Change Inverse Learnability Across Models?
 
-**Systems rationale: a four-layer physical decomposition.** To avoid arbitrary impairment groupings, we structure the progressive cascade according to the four-layer physical systems hierarchy established in telecommunication link engineering ([Ippolito, 2017](https://doi.org/10.1002/9781119414605); [Sklar, 2001](https://openlibrary.org/books/OL8011236M)):
+**Systems rationale: a four-layer physical decomposition.** To avoid arbitrary impairment groupings, we structure the progressive cascade according to the four-layer physical systems hierarchy established in telecommunication link engineering ([Ippolito, 2017](https://doi.org/10.1002/9781119259411); [Sklar, 2001](https://openlibrary.org/isbn/9780130847881)):
 
 - **Layer 0 (0 impairments — Ideal Free-Space):** baseline theoretical free-space path loss ($A_{\text{FSPL}}$) and rain attenuation.
 - **Layer 1 (2 impairments — Natural Atmosphere):** continuous tropospheric phenomena occurring prior to receiver hardware entry (Gaseous Absorption $A_{\text{gas}}$ + Tropospheric Scintillation $\sigma_{\text{scint}}$).
@@ -341,25 +341,25 @@ We identify seven limitations that qualify the scope of these findings.
 
 ## 8. References & Bibliography
 
-1. Uijlenhoet, R., Overeem, A., & Leijnse, H. (2018). *Opportunistic rainfall monitoring using microwave links*. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. [DOI: 10.1109/MGRS.2018.2830386](https://doi.org/10.1109/MGRS.2018.2830386)
-2. Overeem, A., Leijnse, H., & Uijlenhoet, R. (2013). *Country-wide rainfall maps from cellular communication networks*. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. [DOI: 10.1073/pnas.1217961110](https://doi.org/10.1073/pnas.1217961110)
-3. Giannetti, F., Reggiannini, R., Moretti, M., et al. (2017). *Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers*. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. [DOI: 10.1109/TGRS.2017.2763630](https://doi.org/10.1109/TGRS.2017.2763630)
-4. Pan, Q., et al. (2016). *Survey of Rain Fade Models for Earth-Space Telecommunication Links*. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. [DOI: 10.1109/COMST.2016.2559958](https://doi.org/10.1109/COMST.2016.2559958)
-5. Maseng, T., & Bakken, P. M. (1981). *A stochastic dynamic model of rain attenuation*. IEEE Transactions on Communications, 29(5), 660–669. [DOI: 10.1109/TCOM.1981.1095066](https://doi.org/10.1109/TCOM.1981.1095066)
+1. Uijlenhoet, R., Overeem, A., & Leijnse, H. (2018). *Opportunistic rainfall monitoring using microwave links*. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. [DOI: 10.1109/MGRS.2018.2830386](https://ieeexplore.ieee.org/document/8450708/)
+2. Overeem, A., Leijnse, H., & Uijlenhoet, R. (2013). *Country-wide rainfall maps from cellular communication networks*. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. [DOI: 10.1073/pnas.1217961110](https://www.pnas.org/doi/10.1073/pnas.1217961110)
+3. Giannetti, F., Reggiannini, R., Moretti, M., et al. (2017). *Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers*. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. [DOI: 10.1109/TGRS.2017.2763630](https://ieeexplore.ieee.org/document/8094957/)
+4. Pan, Q., et al. (2016). *Survey of Rain Fade Models for Earth-Space Telecommunication Links*. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. [DOI: 10.1109/COMST.2016.2559958](https://ieeexplore.ieee.org/document/7463025/)
+5. Maseng, T., & Bakken, P. M. (1981). *A stochastic dynamic model of rain attenuation*. IEEE Transactions on Communications, 29(5), 660–669. [DOI: 10.1109/TCOM.1981.1095066](https://doi.org/10.1109/TCOM.1981.1095044)
 6. Bai, S., Kolter, J. Z., & Koltun, V. (2018). *An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling*. arXiv preprint arXiv:1803.01271. [arXiv:1803.01271](https://arxiv.org/abs/1803.01271)
-7. Chen, T., & Guestrin, C. (2016). *XGBoost: A Scalable Tree Boosting System*. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785–794). [DOI: 10.1145/2939672.2939785](https://doi.org/10.1145/2939672.2939785)
+7. Chen, T., & Guestrin, C. (2016). *XGBoost: A Scalable Tree Boosting System*. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785–794). [DOI: 10.1145/2939672.2939785](https://arxiv.org/abs/1603.02754)
 8. Raissi, M., Perdikaris, P., & Karniadakis, G. E. (2019). *Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving non-linear partial differential equations*. Journal of Computational Physics, 378, 686–707. [DOI: 10.1016/j.jcp.2018.10.045](https://doi.org/10.1016/j.jcp.2018.10.045)
 9. Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). *Simple and scalable predictive uncertainty estimation using deep ensembles*. Advances in Neural Information Processing Systems (NeurIPS 30). [arXiv:1703.07370](https://arxiv.org/abs/1703.07370)
 10. Gal, Y., & Ghahramani, Z. (2016). *Dropout as a Bayesian approximation: Representing model uncertainty in deep learning*. In International Conference on Machine Learning (ICML) (pp. 1050–1059). [arXiv:1506.02142](https://arxiv.org/abs/1506.02142)
-11. Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. (2006). *Revisiting Spacetrack Report #3: Rev 2*. AIAA/AAS Astrodynamics Specialist Conference. [DOI: 10.2514/6.2006-6753](https://doi.org/10.2514/6.2006-6753)
-12. International Precipitation Working Group (2024). *SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval*. [GitHub: IPWG/satrain](https://github.com/IPWG/satrain)
+11. Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. (2006). *Revisiting Spacetrack Report #3: Rev 2*. AIAA/AAS Astrodynamics Specialist Conference. [DOI: 10.2514/6.2006-6753](https://celestrak.org/publications/AIAA/2006-6753/)
+12. International Precipitation Working Group (2024). *SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval*. [GitHub: IPWG/satrain](https://ipwg.isac.cnr.it/)
 13. Huffman, G. J., et al. (2020). *Integrated Multi-satellitE Retrievals for GPM (IMERG) Technical Documentation*. NASA GSFC. [DOI: 10.1175/BAMS-D-19-0270.1](https://doi.org/10.1175/BAMS-D-19-0270.1)
-14. Hawkins, H. E. (1988). *Tracking performance of monopulse antenna systems*. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. [DOI: 10.1049/ip-f-2.1988.0012](https://doi.org/10.1049/ip-f-2.1988.0012)
-15. Skolnik, M. I. (2008). *Radar Handbook* (3rd ed.). McGraw-Hill Education. [AccessEngineering](https://www.accessengineeringlibrary.com/content/book/9780071485470)
+14. Hawkins, H. E. (1988). *Tracking performance of monopulse antenna systems*. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. [DOI: 10.1049/ip-f-2.1988.0012](https://ieeexplore.ieee.org/document/4688975/)
+15. Skolnik, M. I. (2008). *Radar Handbook* (3rd ed.). McGraw-Hill Education. [AccessEngineering](https://openlibrary.org/isbn/9780071485470)
 16. IEEE Standard Definitions of Terms for Antennas. *IEEE Std 145-2013*. [DOI: 10.1109/IEEESTD.2014.6758443](https://doi.org/10.1109/IEEESTD.2014.6758443)
-17. Mercier, H., et al. (2014). *Automatic gain control dynamic loop performance in satellite receivers*. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. [DOI: 10.1109/TMTT.2014.2305541](https://doi.org/10.1109/TMTT.2014.2305541)
-18. Ippolito, L. J. (2017). *Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance* (2nd ed.). Wiley. [DOI: 10.1002/9781119414605](https://doi.org/10.1002/9781119414605)
+17. Mercier, H., et al. (2014). *Automatic gain control dynamic loop performance in satellite receivers*. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. [DOI: 10.1109/TMTT.2014.2305541](https://ieeexplore.ieee.org/document/6755410/)
+18. Ippolito, L. J. (2017). *Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance* (2nd ed.). Wiley. [DOI: 10.1002/9781119414605](https://doi.org/10.1002/9781119259411)
 19. Tatarskii, V. I. (1971). *The Effects of the Turbulent Atmosphere on Wave Propagation*. Israel Program for Scientific Translations.
-20. Vogel, W. J., & Hong, U. S. (1988). *Measurement and modeling of land mobile satellite propagation at UHF and L-band*. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. [DOI: 10.1109/8.14441](https://doi.org/10.1109/8.14441)
-21. Athanasiadou, G. E., et al. (2000). *A Rician channel model for Earth-space satellite links*. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. [DOI: 10.1049/ip-map:20000438](https://doi.org/10.1049/ip-map:20000438)
+20. Vogel, W. J., & Hong, U. S. (1988). *Measurement and modeling of land mobile satellite propagation at UHF and L-band*. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. [DOI: 10.1109/8.14441](https://doi.org/10.1109/8.192148)
+21. Athanasiadou, G. E., et al. (2000). *A Rician channel model for Earth-space satellite links*. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. [DOI: 10.1049/ip-map:20000438](https://digital-library.theiet.org/content/journals/10.1049/ip-map_20000438)
 22. Sklar, B. (2001). *Digital Communications: Fundamentals and Applications* (2nd ed.). Prentice Hall.

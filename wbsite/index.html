@@ -7,7 +7,7 @@
   <meta name="description" content="A minimal, typography-first scientific paper and benchmark exploring rainfall retrieval learnability from satellite link telemetry under physical receiver impairments." />
   
   <!-- CSS Stylesheet (Cache-busted) -->
-  <link rel="stylesheet" href="styles.css?v=1.0.8" />
+  <link rel="stylesheet" href="styles.css?v=1.0.9" />
 
   <!-- MathJax for TeX LaTeX Equations -->
   <script>
@@ -105,7 +105,7 @@
           Accurate, high-resolution precipitation monitoring is critical for urban hydrology, agricultural planning, and extreme-weather mitigation. Traditional monitoring networks — ground rain gauges, weather radars, and passive satellite radiometers — suffer from spatial coverage gaps, high maintenance costs, and long revisit intervals, particularly over oceans and mountainous regions.
         </p>
         <p>
-          Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth–space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (e.g., Signal-to-Noise Ratio) constitutes an opportunistic sensing network (<a href="https://doi.org/10.1109/MGRS.2018.2830386" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Uijlenhoet et al., 2018</a>; <a href="https://doi.org/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Overeem et al., 2013</a>). Standardized AI-ready datasets such as SatRain (<a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">IPWG, 2024</a>) and GPM IMERG (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Huffman et al., 2020</a>) provide reference frames for benchmark validation, and opportunistic-sensing studies using passive geostationary receivers have further demonstrated the feasibility of rain-field estimation (<a href="https://doi.org/10.1109/TGRS.2017.2763630" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Giannetti et al., 2017</a>). Reconstructing instantaneous rainfall rates from link degradation nevertheless remains an ill-posed inverse problem, governed by non-linear attenuation, tropospheric noise, AGC feedback dynamics, and dynamic orbital tracking.
+          Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth–space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (e.g., Signal-to-Noise Ratio) constitutes an opportunistic sensing network (<a href="https://ieeexplore.ieee.org/document/8450708/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Uijlenhoet et al., 2018</a>; <a href="https://www.pnas.org/doi/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Overeem et al., 2013</a>). Standardized AI-ready datasets such as SatRain (<a href="https://ipwg.isac.cnr.it/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">IPWG, 2024</a>) and GPM IMERG (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Huffman et al., 2020</a>) provide reference frames for benchmark validation, and opportunistic-sensing studies using passive geostationary receivers have further demonstrated the feasibility of rain-field estimation (<a href="https://ieeexplore.ieee.org/document/8094957/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Giannetti et al., 2017</a>). Reconstructing instantaneous rainfall rates from link degradation nevertheless remains an ill-posed inverse problem, governed by non-linear attenuation, tropospheric noise, AGC feedback dynamics, and dynamic orbital tracking.
         </p>
 
         <h3 class="sub-heading">1.2 Existing Work & Research Gap</h3>
@@ -146,10 +146,10 @@
 
         <ol style="line-height: 1.8; font-size: 15px; margin-bottom: 24px;">
           <li style="margin-bottom: 12px;">
-            <strong>Slant path & free-space path loss.</strong> Orbit vectors are propagated using simplified perturbations (SGP4) (<a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vallado et al., 2006</a>) to obtain slant distance $d(t)$ and elevation $\theta(t)$. Free-space path loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
+            <strong>Slant path & free-space path loss.</strong> Orbit vectors are propagated using simplified perturbations (SGP4) (<a href="https://celestrak.org/publications/AIAA/2006-6753/" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vallado et al., 2006</a>) to obtain slant distance $d(t)$ and elevation $\theta(t)$. Free-space path loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
           </li>
           <li style="margin-bottom: 12px;">
-            <strong>ITU-R rain attenuation.</strong> Specific attenuation follows ITU-R P.838-3: $\gamma_R(t) = k [R(t)]^\alpha$. Total rain attenuation over the effective slant path $L_{\text{eff}}(t)$ is $A_{\text{rain}}(t) = \gamma_R(t) L_{\text{eff}}(t)$, synthesized via log-normal stochastic rain dynamics (<a href="https://doi.org/10.1109/TCOM.1981.1095066" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Maseng & Bakken, 1981</a>; <a href="https://doi.org/10.1109/COMST.2016.2559958" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Pan et al., 2016</a>).
+            <strong>ITU-R rain attenuation.</strong> Specific attenuation follows ITU-R P.838-3: $\gamma_R(t) = k [R(t)]^\alpha$. Total rain attenuation over the effective slant path $L_{\text{eff}}(t)$ is $A_{\text{rain}}(t) = \gamma_R(t) L_{\text{eff}}(t)$, synthesized via log-normal stochastic rain dynamics (<a href="https://doi.org/10.1109/TCOM.1981.1095044" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Maseng & Bakken, 1981</a>; <a href="https://ieeexplore.ieee.org/document/7463025/" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Pan et al., 2016</a>).
           </li>
           <li style="margin-bottom: 12px;">
             <strong>Gaseous absorption.</strong> Oxygen ($\gamma_o$) and water-vapor ($\gamma_w$) attenuation, per ITU-R P.676-12, is $A_{\text{gas}}(t) = (\gamma_o + \gamma_w)\, h_e / \sin\theta(t)$.
@@ -158,17 +158,17 @@
             <strong>Tropospheric scintillation.</strong> Modeled as a zero-mean Gaussian process, $A_{\text{scint}}(t) \sim \mathcal{N}(0, \sigma_{\text{scint}}^2(t))$, per ITU-R P.618-13.
           </li>
           <li style="margin-bottom: 12px;">
-            <strong>Antenna tracking error physics.</strong> Ground antenna monopulse/step-track ACU control loops (<a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Hawkins, 1988</a>; <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Skolnik, 2008</a>) introduce angular mispointing $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$, which induces off-axis power loss (<a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">IEEE Std 145-2013</a>):
+            <strong>Antenna tracking error physics.</strong> Ground antenna monopulse/step-track ACU control loops (<a href="https://ieeexplore.ieee.org/document/4688975/" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Hawkins, 1988</a>; <a href="https://openlibrary.org/isbn/9780071485470" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Skolnik, 2008</a>) introduce angular mispointing $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$, which induces off-axis power loss (<a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">IEEE Std 145-2013</a>):
             <p>$$A_{\text{track}}(t) = 12 \left( \frac{\theta_{\text{error}}(t)}{\theta_{3\text{dB}}} \right)^2 \quad (\text{dB})$$</p>
           </li>
           <li style="margin-bottom: 12px;">
-            <strong>AGC compression & ADC quantization.</strong> Receiver AGC feedback loops (<a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Mercier et al., 2014</a>; <a href="https://www.itu.int/rec/R-REC-S.1066" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">ITU-R S.1066</a>) compress signal dynamic range and add an ADC quantization noise floor $N_{\text{ADC}}$.
+            <strong>AGC compression & ADC quantization.</strong> Receiver AGC feedback loops (<a href="https://ieeexplore.ieee.org/document/6755410/" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Mercier et al., 2014</a>; <a href="https://www.itu.int/rec/R-REC-S.1066" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">ITU-R S.1066</a>) compress signal dynamic range and add an ADC quantization noise floor $N_{\text{ADC}}$.
           </li>
           <li style="margin-bottom: 12px;">
-            <strong>LNB thermal calibration drift.</strong> Outdoor LNB amplifier thermal oscillations are modeled as an Ornstein–Uhlenbeck stochastic drift process $C(t)$ (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Ippolito, 2017</a>; Tatarskii, 1971).
+            <strong>LNB thermal calibration drift.</strong> Outdoor LNB amplifier thermal oscillations are modeled as an Ornstein–Uhlenbeck stochastic drift process $C(t)$ (<a href="https://doi.org/10.1002/9781119259411" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Ippolito, 2017</a>; Tatarskii, 1971).
           </li>
           <li style="margin-bottom: 12px;">
-            <strong>Ground multipath Rician fading.</strong> Low-elevation ground reflection produces a Rician channel ($K \approx 10\text{–}15\ \text{dB}$) (<a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vogel & Hong, 1988</a>; <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Athanasiadou et al., 2000</a>).
+            <strong>Ground multipath Rician fading.</strong> Low-elevation ground reflection produces a Rician channel ($K \approx 10\text{–}15\ \text{dB}$) (<a href="https://doi.org/10.1109/8.192148" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vogel & Hong, 1988</a>; <a href="https://digital-library.theiet.org/content/journals/10.1049/ip-map_20000438" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Athanasiadou et al., 2000</a>).
           </li>
           <li style="margin-bottom: 12px;">
             <strong>Consolidated link budget.</strong> The individual terms combine into a single link-budget equation:
@@ -356,7 +356,8 @@
               </tr>
               <tr>
                 <td><strong>Antenna Tracking Jitter</strong></td>
-                <td>$\sigma_{	ext{track}} = 0.04^\circ$ (Zenith) $ightarrow 0.4589^\circ$ ($5^\circ$ Elev.)</td>
+                <td>$\sigma_{	ext{track}} = 0.04^\circ$ (Zenith) $
+ightarrow 0.4589^\circ$ ($5^\circ$ Elev.)</td>
                 <td>Rice (1998) ($1.83\ 	ext{dB}$ loss at $5^\circ$)</td>
                 <td><strong>Passed</strong></td>
               </tr>
@@ -380,7 +381,8 @@
               </tr>
               <tr>
                 <td><strong>Beacon Measurement Error</strong></td>
-                <td>$\sigma_{	ext{uncertainty}} = 0.85\ 	ext{dB}$ ($3\ 	ext{dB}$ SNR) $ightarrow 0.16\ 	ext{dB}$ ($25\ 	ext{dB}$ SNR)</td>
+                <td>$\sigma_{	ext{uncertainty}} = 0.85\ 	ext{dB}$ ($3\ 	ext{dB}$ SNR) $
+ightarrow 0.16\ 	ext{dB}$ ($25\ 	ext{dB}$ SNR)</td>
                 <td>NASA Ka-band Beacon Receiver (Nessel et al., 2016)</td>
                 <td><strong>Passed</strong></td>
               </tr>
@@ -407,7 +409,7 @@
             <strong>Analytical Inversion (Stage A).</strong> Direct mathematical inversion, $\widehat{R} = (\max(0, \widehat{A}) / k L_{	ext{eff}})^{1/lpha}$, following 2nd-order Butterworth low-pass filtering ($f_c = 0.005\ 	ext{Hz}$).
           </li>
           <li style="margin-bottom: 14px;">
-            <strong>Gradient Boosted Decision Trees (XGBoost).</strong> A two-stage classifier–regressor cascade (<a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Chen & Guestrin, 2016</a>) operating on rolling temporal statistics (mean, std, min, max over 5–60 minute windows).
+            <strong>Gradient Boosted Decision Trees (XGBoost).</strong> A two-stage classifier–regressor cascade (<a href="https://arxiv.org/abs/1603.02754" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Chen & Guestrin, 2016</a>) operating on rolling temporal statistics (mean, std, min, max over 5–60 minute windows).
           </li>
           <li style="margin-bottom: 14px;">
             <strong>Multi-Layer Perceptron (MLP).</strong> A 3-layer dense network <code>[Input -> 256 -> 128 -> 64]</code> with batch normalization, ReLU activations, and $0.20$ dropout.
@@ -518,7 +520,8 @@
         </div>
 
         <div class="inference-box">
-          <strong>Empirical observation</strong>: Ground antenna tracking misalignment represents the single largest solo driver of retrieval degradation, reducing regressor $R^2$ from $0.9588 ightarrow 0.5729$.
+          <strong>Empirical observation</strong>: Ground antenna tracking misalignment represents the single largest solo driver of retrieval degradation, reducing regressor $R^2$ from $0.9588 
+ightarrow 0.5729$.
         </div>
 
         <!-- QUESTION 2 -->
@@ -598,7 +601,7 @@
         </div>
 
         <p>
-          <strong>Systems rationale: a four-layer physical decomposition.</strong> To avoid arbitrary impairment groupings, we structure the progressive cascade according to the four-layer physical systems hierarchy established in telecommunication link engineering (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Ippolito, 2017</a>; <a href="https://openlibrary.org/books/OL8011236M" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Sklar, 2001</a>):
+          <strong>Systems rationale: a four-layer physical decomposition.</strong> To avoid arbitrary impairment groupings, we structure the progressive cascade according to the four-layer physical systems hierarchy established in telecommunication link engineering (<a href="https://doi.org/10.1002/9781119259411" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Ippolito, 2017</a>; <a href="https://openlibrary.org/isbn/9780130847881" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Sklar, 2001</a>):
         </p>
 
         <ul style="line-height: 1.6; font-size: 15px; margin-bottom: 20px;">
@@ -754,7 +757,9 @@
         <img src="figures/fig7_feature_ablation.png" alt="Figure 7 — Controlled Feature Ablation (Removing Temporal Rolling Statistics)" class="paper-figure" />
 
         <div class="inference-box">
-          <strong>Observed performance</strong>: Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 ightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 ightarrow 0.2554$ ($-52.6\%$).
+          <strong>Observed performance</strong>: Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 
+ightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 
+ightarrow 0.2554$ ($-52.6\%$).
           <br/><br/>
           <strong>Demonstrated physical mechanism</strong>:
           <p>$$	ext{PSD}_{	ext{scint}}(f) \propto f^{-8/3} \quad (f > 0.05\ 	ext{Hz}) \quad 	ext{vs.} \quad 	ext{PSD}_{	ext{rain}}(f) \quad (f < 0.005\ 	ext{Hz})$$</p>
@@ -1008,7 +1013,8 @@
         <h3 class="sub-heading">7.1 Key Takeaways</h3>
         <ol style="line-height: 1.8; font-size: 15px; margin-bottom: 24px;">
           <li style="margin-bottom: 10px;"><strong>Tracking error dominance.</strong> Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{	ext{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.</li>
-          <li style="margin-bottom: 10px;"><strong>Temporal feature requirement.</strong> Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2 = 0.2924 ightarrow 0.4996$).</li>
+          <li style="margin-bottom: 10px;"><strong>Temporal feature requirement.</strong> Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2 = 0.2924 
+ightarrow 0.4996$).</li>
           <li style="margin-bottom: 10px;"><strong>Cross-frequency generalization.</strong> Embedding physics parameters ($k$, $lpha$, $f$) enables cross-frequency transfer across 10–30 GHz ($R^2 = 0.9980$, $	ext{RMSE} = 0.28\ 	ext{mm/h}$), outperforming analytical inversion by $84\%$.</li>
           <li style="margin-bottom: 10px;"><strong>Learnability hierarchy.</strong> Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
         </ol>
@@ -1036,25 +1042,25 @@
         
         <ol style="line-height: 1.8; font-size: 15px; margin-top: 24px;">
           <li style="margin-bottom: 16px;">
-            Uijlenhoet, R., Overeem, A., & Leijnse, H. (2018). <em>Opportunistic rainfall monitoring using microwave links</em>. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. <a href="https://doi.org/10.1109/MGRS.2018.2830386" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/MGRS.2018.2830386</a>
+            Uijlenhoet, R., Overeem, A., & Leijnse, H. (2018). <em>Opportunistic rainfall monitoring using microwave links</em>. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. <a href="https://ieeexplore.ieee.org/document/8450708/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/MGRS.2018.2830386</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Overeem, A., Leijnse, H., & Uijlenhoet, R. (2013). <em>Country-wide rainfall maps from cellular communication networks</em>. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. <a href="https://doi.org/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1073/pnas.1217961110</a>
+            Overeem, A., Leijnse, H., & Uijlenhoet, R. (2013). <em>Country-wide rainfall maps from cellular communication networks</em>. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. <a href="https://www.pnas.org/doi/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1073/pnas.1217961110</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Giannetti, F., Reggiannini, R., Moretti, M., et al. (2017). <em>Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers</em>. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. <a href="https://doi.org/10.1109/TGRS.2017.2763630" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TGRS.2017.2763630</a>
+            Giannetti, F., Reggiannini, R., Moretti, M., et al. (2017). <em>Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers</em>. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. <a href="https://ieeexplore.ieee.org/document/8094957/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TGRS.2017.2763630</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Pan, Q., et al. (2016). <em>Survey of Rain Fade Models for Earth-Space Telecommunication Links</em>. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. <a href="https://doi.org/10.1109/COMST.2016.2559958" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/COMST.2016.2559958</a>
+            Pan, Q., et al. (2016). <em>Survey of Rain Fade Models for Earth-Space Telecommunication Links</em>. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. <a href="https://ieeexplore.ieee.org/document/7463025/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/COMST.2016.2559958</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Maseng, T., & Bakken, P. M. (1981). <em>A stochastic dynamic model of rain attenuation</em>. IEEE Transactions on Communications, 29(5), 660–669. <a href="https://doi.org/10.1109/TCOM.1981.1095066" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TCOM.1981.1095066</a>
+            Maseng, T., & Bakken, P. M. (1981). <em>A stochastic dynamic model of rain attenuation</em>. IEEE Transactions on Communications, 29(5), 660–669. <a href="https://doi.org/10.1109/TCOM.1981.1095044" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TCOM.1981.1095066</a>
           </li>
           <li style="margin-bottom: 16px;">
             Bai, S., Kolter, J. Z., & Koltun, V. (2018). <em>An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling</em>. arXiv preprint arXiv:1803.01271. <a href="https://arxiv.org/abs/1803.01271" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1803.01271</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Chen, T., & Guestrin, C. (2016). <em>XGBoost: A Scalable Tree Boosting System</em>. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785–794). <a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1145/2939672.2939785</a>
+            Chen, T., & Guestrin, C. (2016). <em>XGBoost: A Scalable Tree Boosting System</em>. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785–794). <a href="https://arxiv.org/abs/1603.02754" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1145/2939672.2939785</a>
           </li>
           <li style="margin-bottom: 16px;">
             Raissi, M., Perdikaris, P., & Karniadakis, G. E. (2019). <em>Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving non-linear partial differential equations</em>. Journal of Computational Physics, 378, 686–707. <a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1016/j.jcp.2018.10.045</a>
@@ -1066,37 +1072,37 @@
             Gal, Y., & Ghahramani, Z. (2016). <em>Dropout as a Bayesian approximation: Representing model uncertainty in deep learning</em>. In International Conference on Machine Learning (ICML) (pp. 1050–1059). <a href="https://arxiv.org/abs/1506.02142" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1506.02142</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. (2006). <em>Revisiting Spacetrack Report #3: Rev 2</em>. AIAA/AAS Astrodynamics Specialist Conference. <a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.2514/6.2006-6753</a>
+            Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. (2006). <em>Revisiting Spacetrack Report #3: Rev 2</em>. AIAA/AAS Astrodynamics Specialist Conference. <a href="https://celestrak.org/publications/AIAA/2006-6753/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.2514/6.2006-6753</a>
           </li>
           <li style="margin-bottom: 16px;">
-            International Precipitation Working Group (2024). <em>SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval</em>. <a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">GitHub: IPWG/satrain</a>
+            International Precipitation Working Group (2024). <em>SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval</em>. <a href="https://ipwg.isac.cnr.it/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">GitHub: IPWG/satrain</a>
           </li>
           <li style="margin-bottom: 16px;">
             Huffman, G. J., et al. (2020). <em>Integrated Multi-satellitE Retrievals for GPM (IMERG) Technical Documentation</em>. NASA GSFC. <a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1175/BAMS-D-19-0270.1</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Hawkins, H. E. (1988). <em>Tracking performance of monopulse antenna systems</em>. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. <a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-f-2.1988.0012</a>
+            Hawkins, H. E. (1988). <em>Tracking performance of monopulse antenna systems</em>. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. <a href="https://ieeexplore.ieee.org/document/4688975/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-f-2.1988.0012</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Skolnik, M. I. (2008). <em>Radar Handbook</em> (3rd ed.). McGraw-Hill Education. <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">AccessEngineering</a>
+            Skolnik, M. I. (2008). <em>Radar Handbook</em> (3rd ed.). McGraw-Hill Education. <a href="https://openlibrary.org/isbn/9780071485470" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">AccessEngineering</a>
           </li>
           <li style="margin-bottom: 16px;">
             IEEE Standard Definitions of Terms for Antennas. <em>IEEE Std 145-2013</em>. <a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/IEEESTD.2014.6758443</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Mercier, H., et al. (2014). <em>Automatic gain control dynamic loop performance in satellite receivers</em>. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. <a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TMTT.2014.2305541</a>
+            Mercier, H., et al. (2014). <em>Automatic gain control dynamic loop performance in satellite receivers</em>. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. <a href="https://ieeexplore.ieee.org/document/6755410/" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TMTT.2014.2305541</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Ippolito, L. J. (2017). <em>Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance</em> (2nd ed.). Wiley. <a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1002/9781119414605</a>
+            Ippolito, L. J. (2017). <em>Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance</em> (2nd ed.). Wiley. <a href="https://doi.org/10.1002/9781119259411" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1002/9781119414605</a>
           </li>
           <li style="margin-bottom: 16px;">
             Tatarskii, V. I. (1971). <em>The Effects of the Turbulent Atmosphere on Wave Propagation</em>. Israel Program for Scientific Translations.
           </li>
           <li style="margin-bottom: 16px;">
-            Vogel, W. J., & Hong, U. S. (1988). <em>Measurement and modeling of land mobile satellite propagation at UHF and L-band</em>. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. <a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/8.14441</a>
+            Vogel, W. J., & Hong, U. S. (1988). <em>Measurement and modeling of land mobile satellite propagation at UHF and L-band</em>. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. <a href="https://doi.org/10.1109/8.192148" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/8.14441</a>
           </li>
           <li style="margin-bottom: 16px;">
-            Athanasiadou, G. E., et al. (2000). <em>A Rician channel model for Earth-space satellite links</em>. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-map:20000438</a>
+            Athanasiadou, G. E., et al. (2000). <em>A Rician channel model for Earth-space satellite links</em>. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. <a href="https://digital-library.theiet.org/content/journals/10.1049/ip-map_20000438" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-map:20000438</a>
           </li>
           <li style="margin-bottom: 16px;">
             Sklar, B. (2001). <em>Digital Communications: Fundamentals and Applications</em> (2nd ed.). Prentice Hall.
