@@ -80,7 +80,7 @@ def extract_features_and_targets(res, gs, freq_hz, bandwidth_hz, polarization, s
         
     # Lag features
     for lag in [1, 5, 10]:
-        features[f"lag_excess_attn_{lag}s"] = df["excess_attn"].shift(lag).fillna(method='bfill').values
+        features[f"lag_excess_attn_{lag}s"] = df["excess_attn"].shift(lag).bfill().values
         
     feature_df = pd.DataFrame(features)
     targets = pd.DataFrame({

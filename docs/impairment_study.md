@@ -5,19 +5,19 @@ This document logs the impact of physical receiver and link impairments on rainf
 ## 1. Incremental Degradation
 | Experiment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
 | :--- | :---: | :---: | :---: | :---: |
-| 1. Only Scintillation | 0.9989 | 1.5534 | 0.5461 | 0.9588 |
-| 2. + Tracking | 0.9519 | 4.8974 | 2.5569 | 0.5909 |
-| 3. + Calibration | 0.8933 | 4.7679 | 2.7113 | 0.6123 |
-| 4. + AGC & ADC | 0.9162 | 5.0085 | 2.7528 | 0.5722 |
-| 5. + Multipath | 0.8252 | 5.2038 | 2.9469 | 0.5381 |
-| 6. + Wet Antenna | 0.8487 | 5.3262 | 3.0163 | 0.5162 |
+| 1. Only Scintillation | 0.9989 | 1.1321 | 0.4030 | 0.9781 |
+| 2. + Tracking | 0.9307 | 3.8518 | 1.8311 | 0.7469 |
+| 3. + Calibration | 0.8788 | 3.4515 | 1.8306 | 0.7968 |
+| 4. + AGC & ADC | 0.8707 | 4.3229 | 2.2851 | 0.6813 |
+| 5. + Multipath | 0.9048 | 4.4266 | 2.3146 | 0.6658 |
+| 6. + Wet Antenna | 0.9045 | 4.4238 | 2.3929 | 0.6662 |
 
 ## 2. Solo Impairment Effects
 | Experiment | F1-Score | Regressor RMSE (mm/h) | Regressor MAE (mm/h) | Regressor $R^2$ Score |
 | :--- | :---: | :---: | :---: | :---: |
-| 1. Scintillation Solo | 0.9989 | 1.5534 | 0.5461 | 0.9588 |
-| 2. Tracking Solo | 0.9467 | 5.0040 | 2.5901 | 0.5729 |
-| 3. Calibration Solo | 0.9814 | 2.1470 | 0.7964 | 0.9214 |
-| 4. AGC & ADC Solo | 0.9878 | 2.0245 | 1.0156 | 0.9301 |
-| 5. Multipath Solo | 0.9645 | 2.7274 | 1.5284 | 0.8731 |
-| 6. Wet Antenna Solo | 0.9991 | 1.9094 | 0.6181 | 0.9378 |
+| 1. Scintillation Solo | 0.9989 | 1.1321 | 0.4030 | 0.9781 |
+| 2. Tracking Solo | 0.9436 | 3.7713 | 1.8293 | 0.7574 |
+| 3. Calibration Solo | 0.9922 | 1.2643 | 0.5656 | 0.9727 |
+| 4. AGC & ADC Solo | 0.9836 | 2.1833 | 1.0047 | 0.9187 |
+| 5. Multipath Solo | 0.9754 | 2.5520 | 1.4019 | 0.8889 |
+| 6. Wet Antenna Solo | 0.9991 | 1.1099 | 0.3916 | 0.9790 |
