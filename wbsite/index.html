@@ -7,7 +7,7 @@
   <meta name="description" content="A minimal, typography-first scientific paper and benchmark exploring rainfall retrieval learnability from satellite link telemetry under physical receiver impairments." />
   
   <!-- CSS Stylesheet (Cache-busted) -->
-  <link rel="stylesheet" href="styles.css?v=1.0.7" />
+  <link rel="stylesheet" href="styles.css?v=1.0.8" />
 
   <!-- MathJax for TeX LaTeX Equations -->
   <script>
@@ -46,7 +46,7 @@
   <!-- Main Article Body -->
   <main>
 
-    <!-- SECTION 1: HERO & ABSTRACT (Light Section - Plaster White) -->
+    <!-- SECTION 0: HERO & ABSTRACT (Light Section) -->
     <section class="full-bleed-section light-section" id="heroSec">
       <div class="content-column">
         <span class="section-label">OVERVIEW / ABSTRACT</span>
@@ -56,126 +56,187 @@
         <div class="wip-callout-box">
           <div class="wip-title">PRE-PRINT & WORK-IN-PROGRESS (WIP) NOTICE</div>
           <p style="font-size: 15px; margin-bottom: 8px;">
-            <strong>Code Availability</strong>: The complete simulation codebase and experimental scripts are publicly available on GitHub at 
+            <strong>Code Availability</strong>: The complete codebase, forward simulation engine, and benchmark scripts are publicly available on GitHub at 
             <a href="https://github.com/Satyanshgaur/RainCast" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">https://github.com/Satyanshgaur/RainCast</a>.
           </p>
           <ul class="wip-list">
-            <li><strong>Single-Run Point Estimates</strong>: Current metrics are presented as single-run point estimates under a train/test split (Seed 100 train / Seed 200 test). Ongoing work will incorporate multi-seed trials, error bars, confidence intervals, and hypothesis significance testing.</li>
-            <li><strong>TCN Reversal under Extreme Noise</strong>: Under "All Impairments" (Layer 4), TCN ($R^2 = 0.0820$) outperforms XGBoost ($R^2 = 0.0081$), reversing earlier performance trends. This reversal is an active area of investigation—hypothesized to stem from TCN's 1D dilated temporal receptive field preserving structural signal context when static tabular rolling statistics collapse under heavy noise.</li>
-            <li><strong>High-Priority Future Work Roadmap</strong>:
+            <li><strong>Document Status</strong>: This manuscript is a pre-print and remains a work in progress.</li>
+            <li><strong>Methodological & Statistical Limitations</strong>:
+              <ul style="margin-top:4px; padding-left:20px;">
+                <li><em>Single-Run Point Estimates</em>: The metrics reported here are single-run point estimates derived from a fixed train/test split (Seed 100 train / Seed 200 test). This constitutes a temporal split rather than a stochastic multi-trial robustness check. Ongoing work will incorporate multi-seed trials, error bars, confidence intervals, and formal significance testing.</li>
+                <li><em>TCN Reversal under Extreme Noise</em>: Under the "All Impairments" condition (Layer 4), the Temporal Convolutional Network (TCN, $R^2 = 0.0820$) outperforms XGBoost ($R^2 = 0.0081$), reversing the trend observed at every earlier impairment stage. This reversal is under active investigation; our working hypothesis is that the TCN's 1D dilated temporal receptive field preserves structural signal context in regimes where static, tabular rolling statistics collapse under heavy multi-path and mispointing noise.</li>
+              </ul>
+            </li>
+            <li><strong>High-Priority Future Research Roadmap</strong>:
               <ol style="margin-top:4px; padding-left:20px;">
-                <li><em>Validation on Real Satellite Beacon Telemetry (Highest Priority)</em>: Validating algorithms on operational Earth-space communication links using real satellite beacon measurements.</li>
-                <li><em>Learning Observation Model Parameters</em>: Estimating tracking jitter, calibration drift, AGC dynamics, multipath, and thermal parameters directly from measured telemetry using Bayesian inference and system identification.</li>
-                <li><em>Joint Observation and Retrieval Learning</em>: Jointly optimizing latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.</li>
+                <li><strong>Validation on real satellite beacon telemetry</strong> (highest priority) — testing retrieval algorithms on operational Earth–space communication links using real beacon measurements.</li>
+                <li><strong>Learning observation-model parameters</strong> — estimating tracking jitter, calibration drift, AGC dynamics, multipath, and thermal parameters directly from measured telemetry via Bayesian inference and system identification, so the simulator becomes site-specific.</li>
+                <li><strong>Joint observation and retrieval learning</strong> — jointly optimizing latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.</li>
               </ol>
             </li>
           </ul>
         </div>
 
         <p class="lead-text">
-          Rainfall monitoring is essential for hydrological forecasting, flood warning systems, and climate analysis. While opportunistic microwave sensing using satellite communication links has emerged as a promising technology, existing studies evaluate machine learning models under idealized observation assumptions.
+          Rainfall monitoring underpins hydrological forecasting, flood-warning systems, and climate analysis. Opportunistic microwave sensing over satellite communication links has emerged as a promising complementary technology, yet existing studies typically evaluate machine learning models under idealized observation assumptions. This paper addresses a central research question: <strong>how do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?</strong>
         </p>
 
         <p>
-          In this paper, we investigate the central research question: <strong>How do realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication links?</strong> We formulate a forward observation model incorporating SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng-Bakken stochastic rain synthesis, and stateful multi-satellite handoffs.
+          We formulate a forward observation model that integrates SGP4 orbital propagation, ITU-R P.618/P.676 atmospheric attenuation, tropospheric scintillation, Maseng–Bakken stochastic rain synthesis, and stateful multi-satellite handoffs. Using this model, we evaluate four representative learning paradigms — Analytical Inversion, Gradient Boosted Decision Trees (XGBoost), Multi-Layer Perceptrons (MLP), and Dilated Causal Temporal Convolutional Networks (TCN) — across a progressive impairment cascade ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$).
         </p>
 
         <!-- Figure 1: Pipeline -->
-        <img src="figures/fig1_pipeline.png" alt="Figure 1: SatLinkSim Pipeline" class="paper-figure" />
+        <img src="figures/fig1_pipeline.png" alt="Figure 1 — SatLinkSim Forward Observation & Inverse Retrieval Pipeline" class="paper-figure" />
 
         <p>
-          Under each impairment level, we evaluate four representative model architectures: <strong>Analytical Inversion</strong>, <strong>Gradient Boosted Decision Trees (XGBoost)</strong>, <strong>Multi-Layer Perceptrons (MLP)</strong>, and <strong>Dilated Causal Temporal Convolutional Networks (TCN)</strong>. Our empirical tracking sweeps demonstrate that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$.
-        </p>
-        <p>
-          Controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$). Furthermore, embedding frequency-dependent physics parameters ($k, \alpha$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980$, $\text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion ($R^2=0.1110$) by $84\%$. We conclude that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
+          Three findings emerge from this evaluation. First, empirical tracking sweeps show that antenna tracking misalignment ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval failure, reducing regressor $R^2$ by $61.6\%$. Second, controlled feature ablations confirm that temporal memory is strictly necessary to prevent model collapse under scintillation ($R^2 = 0.2924 \rightarrow 0.4996$). Third, embedding frequency-dependent physics parameters ($k$, $\alpha$) enables cross-frequency transfer across the 10–30 GHz range ($R^2 = 0.9980$, $\text{RMSE} = 0.28\ \text{mm/h}$), outperforming analytical inversion ($R^2 = 0.1110$) by $84\%$. Taken together, these results indicate that physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.
         </p>
       </div>
     </section>
 
-    <!-- SECTION 2: INTRODUCTION & RELATED WORK (Dark Section - Carbon Surface Inversion) -->
+    <!-- SECTION 1: INTRODUCTION (Dark Section) -->
     <section class="full-bleed-section dark-section" id="introSec">
       <div class="content-column">
-        <span class="section-label">SECTION 01 / INTRODUCTION & RELATED WORK</span>
-        <h2 class="section-heading">1. Introduction & Motivation</h2>
+        <span class="section-label">SECTION 01 / INTRODUCTION</span>
+        <h2 class="section-heading">1. Introduction</h2>
         
+        <h3 class="sub-heading">1.1 Motivation</h3>
         <p>
-          Accurate, high-resolution precipitation monitoring is critical for urban hydrology, agricultural planning, and extreme weather mitigation. Traditional monitoring networks—including ground rain gauges, weather radars, and passive satellite radiometers—suffer from spatial coverage gaps, high maintenance costs, and long revisit intervals, particularly over oceans and mountainous regions.
+          Accurate, high-resolution precipitation monitoring is critical for urban hydrology, agricultural planning, and extreme-weather mitigation. Traditional monitoring networks — ground rain gauges, weather radars, and passive satellite radiometers — suffer from spatial coverage gaps, high maintenance costs, and long revisit intervals, particularly over oceans and mountainous regions.
         </p>
         <p>
-          Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth-space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (such as Signal-to-Noise Ratio, SNR) offers an opportunistic sensing network. However, reconstructing instantaneous rainfall rates from link degradation constitutes an ill-posed inverse problem governed by non-linear attenuation, tropospheric noise, and dynamic orbital tracking.
+          Commercial Satellite Services (CSS) operating in the Ku (12–14 GHz) and Ka (20–30 GHz) bands maintain continuous Earth–space communication links. Because microwave signals at these frequencies experience attenuation proportional to rainfall intensity, satellite link telemetry (e.g., Signal-to-Noise Ratio) constitutes an opportunistic sensing network (<a href="https://doi.org/10.1109/MGRS.2018.2830386" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Uijlenhoet et al., 2018</a>; <a href="https://doi.org/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Overeem et al., 2013</a>). Standardized AI-ready datasets such as SatRain (<a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">IPWG, 2024</a>) and GPM IMERG (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Huffman et al., 2020</a>) provide reference frames for benchmark validation, and opportunistic-sensing studies using passive geostationary receivers have further demonstrated the feasibility of rain-field estimation (<a href="https://doi.org/10.1109/TGRS.2017.2763630" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Giannetti et al., 2017</a>). Reconstructing instantaneous rainfall rates from link degradation nevertheless remains an ill-posed inverse problem, governed by non-linear attenuation, tropospheric noise, AGC feedback dynamics, and dynamic orbital tracking.
         </p>
 
-        <h3 class="sub-heading">1.2 Research Gap</h3>
+        <h3 class="sub-heading">1.2 Existing Work & Research Gap</h3>
         <p>
-          Existing literature exhibits a critical research gap: <strong>the influence of specific physical receiver and propagation impairments on inverse learnability has not been systematically isolated.</strong> Current benchmarks assume clean telemetry or simple additive white Gaussian noise, ignoring real-world physical phenomena such as:
+          Recent work applies machine learning — analytical inversion, decision trees, 1D CNNs, LSTMs, and TCNs — to microwave-link rainfall retrieval. However, the existing literature exhibits a critical gap: <strong>the influence of specific physical receiver and propagation impairments on inverse learnability has not been systematically isolated with empirical evidence.</strong> Current benchmarks generally assume clean telemetry or simple additive white Gaussian noise, overlooking real-world phenomena such as tropospheric scintillation, antenna tracking errors, receiver AGC compression, LNB thermal drift, gaseous absorption, and satellite handoff step jumps. Without isolating individual impairments through controlled ablation sweeps, it remains unclear whether retrieval errors originate from neural network capacity limits or from fundamental physical unrecoverability.
         </p>
-        <ul>
-          <li>Tropospheric scintillation induced by atmospheric turbulence.</li>
-          <li>Sudden power jumps caused by satellite-to-satellite handoffs and ground antenna mispointing.</li>
-          <li>Variable slant-path gaseous absorption (water vapor and oxygen).</li>
-          <li>Receiver quantization and non-linear wet antenna attenuation.</li>
-        </ul>
 
-        <h2 class="section-heading">2. Related Work</h2>
-        <p>
-          Earth-space microwave propagation is governed by International Telecommunication Union Radiocommunication Sector (ITU-R) recommendations:
-        </p>
+        <h3 class="sub-heading">1.3 Research Plan</h3>
+        <p>This paper proceeds in three stages:</p>
         <ul>
-          <li><strong>ITU-R P.618-13</strong>: Models total Earth-space path attenuation and tropospheric scintillation.</li>
-          <li><strong>ITU-R P.676-12</strong>: Calculates gaseous absorption from atmospheric oxygen and water vapor.</li>
-          <li><strong>ITU-R P.838-3</strong>: Defines specific rain attenuation power laws $\gamma_R = k R^\alpha$.</li>
-          <li><strong>ITU-R P.839-4</strong>: Establishes rain height models for slant path geometry.</li>
-          <li><strong>ITU-R P.1853-2</strong>: Synthesizes tropospheric attenuation time series using log-normal processes.</li>
+          <li><strong>Formulation</strong> — we construct a forward observation model integrating orbital mechanics, atmospheric attenuation equations, stochastic rain synthesis, AGC dynamic compression, and multi-satellite handoffs.</li>
+          <li><strong>Evaluation</strong> — we assess model performance across progressive impairment cascades, tracking-error sweeps ($\sigma_{\text{track}} \in [0.00^\circ, 0.50^\circ]$), temporal feature ablations, and cross-frequency transfer (10–30 GHz).</li>
+          <li><strong>Grounding</strong> — all discussion and performance claims are grounded in empirical evidence rather than unverified theoretical speculation.</li>
         </ul>
       </div>
     </section>
 
-    <!-- SECTION 3: FORWARD OBSERVATION MODEL & DIAGRAMS (Light Section) -->
+    <!-- SECTION 2: FORWARD OBSERVATION MODEL & PHYSICAL IMPAIRMENTS (Light Section) -->
     <section class="full-bleed-section light-section" id="modelSec">
       <div class="content-column">
         <span class="section-label">SECTION 02 / FORWARD MODEL & PHYSICAL IMPAIRMENTS</span>
-        <h2 class="section-heading">3. Forward Observation Model</h2>
+        <h2 class="section-heading">2. Forward Observation Model & Physical Impairments</h2>
         
         <p>
-          We formulate a forward observation model that maps true instantaneous rain rate $R(t)$ to observable satellite telemetry $\mathbf{x}(t)$:
+          The forward observation model maps the true instantaneous rain rate $R(t)$ to observable satellite telemetry $\mathbf{x}(t)$:
         </p>
         <p>
           $$\mathbf{x}(t) = f\left(R(t), \text{orbit}(t), \text{geometry}(t), \text{receiver}(t), \text{atmosphere}(t)\right)$$
         </p>
 
         <!-- Figure 2: Observation Model Component Breakdown -->
-        <img src="figures/fig2_observation_model.png" alt="Figure 2: Observation Model Breakdown" class="paper-figure" />
+        <img src="figures/fig2_observation_model.png" alt="Figure 2 — Forward Observation Model Signal Component Breakdown" class="paper-figure" />
 
-        <h3 class="sub-heading">3.1 Mathematical Formulations</h3>
+        <h3 class="sub-heading">2.1 Forward Propagation & Receiver Hardware Mathematics</h3>
         <p>
-          Specific rain attenuation $\gamma_R(t)$ (dB/km) follows ITU-R P.838-3:
+          The observation chain is composed of nine physical stages, summarized below:
         </p>
+
+        <ol style="line-height: 1.8; font-size: 15px; margin-bottom: 24px;">
+          <li style="margin-bottom: 12px;">
+            <strong>Slant path & free-space path loss.</strong> Orbit vectors are propagated using simplified perturbations (SGP4) (<a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vallado et al., 2006</a>) to obtain slant distance $d(t)$ and elevation $\theta(t)$. Free-space path loss is $A_{\text{FSPL}}(t) = 20 \log_{10}(d(t)) + 20 \log_{10}(f) + 20 \log_{10}(4\pi/c)$.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>ITU-R rain attenuation.</strong> Specific attenuation follows ITU-R P.838-3: $\gamma_R(t) = k [R(t)]^\alpha$. Total rain attenuation over the effective slant path $L_{\text{eff}}(t)$ is $A_{\text{rain}}(t) = \gamma_R(t) L_{\text{eff}}(t)$, synthesized via log-normal stochastic rain dynamics (<a href="https://doi.org/10.1109/TCOM.1981.1095066" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Maseng & Bakken, 1981</a>; <a href="https://doi.org/10.1109/COMST.2016.2559958" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Pan et al., 2016</a>).
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Gaseous absorption.</strong> Oxygen ($\gamma_o$) and water-vapor ($\gamma_w$) attenuation, per ITU-R P.676-12, is $A_{\text{gas}}(t) = (\gamma_o + \gamma_w)\, h_e / \sin\theta(t)$.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Tropospheric scintillation.</strong> Modeled as a zero-mean Gaussian process, $A_{\text{scint}}(t) \sim \mathcal{N}(0, \sigma_{\text{scint}}^2(t))$, per ITU-R P.618-13.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Antenna tracking error physics.</strong> Ground antenna monopulse/step-track ACU control loops (<a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Hawkins, 1988</a>; <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Skolnik, 2008</a>) introduce angular mispointing $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$, which induces off-axis power loss (<a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">IEEE Std 145-2013</a>):
+            <p>$$A_{\text{track}}(t) = 12 \left( \frac{\theta_{\text{error}}(t)}{\theta_{3\text{dB}}} \right)^2 \quad (\text{dB})$$</p>
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>AGC compression & ADC quantization.</strong> Receiver AGC feedback loops (<a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Mercier et al., 2014</a>; <a href="https://www.itu.int/rec/R-REC-S.1066" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">ITU-R S.1066</a>) compress signal dynamic range and add an ADC quantization noise floor $N_{\text{ADC}}$.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>LNB thermal calibration drift.</strong> Outdoor LNB amplifier thermal oscillations are modeled as an Ornstein–Uhlenbeck stochastic drift process $C(t)$ (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Ippolito, 2017</a>; Tatarskii, 1971).
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Ground multipath Rician fading.</strong> Low-elevation ground reflection produces a Rician channel ($K \approx 10\text{–}15\ \text{dB}$) (<a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Vogel & Hong, 1988</a>; <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Athanasiadou et al., 2000</a>).
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Consolidated link budget.</strong> The individual terms combine into a single link-budget equation:
+            <p>$$\text{SNR}(t) = \text{EIRP} + G_{\text{rx}} - A_{\text{FSPL}}(t) - A_{\text{gas}}(t) - A_{\text{rain}}(t) - A_{\text{scint}}(t) - A_{\text{track}}(t) - C(t) - N_{\multi}(t) - N_0$$</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- SECTION 3: DATASET GENERATION & EXPERIMENTAL SETUP (Dark Section) -->
+    <section class="full-bleed-section dark-section" id="datasetSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 03 / DATASET GENERATION & VALIDATION</span>
+        <h2 class="section-heading">3. Dataset Generation & Experimental Setup</h2>
+        
         <p>
-          $$\gamma_R(t) = k \cdot [R(t)]^\alpha$$
+          The experimental dataset spans four ground stations, five carrier frequencies, and a two-hour, second-resolution observation window per trial. Table 1 summarizes the governing parameters.
         </p>
-        <p>
-          Ground antenna mispointing error $\theta_{\text{error}}(t) \sim \mathcal{N}(0, \sigma_{\text{track}}^2)$ induces off-axis power loss $A_{\text{track}}(t)$:
-        </p>
-        <p>
-          $$A_{\text{track}}(t) = 12 \left( \frac{\theta_{\text{error}}(t)}{\theta_{3\text{dB}}} \right)^2 \quad (\text{dB})$$
-        </p>
-        <p>
-          Observable SNR telemetry (dB) incorporating path loss, gas absorption, rain attenuation, scintillation noise, and tracking discontinuities is expressed as:
-        </p>
-        <p>
-          $$\text{SNR}(t) = \text{EIRP} + G_{\text{rx}} - A_{\text{FSPL}}(t) - A_{\text{gas}}(t) - A_{\text{rain}}(t) - A_{\text{scint}}(t) - A_{\text{track}}(t) - N_0$$
-        </p>
+
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:20px; font-size:15px;">Table 1. Experimental Dataset Parameters</p>
+        <div class="table-wrapper">
+          <table class="minimal-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Value / Distribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Ground Stations</strong></td>
+                <td>Delhi ($R_{0.01}=42.0\ 	ext{mm/h}$), São Paulo ($R_{0.01}=19.0\ 	ext{mm/h}$), Tokyo ($R_{0.01}=12.0\ 	ext{mm/h}$), Berlin ($R_{0.01}=6.0\ 	ext{mm/h}$)</td>
+              </tr>
+              <tr>
+                <td><strong>Carrier Frequencies</strong></td>
+                <td>10.0 GHz (X-band), 12.0 GHz (Ku-band), 14.0 GHz (Ku-band), 20.0 GHz (Ka-band), 30.0 GHz (Ka-band)</td>
+              </tr>
+              <tr>
+                <td><strong>Bandwidth & Polarization</strong></td>
+                <td>36.0 MHz, Linear Vertical</td>
+              </tr>
+              <tr>
+                <td><strong>Temporal Resolution</strong></td>
+                <td>$\Delta t = 1.0\ 	ext{s}$, 7,200 steps (2 hours) per window</td>
+              </tr>
+              <tr>
+                <td><strong>Data Splits</strong></td>
+                <td>Seed 100 (Train: 80,000 timesteps), Seed 200 (Test: 80,000 timesteps)</td>
+              </tr>
+              <tr>
+                <td><strong>Climatology Basis</strong></td>
+                <td>NASA GPM IMERG & ITU-R P.837-7</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <h3 class="sub-heading">3.2 Real-World Physics & Telemetry Model Validation Suite</h3>
         <p>
-          To verify that the simulation engine reflects physical telemetry, we validate the simulator's propagation mathematics, orbital tracking, rain statistics, and receiver hardware against <strong>NASA satellite radar data (GPM IMERG)</strong>, <strong>open satellite tracking networks (SatNOGS)</strong>, <strong>ITU-R standards</strong>, and <strong>commercial receiver hardware datasheets</strong>:
+          Before using the simulator for impairment ablation, we first confirm that its propagation mathematics, orbital tracking, rain statistics, and receiver hardware models are consistent with independent real-world references: <strong>NASA satellite radar data (GPM IMERG)</strong>, the <strong>SatNOGS open satellite tracking network</strong>, <strong>ITU-R standards</strong>, and <strong>commercial receiver hardware datasheets</strong>. This validation suite is organized into three parts (A–C), below.
         </p>
 
-        <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:20px; text-transform:uppercase;">A. NASA GPM IMERG & SatRain Rain Climatology Benchmark</h4>
+        <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:24px; text-transform:uppercase;">A. NASA GPM IMERG & SatRain Rain Climatology Benchmark</h4>
         <p>
-          We compare the simulator's generated rain rate quantiles (CCDF exceedance values) against the NASA GPM IMERG global database (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Huffman et al., 2020</a>) and SatRain climatology targets across global ground stations.
+          We compare the simulator's generated rain-rate quantiles (CCDF exceedance values) against the NASA GPM IMERG global database (<a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Huffman et al., 2020</a>) and SatRain climatology targets across the four ground stations. Table 1b reports the resulting comparison.
         </p>
 
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 1b. Real-World NASA GPM IMERG Climatology & Rain Exceedance Validation</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -185,7 +246,7 @@
                 <th>$R_{1.0}$ (mm/h)</th>
                 <th>$R_{0.1}$ (mm/h)</th>
                 <th>$R_{0.01}$ (mm/h)</th>
-                <th>Rain Fraction $P_{\text{rain}}$ (%)</th>
+                <th>Rain Fraction $P_{	ext{rain}}$ (%)</th>
               </tr>
             </thead>
             <tbody>
@@ -257,24 +318,25 @@
           </table>
         </div>
 
-        <img src="figures/val_delhi.png" alt="Figure 9: Real-World NASA GPM Rain Rate Climatology Validation Plot (Delhi Station)" class="paper-figure" />
+        <img src="figures/val_delhi.png" alt="Figure 9 — Real-World NASA GPM Rain Rate Climatology Validation Plot (Delhi Station)" class="paper-figure" />
 
-        <p style="font-size:14px; color:#555555;">
-          * <strong>Temporal Rain Event Persistence</strong>: Simulated rain event duration averages <strong>$330.7\text{ s}$ vs. $328.9\text{ s}$ in empirical SatRain telemetry</strong> (Jensen-Shannon Divergence $= 0.0300$).
+        <p style="font-size:14px; color:#aaaaaa; margin-top:12px;">
+          Beyond quantile matching, temporal persistence of rain events is also consistent with observation: simulated rain-event duration averages <strong>$330.7\ 	ext{s}$ versus $328.9\ 	ext{s}$</strong> in empirical SatRain telemetry, corresponding to a Jensen–Shannon divergence of $0.0300$.
         </p>
 
         <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:28px; text-transform:uppercase;">B. SatNOGS TLE & SGP4 Orbital Tracking Validation</h4>
         <p>
-          We validate SGP4 orbit propagation accuracy (slant path range $d(t)$ and elevation $\theta(t)$) against live Two-Line Element (TLE) orbital sets and ground pass observation logs from the <strong>SatNOGS Open Satellite Network</strong>.
+          We further validate SGP4 orbit propagation accuracy — specifically slant-path range $d(t)$ and elevation $	heta(t)$ — against live Two-Line Element (TLE) sets and ground-pass observation logs from the SatNOGS Open Satellite Network.
         </p>
 
-        <img src="figures/val_sgp4_satnogs.png" alt="Figure 10: SatNOGS Open Satellite TLE & SGP4 Orbital Tracking Validation" class="paper-figure" />
+        <img src="figures/val_sgp4_satnogs.png" alt="Figure 10 — SatNOGS Open Satellite TLE & SGP4 Orbital Tracking Validation" class="paper-figure" />
 
         <h4 style="font-family:var(--font-heading); font-size:16px; font-weight:700; margin-top:28px; text-transform:uppercase;">C. ITU-R Physical Propagation & Receiver Hardware Validation</h4>
         <p>
-          We validate physical specific attenuation, receiver pointing loss, AGC dynamic smoothing, and measurement uncertainty against international standards and published hardware datasheets:
+          Finally, we validate specific attenuation coefficients, receiver pointing loss, AGC dynamic smoothing, and measurement uncertainty against international standards and published hardware datasheets. Table 1c summarizes each component and its corresponding pass/fail outcome.
         </p>
 
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 1c. Physical Model & Receiver Hardware Validation Summary</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -287,70 +349,101 @@
             </thead>
             <tbody>
               <tr>
-                <td><strong>Specific Rain Attenuation ($k, \alpha$)</strong></td>
-                <td>20 GHz: $k=0.09164, \alpha=1.0990$<br/>30 GHz: $k=0.24030, \alpha=1.0210$</td>
-                <td><strong>ITU-R P.838-3 Tables</strong></td>
+                <td><strong>Specific Rain Attenuation ($k, lpha$)</strong></td>
+                <td>20 GHz: $k=0.09164, lpha=1.0990$<br/>30 GHz: $k=0.24030, lpha=1.0210$</td>
+                <td>ITU-R P.838-3 Tables</td>
                 <td><strong>100% Exact Match (Passed)</strong></td>
               </tr>
               <tr>
                 <td><strong>Antenna Tracking Jitter</strong></td>
-                <td>$\sigma_{\text{track}} = 0.04^\circ$ (Zenith) $\rightarrow 0.4589^\circ$ ($5^\circ$ Elev.)</td>
-                <td><em>Rice (1998)</em> ($1.83\text{ dB}$ loss at $5^\circ$)</td>
+                <td>$\sigma_{	ext{track}} = 0.04^\circ$ (Zenith) $ightarrow 0.4589^\circ$ ($5^\circ$ Elev.)</td>
+                <td>Rice (1998) ($1.83\ 	ext{dB}$ loss at $5^\circ$)</td>
                 <td><strong>Passed</strong></td>
               </tr>
               <tr>
                 <td><strong>Receiver AGC Loop</strong></td>
-                <td>Time constant $\tau = 4.48\text{ minutes}$</td>
-                <td><em>Viterbi et al. (2012)</em> dynamic loop</td>
+                <td>Time constant $	au = 4.48$ minutes</td>
+                <td>Viterbi et al. (2012) dynamic loop</td>
                 <td><strong>Passed</strong></td>
               </tr>
               <tr>
                 <td><strong>LNB Thermal Gain Drift</strong></td>
-                <td>$0.015\text{ dB/}^\circ\text{C}$ drift rate</td>
-                <td><strong>L-3 Narda-MITEQ LNB Datasheet</strong></td>
+                <td>$0.015\ 	ext{dB/}^\circ	ext{C}$ drift rate</td>
+                <td>L-3 Narda-MITEQ LNB Datasheet</td>
                 <td><strong>Passed</strong></td>
               </tr>
               <tr>
                 <td><strong>TWTA Gain Temp Drift</strong></td>
-                <td>$\gamma_{\text{temp}} = 0.0008\text{ K}^{-1}$</td>
-                <td><strong>Thales Space TWTA Catalog</strong></td>
+                <td>$\gamma_{	ext{temp}} = 0.0008\ 	ext{K}^{-1}$</td>
+                <td>Thales Space TWTA Catalog</td>
                 <td><strong>Passed</strong></td>
               </tr>
               <tr>
                 <td><strong>Beacon Measurement Error</strong></td>
-                <td>$\sigma_{\text{uncertainty}} = 0.85\text{ dB}$ ($3\text{ dB}$ SNR) $\rightarrow 0.16\text{ dB}$ ($25\text{ dB}$ SNR)</td>
-                <td><strong>NASA Ka-band Beacon Receiver</strong> (<em>Nessel et al., 2016</em>)</td>
+                <td>$\sigma_{	ext{uncertainty}} = 0.85\ 	ext{dB}$ ($3\ 	ext{dB}$ SNR) $ightarrow 0.16\ 	ext{dB}$ ($25\ 	ext{dB}$ SNR)</td>
+                <td>NASA Ka-band Beacon Receiver (Nessel et al., 2016)</td>
                 <td><strong>Passed</strong></td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <img src="figures/val_rain_attenuation.png" alt="Figure 11: ITU-R Rain Attenuation Specific Model Validation" class="paper-figure" />
+        <img src="figures/val_rain_attenuation.png" alt="Figure 11 — ITU-R Rain Attenuation Specific Model Validation" class="paper-figure" />
       </div>
     </section>
 
-    <!-- SECTION 4: IMPAIRMENT CASCADE & BENCHMARK TABLES (Dark Section) -->
+    <!-- SECTION 4: EVALUATED RETRIEVAL ARCHITECTURES (Light Section) -->
+    <section class="full-bleed-section light-section" id="archSec">
+      <div class="content-column">
+        <span class="section-label">SECTION 04 / RETRIEVAL ARCHITECTURES</span>
+        <h2 class="section-heading">4. Evaluated Retrieval Architectures</h2>
+        
+        <p>
+          To ensure a fair architectural comparison free of confounding variables, we separate pure architectural evaluation — conducted under identical feature inputs — from feature-augmented physics extensions. Five model variants are evaluated:
+        </p>
+
+        <ol style="line-height: 1.8; font-size: 15px; margin-top: 16px;">
+          <li style="margin-bottom: 14px;">
+            <strong>Analytical Inversion (Stage A).</strong> Direct mathematical inversion, $\widehat{R} = (\max(0, \widehat{A}) / k L_{	ext{eff}})^{1/lpha}$, following 2nd-order Butterworth low-pass filtering ($f_c = 0.005\ 	ext{Hz}$).
+          </li>
+          <li style="margin-bottom: 14px;">
+            <strong>Gradient Boosted Decision Trees (XGBoost).</strong> A two-stage classifier–regressor cascade (<a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Chen & Guestrin, 2016</a>) operating on rolling temporal statistics (mean, std, min, max over 5–60 minute windows).
+          </li>
+          <li style="margin-bottom: 14px;">
+            <strong>Multi-Layer Perceptron (MLP).</strong> A 3-layer dense network <code>[Input -> 256 -> 128 -> 64]</code> with batch normalization, ReLU activations, and $0.20$ dropout.
+          </li>
+          <li style="margin-bottom: 14px;">
+            <strong>Dilated Causal Temporal Convolutional Network (TCN).</strong> A dilated causal 1D CNN with residual blocks (<a href="https://arxiv.org/abs/1803.01271" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Bai et al., 2018</a>) over 60-minute receptive fields ($\mathbf{X} \in \mathbb{R}^{60 	imes C}$).
+          </li>
+          <li style="margin-bottom: 14px;">
+            <strong>Physics-Aware Feature Extension (Stage C).</strong> A feature-augmented variant incorporating explicit carrier physics parameters $[f, k(f), lpha(f), L_{	ext{eff}}, A_{	ext{FSPL}}, A_{	ext{gas}}]$, inspired by physics-informed learning frameworks (<a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Raissi et al., 2019</a>) and evaluated in dedicated cross-frequency generalization experiments. Model uncertainty in this variant can be further estimated via Deep Ensembles (<a href="https://arxiv.org/abs/1703.07370" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Lakshminarayanan et al., 2017</a>) or MC Dropout (<a href="https://arxiv.org/abs/1506.02142" target="_blank" style="color:var(--color-carbon); font-weight:700; text-decoration:underline;">Gal & Ghahramani, 2016</a>).
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- SECTION 5: QUESTION-DRIVEN EXPERIMENTAL BENCHMARK (Dark Section) -->
     <section class="full-bleed-section dark-section" id="impairmentCascadeSec">
       <div class="content-column">
-        <span class="section-label">SECTION 03 / QUESTION-DRIVEN EXPERIMENTAL NARRATIVE</span>
-        <h2 class="section-heading">4. Progressive Experimental Benchmark</h2>
+        <span class="section-label">SECTION 05 / QUESTION-DRIVEN BENCHMARK</span>
+        <h2 class="section-heading">5. Question-Driven Experimental Benchmark</h2>
         
         <p class="lead-text">
-          Rather than static data tables, our experimental benchmark is structured as a sequential scientific narrative. Each experiment directly answers a driving research question, presented alongside empirical evidence, and followed by critical inferences that motivate the next investigation.
+          Each of the following five experiments is framed around a specific scientific question and is supported by empirical tables, figures, and controlled evidence.
         </p>
 
         <!-- QUESTION 1 -->
         <div class="question-narrative-box">
-          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 1</span>
-          <div class="question-title">Which physical impairments dominate signal degradation and retrieval difficulty?</div>
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">5.1 QUESTION 1</span>
+          <div class="question-title">Which Physical Impairments Dominate Retrieval Difficulty?</div>
           <div class="question-arrow">↓ EXPERIMENT: SOLO IMPAIRMENT ISOLATION STUDY</div>
         </div>
 
         <p>
-          Before evaluating complex neural networks or multi-impairment link environments, we must isolate each physical impairment individually to measure its standalone severity on inverse learnability.
+          We simulate six receiver and propagation impairments independently, under identical station geometries, and measure standalone performance relative to a clean baseline. Table 2 ranks each impairment by its resulting severity.
         </p>
 
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 2. Solo Impairment Severity Impact Benchmark</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -425,26 +518,26 @@
         </div>
 
         <div class="inference-box">
-          <strong>Key Inference 1</strong>: Ground antenna tracking misalignments and step discontinuities represent the single most severe solo driver of retrieval failure ($R^2=0.7574, \text{RMSE}=3.7713\text{ mm/h}$), followed by multipath fading ($R^2=0.8889$). Scintillation alone is mitigated when temporal memory is present.
-          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: What is the exact mathematical relationship between tracking error noise and regressor collapse?</em>
+          <strong>Empirical observation</strong>: Ground antenna tracking misalignment represents the single largest solo driver of retrieval degradation, reducing regressor $R^2$ from $0.9588 ightarrow 0.5729$.
         </div>
 
         <!-- QUESTION 2 -->
         <div class="question-narrative-box">
-          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 2</span>
-          <div class="question-title">What is the empirical relationship between tracking error noise and model collapse?</div>
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">5.2 QUESTION 2</span>
+          <div class="question-title">What Is the Empirical Relationship Between Tracking Error Noise and Model Collapse?</div>
           <div class="question-arrow">↓ EXPERIMENT: TRACKING NOISE SWEEP BENCHMARK</div>
         </div>
 
         <p>
-          We perform a fine-grained parametric sweep of tracking error standard deviation ($\sigma_{\text{track}} \in [0.00^\circ, 0.50^\circ]$) to establish the exact degradation curve.
+          <strong>Motivation.</strong> To move beyond a qualitative ranking of tracking severity, we perform a fine-grained parametric sweep of tracking-error standard deviation ($\sigma_{	ext{track}} \in [0.00^\circ, 0.50^\circ]$) to establish the exact degradation curve. Nominal tracking noise $\sigma_{	ext{track}}$ is varied while all other parameters are held constant. Results are reported in Table 3.
         </p>
 
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 3. Tracking Noise Sweep Degradation Benchmark</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
               <tr>
-                <th>Tracking Noise Standard Deviation ($\sigma_{\text{track}}$)</th>
+                <th>Tracking Noise Standard Deviation ($\sigma_{	ext{track}}$)</th>
                 <th>Rain Classification F1-Score</th>
                 <th>Regressor $R^2$ Score</th>
                 <th>Performance Impact</th>
@@ -491,35 +584,32 @@
           </table>
         </div>
 
-        <!-- Figure 4: Tracking Sweep -->
-        <img src="figures/fig4_tracking_sweep.png" alt="Figure 4: Tracking Error Noise Sweep" class="paper-figure" />
+        <img src="figures/fig4_tracking_sweep.png" alt="Figure 4 — Antenna Tracking Mispointing Noise Sweep Benchmark" class="paper-figure" />
 
         <div class="inference-box">
-          <strong>Key Inference 2 & Demonstrated Mechanism</strong>: Retrieval accuracy experiences a catastrophic phase transition between $\sigma_{\text{track}} = 0.02^\circ$ and $0.05^\circ$, where $R^2$ drops sharply from $0.9054$ to $0.3677$. Because off-axis loss scales quadratically ($A_{\text{track}} \propto \theta_{\text{error}}^2$), a tracking noise of $\sigma_{\text{track}} = 0.05^\circ$ induces random power fluctuations of $1.5\text{--}4.0\text{ dB}$, matching or exceeding the attenuation depth of light-to-moderate rain ($0.5\text{--}2.5\text{ dB}$ for $R < 5\text{ mm/h}$) and swamping the rain signal.
-          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: How does increasing cumulative impairment change overall inverse learnability across model architectures?</em>
+          <strong>Observed performance and proposed physical mechanism</strong>: Retrieval accuracy undergoes a catastrophic phase transition between $\sigma_{	ext{track}} = 0.02^\circ$ and $0.05^\circ$, where $R^2$ falls sharply from $0.9054$ to $0.3677$. We attribute this to the quadratic scaling of off-axis loss ($A_{	ext{track}} \propto 	heta_{	ext{error}}^2$): a tracking noise of $\sigma_{	ext{track}} = 0.05^\circ$ induces random power fluctuations of $1.5$–$4.0\ 	ext{dB}$, which match or exceed the attenuation depth of light-to-moderate rain ($0.5$–$2.5\ 	ext{dB}$ for $R < 5\ 	ext{mm/h}$), physically swamping the rain-attenuation signal.
         </div>
 
         <!-- QUESTION 3 -->
         <div class="question-narrative-box">
-          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 3</span>
-          <div class="question-title">Which machine learning model architectures are robust under full physical noise?</div>
-          <div class="question-arrow">↓ EXPERIMENT: PURE MODEL ARCHITECTURE BENCHMARK (4-LAYER SYSTEMS HIERARCHY)</div>
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">5.3 QUESTION 3</span>
+          <div class="question-title">How Does Increasing Cumulative Impairment Change Inverse Learnability Across Models?</div>
+          <div class="question-arrow">↓ EXPERIMENT: 4-LAYER PHYSICAL SYSTEMS DECOMPOSITION</div>
         </div>
 
         <p>
-          To avoid arbitrary impairment groupings, we structure the progressive cascade according to the <strong>4-Layer Physical Systems Hierarchy</strong> established in satellite link engineering (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Ippolito, 2017</a>):
+          <strong>Systems rationale: a four-layer physical decomposition.</strong> To avoid arbitrary impairment groupings, we structure the progressive cascade according to the four-layer physical systems hierarchy established in telecommunication link engineering (<a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Ippolito, 2017</a>; <a href="https://openlibrary.org/books/OL8011236M" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">Sklar, 2001</a>):
         </p>
-        <ul style="line-height: 1.6; font-size: 15px; margin-bottom: 24px;">
-          <li><strong>Layer 0 (0 Impairments — Ideal Free-Space)</strong>: Baseline theoretical free-space path loss ($A_{\text{FSPL}}$) and rain attenuation.</li>
-          <li><strong>Layer 1 (2 Impairments — Natural Atmosphere)</strong>: Continuous tropospheric phenomena (Gaseous Absorption $A_{\text{gas}}$ + Scintillation $\sigma_{\text{scint}}$).</li>
-          <li><strong>Layer 2 (4 Impairments — Receiver Hardware & Servo Control)</strong>: Mechanical antenna mispointing $A_{\text{track}}$ + AGC/ADC Quantization $N_{\text{ADC}}$.</li>
-          <li><strong>Layer 3 (8 Impairments — Constellation Operations & Site Environment)</strong>: Stateful Handoffs + LNB Calibration Drift $C(t)$ + Multipath $N_{\text{multi}}$ + Wet Antenna.</li>
-          <li><strong>Layer 4 (All Impairments — Severe Urban Canyon)</strong>: Boundary stress-test conditions representing worst-case Earth Stations in Motion (ESIM).</li>
+
+        <ul style="line-height: 1.6; font-size: 15px; margin-bottom: 20px;">
+          <li><strong>Layer 0 (0 impairments — Ideal Free-Space):</strong> baseline theoretical free-space path loss ($A_{	ext{FSPL}}$) and rain attenuation.</li>
+          <li><strong>Layer 1 (2 impairments — Natural Atmosphere):</strong> continuous tropospheric phenomena occurring prior to receiver hardware entry (Gaseous Absorption $A_{	ext{gas}}$ + Tropospheric Scintillation $\sigma_{	ext{scint}}$).</li>
+          <li><strong>Layer 2 (4 impairments — Receiver Hardware & Servo Control):</strong> mechanical antenna and RF front-end perturbations (Layer 1 + Antenna Tracking Mispointing $A_{	ext{track}}$ + AGC/ADC Quantization $N_{	ext{ADC}}$).</li>
+          <li><strong>Layer 3 (8 impairments — Constellation Operations & Local Environment):</strong> constellation dynamics and local ground-station conditions (Layer 2 + Stateful Satellite Handoffs + LNB Calibration Drift $C(t)$ + Ground Multipath $N_{	ext{multi}}$ + Wet Antenna Loss).</li>
+          <li><strong>Layer 4 (All impairments — Severe Urban Canyon):</strong> boundary stress-test conditions representing worst-case Earth Stations in Motion (ESIM).</li>
         </ul>
 
-        <!-- Figure 3: Impairment Cascade -->
-        <img src="figures/fig3_impairment_cascade.png" alt="Figure 3: Impairment Cascade Degradation" class="paper-figure" />
-
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 4. Progressive Impairment Cascade Definitions & Model Performance Comparison ($R^2$ Score)</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -535,7 +625,7 @@
             <tbody>
               <tr>
                 <td><strong>0 Impairments (Ideal)</strong></td>
-                <td>Clean FSPL + Rain</td>
+                <td>Layer 0: Clean FSPL + Rain</td>
                 <td>0.8520</td>
                 <td><strong>0.9810</strong></td>
                 <td>0.9412</td>
@@ -543,7 +633,7 @@
               </tr>
               <tr>
                 <td><strong>2 Impairments</strong></td>
-                <td>+ Scintillation + Gaseous Absorption</td>
+                <td>Layer 1: + Scintillation + Gaseous Absorption</td>
                 <td>0.1650</td>
                 <td><strong>0.9781</strong></td>
                 <td>0.8850</td>
@@ -551,7 +641,7 @@
               </tr>
               <tr>
                 <td><strong>4 Impairments</strong></td>
-                <td>+ Antenna Tracking + ADC Quantization</td>
+                <td>Layer 2: + Antenna Tracking + ADC Quantization</td>
                 <td>0.1250</td>
                 <td><strong>0.6813</strong></td>
                 <td>0.5394</td>
@@ -559,7 +649,7 @@
               </tr>
               <tr>
                 <td><strong>8 Impairments</strong></td>
-                <td>+ Handoff Jumps + Calibration + Multipath + Wet Antenna</td>
+                <td>Layer 3: + Handoff Jumps + Calibration + Multipath + Wet Antenna</td>
                 <td>0.1110</td>
                 <td>0.5162</td>
                 <td>0.4950</td>
@@ -567,7 +657,7 @@
               </tr>
               <tr>
                 <td><strong>All Impairments (Severe Urban)</strong></td>
-                <td>+ Severe Multipath + Heavy Scintillation + Mispointing</td>
+                <td>Layer 4: + Severe Multipath + Heavy Scintillation + Mispointing</td>
                 <td>-0.1520</td>
                 <td>0.0081</td>
                 <td>-0.0450</td>
@@ -577,25 +667,25 @@
           </table>
         </div>
 
-        <!-- Figure 5: Model Comparison -->
-        <img src="figures/fig5_model_comparison.png" alt="Figure 5: Pure Model Architecture Comparison" class="paper-figure" />
+        <img src="figures/fig3_impairment_cascade.png" alt="Figure 3 — Progressive Impairment Cascade Degradation" class="paper-figure" />
+        <img src="figures/fig5_model_comparison.png" alt="Figure 5 — Pure Model Architecture Comparison Under Identical 8-Impairment Rolling Features" class="paper-figure" />
 
         <div class="inference-box">
-          <strong>Key Inference 3</strong>: Analytical physics inversion fails completely under noise ($\text{F1}=0.1630, R^2=0.1110$) because static linear filters cannot distinguish scintillation from rain. Machine learning architectures overcome analytical failure, with Dilated TCN ($R^2=0.5076, \text{RMSE}=4.9681\text{ mm/h}$) demonstrating superior stability over feedforward networks.
-          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Does controlled feature ablation demonstrate that temporal memory is required? What is the PSD mechanism?</em>
+          <strong>Observed performance and proposed physical mechanism</strong>: Analytical physics inversion collapses under only two impairments ($R^2 = 0.1650$), whereas supervised learning architectures retain learnability through eight impairments ($R^2 pprox 0.51$). We attribute this to the inflexibility of the fixed linear Butterworth low-pass filter ($f_c = 0.005\ 	ext{Hz}$), which cannot separate scintillation phase noise from low-rate rain attenuation, whereas non-linear supervised models extract non-linear decision boundaries across rolling feature spaces.
         </div>
 
         <!-- QUESTION 4 -->
         <div class="question-narrative-box">
-          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 4</span>
-          <div class="question-title">Does controlled feature ablation demonstrate that temporal memory is required?</div>
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">5.4 QUESTION 4</span>
+          <div class="question-title">Does Controlled Feature Ablation Demonstrate That Temporal Memory Is Required?</div>
           <div class="question-arrow">↓ EXPERIMENT: CONTROLLED FEATURE ABLATION STUDY</div>
         </div>
 
         <p>
-          We conduct a controlled feature ablation experiment: removing temporal rolling features from XGBoost, MLP, and TCN models under identical 8-impairment conditions.
+          <strong>Motivation.</strong> Rather than speculating on why neural networks succeed, we conduct a controlled feature-ablation experiment, removing temporal rolling features from XGBoost, MLP, and TCN models under identical 8-impairment conditions. Table 5 reports the resulting performance deltas.
         </p>
 
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 5. Controlled Feature Ablation Benchmark</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -661,29 +751,28 @@
           </table>
         </div>
 
-        <!-- Figure 7: Feature Ablation -->
-        <img src="figures/fig7_feature_ablation.png" alt="Figure 7: Controlled Feature Ablation" class="paper-figure" />
+        <img src="figures/fig7_feature_ablation.png" alt="Figure 7 — Controlled Feature Ablation (Removing Temporal Rolling Statistics)" class="paper-figure" />
 
         <div class="inference-box">
-          <strong>Key Inference 4 & Demonstrated PSD Mechanism</strong>: Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 \rightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 \rightarrow 0.2554$ ($-52.6\%$).
-          <br/>
-          $$\text{PSD}_{\text{scint}}(f) \propto f^{-8/3} \quad (f > 0.05\text{ Hz}) \quad \text{vs.} \quad \text{PSD}_{\text{rain}}(f) \quad (f < 0.005\text{ Hz})$$
-          Tropospheric scintillation noise exhibits high-frequency zero-mean Power Spectral Density (PSD) fluctuations, whereas rain attenuation produces sustained low-frequency power drops. Rolling variance and standard deviation statistics explicitly estimate high-frequency PSD energy, providing decision trees and dense layers with the variance metrics needed to separate zero-mean noise from low-frequency rain attenuation fade.
-          <br/><em style="color:#aaaaaa; font-size:14px;">Next Transition: Does embedding physical propagation knowledge enable models to generalize across carrier frequency bands (10–30 GHz)?</em>
+          <strong>Observed performance</strong>: Removing rolling features causes XGBoost $R^2$ to drop from $0.4996 ightarrow 0.2924$ ($-41.5\%$) and MLP $R^2$ to drop from $0.5394 ightarrow 0.2554$ ($-52.6\%$).
+          <br/><br/>
+          <strong>Demonstrated physical mechanism</strong>:
+          <p>$$	ext{PSD}_{	ext{scint}}(f) \propto f^{-8/3} \quad (f > 0.05\ 	ext{Hz}) \quad 	ext{vs.} \quad 	ext{PSD}_{	ext{rain}}(f) \quad (f < 0.005\ 	ext{Hz})$$</p>
+          Tropospheric scintillation noise exhibits high-frequency, zero-mean power spectral density (PSD) fluctuations, whereas rain attenuation produces sustained low-frequency power drops. Rolling variance and standard-deviation statistics explicitly estimate high-frequency PSD energy, giving decision trees and dense layers the variance metrics needed to separate zero-mean noise from low-frequency rain-attenuation fade.
         </div>
 
         <!-- QUESTION 5 -->
         <div class="question-narrative-box">
-          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">QUESTION 5</span>
-          <div class="question-title">Does embedding physical propagation knowledge enable cross-frequency and cross-climate generalization?</div>
-          <div class="question-arrow">↓ EXPERIMENT: CROSS-FREQUENCY & CROSS-CLIMATE PHYSICS TRANSFER STUDY</div>
+          <span class="section-label" style="margin-bottom:4px; color:#aaaaaa;">5.5 QUESTION 5</span>
+          <div class="question-title">Does Embedding Physical Propagation Knowledge Enable Cross-Frequency Generalization?</div>
+          <div class="question-arrow">↓ EXPERIMENT: DEDICATED FEATURE-EXTENSION PHYSICS STUDY</div>
         </div>
 
         <p>
-          We compare physics-unaware Stage B models against physics-aware Stage C models across 10–30 GHz carrier frequencies and four global climatologies (Delhi, São Paulo, Tokyo, Berlin).
+          <strong>Experiment: Dedicated Feature-Extension Physics Study.</strong> We evaluate the effect of embedding carrier-specific physics parameters $[f, k(f), lpha(f), L_{	ext{eff}}, A_{	ext{FSPL}}, A_{	ext{gas}}]$ (Stage C) into models trained on 14 GHz data and tested across the 10–30 GHz range and four global climatologies. Frequency-transfer results appear in Table 6; station-level generalization results appear in Table 7.
         </p>
 
-        <h3 class="sub-heading">Cross-Frequency Transfer (10–30 GHz)</h3>
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:16px; font-size:15px;">Table 6. Cross-Frequency Generalization Benchmark (10–30 GHz)</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -741,10 +830,7 @@
           </table>
         </div>
 
-        <!-- Figure 6: Cross-Frequency -->
-        <img src="figures/fig6_cross_frequency.png" alt="Figure 6: Cross-Frequency Generalization" class="paper-figure" />
-
-        <h3 class="sub-heading">Leave-One-Station-Out (LOSO) Cross-Climate Validation</h3>
+        <p style="font-weight:700; font-family:var(--font-heading); margin-top:20px; font-size:15px;">Table 7. Leave-One-Station-Out (LOSO) Cross-Climate Validation</p>
         <div class="table-wrapper">
           <table class="minimal-table">
             <thead>
@@ -794,20 +880,21 @@
           </table>
         </div>
 
-        <div class="inference-box">
-          <strong>Key Inference 5</strong>: Physics-unaware models collapse at 30 GHz ($R^2=-0.2727, \text{RMSE}=7.7491\text{ mm/h}$) due to non-linear $k(f)$ scaling shifts. Embedding $k(f)$ and $\alpha(f)$ parameters enables Stage C to achieve near-perfect cross-frequency transfer ($R^2 \ge 0.9960, \text{RMSE}=0.28\text{ mm/h}$) and robust cross-climate generalization ($R^2 \ge 0.9950$) without local retuning.
-        </div>
+        <img src="figures/fig6_cross_frequency.png" alt="Figure 6 — Cross-Frequency Generalization Benchmark Across 10–30 GHz" class="paper-figure" />
 
+        <div class="inference-box">
+          <strong>Observed performance and proposed physical mechanism</strong>: Physics-unaware models collapse when transferred to 30 GHz ($R^2 = -0.2727$, $	ext{RMSE} = 7.7491\ 	ext{mm/h}$), whereas Stage C models maintain $R^2 \ge 0.9960$ across the full band. This is consistent with the non-linear frequency scaling of the specific attenuation exponent $lpha(f)$ and coefficient $k(f)$ under ITU-R P.838: physics-unaware models attempt linear power extrapolations, producing negative $R^2$ scores, whereas embedding $[k(f), lpha(f)]$ normalizes the inverse loss surface.
+        </div>
       </div>
     </section>
 
-    <!-- SECTION 5: INTERACTIVE IMPAIRMENT EXPLORER (Light Section) -->
+    <!-- INTERACTIVE IMPAIRMENT EXPLORER (Light Section) -->
     <section class="full-bleed-section light-section" id="interactiveExplorerSec">
       <div class="content-column">
         <span class="section-label">INTERACTIVE LAB / IMPAIRMENT EXPLORER</span>
-        <h2 class="section-heading">5. Impairment Learnability Explorer</h2>
+        <h2 class="section-heading">Interactive Impairment Learnability Explorer</h2>
         <p>
-          Select physical impairments below to dynamically simulate their cumulative impact on signal degradation and predict estimated model retrieval accuracy ($R^2$, $\text{RMSE}$, $\text{F1}$).
+          Select physical impairments below to dynamically simulate their cumulative impact on signal degradation and predict estimated model retrieval accuracy ($R^2$, $	ext{RMSE}$, $	ext{F1}$).
         </p>
 
         <div class="explorer-panel">
@@ -859,92 +946,83 @@
       </div>
     </section>
 
-    <!-- SECTION 6: DISCUSSION OF FLAWS & LIMITATIONS (Dark Section) -->
+    <!-- SECTION 6: DISCUSSION & CRITICAL FLAWS (Dark Section) -->
     <section class="full-bleed-section dark-section" id="discussionSec">
       <div class="content-column">
-        <span class="section-label">SECTION 04 / DISCUSSION & CRITICAL LIMITATIONS</span>
-        <h2 class="section-heading">6. Critical Analysis & Empirical Hierarchy</h2>
+        <span class="section-label">SECTION 06 / DISCUSSION & CRITICAL LIMITATIONS</span>
+        <h2 class="section-heading">6. Discussion & Critical Flaws</h2>
         
-        <p>
-          In this section, we analyze the physical mechanics governing our empirical findings and explicitly examine the methodological limitations and flaws of this benchmark.
-        </p>
+        <img src="figures/fig8_learnability_hierarchy.png" alt="Figure 8 — Empirical Observation Learnability Hierarchy for Satellite Link Sensing" class="paper-figure" />
 
-        <!-- Figure 8: Learnability Hierarchy -->
-        <img src="figures/fig8_learnability_hierarchy.png" alt="Figure 8: Observation Learnability Hierarchy" class="paper-figure" />
-
-        <h3 class="sub-heading">6.1 Empirical Learnability Hierarchy</h3>
-        <ol>
-          <li><strong>Level 1 — Physical Observation Quality (Dominant Factor)</strong>: Tracking mispointing sweeps demonstrate that observation quality dominates all downstream learning. When $\sigma_{\text{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.</li>
-          <li><strong>Level 2 — Temporal Feature Representation (Critical Factor)</strong>: Controlled ablations provide empirical evidence that temporal memory is required to separate zero-mean high-frequency scintillation PSD from low-frequency rain attenuation fade.</li>
-          <li><strong>Level 3 — Physics Parameter Embedding (Generalization Factor)</strong>: Cross-frequency benchmarks indicate that embedding $k(f)$ and $\alpha(f)$ inputs is necessary for frequency transfer across Ku/Ka bands.</li>
-          <li><strong>Level 4 — Model Architectural Depth (Secondary Factor)</strong>: Under identical feature representations, architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce minor performance variations compared to feature and noise factors.</li>
+        <h3 class="sub-heading">6.1 Empirical Interpretation & Physical Hierarchy</h3>
+        <p>The empirical findings above establish a four-level Observation Learnability Hierarchy (Figure 8):</p>
+        <ol style="line-height: 1.8; font-size: 15px; margin-bottom: 24px;">
+          <li style="margin-bottom: 12px;">
+            <strong>Level 1 — Physical observation quality (dominant factor).</strong> Tracking-mispointing sweeps (Table 3, Figure 4) show that observation quality dominates all downstream learning: once $\sigma_{	ext{track}} \ge 0.05^\circ$, quadratic off-axis loss swamping causes catastrophic regressor collapse regardless of model architecture.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Level 2 — Temporal feature representation (critical factor).</strong> Controlled ablations (Table 5, Figure 7) provide empirical evidence that temporal memory is required to separate zero-mean, high-frequency scintillation PSD from low-frequency rain-attenuation fade.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Level 3 — Physics parameter embedding (generalization factor).</strong> Cross-frequency benchmarks (Table 6, Figure 6) indicate that embedding $k(f)$ and $lpha(f)$ as model inputs is necessary for reliable frequency transfer across Ku/Ka bands.
+          </li>
+          <li style="margin-bottom: 12px;">
+            <strong>Level 4 — Model architectural depth (secondary factor).</strong> Under identical feature representations (Table 4, Figure 5), architectural differences between tree-based boosting, deep feedforward MLPs, and temporal CNNs produce comparatively minor performance variation relative to feature and noise factors.
+          </li>
         </ol>
 
         <h3 class="sub-heading">6.2 Critical Methodological Flaws & Limitations</h3>
-        <ol>
-          <li>
-            <strong>Single-Run Point Estimates & Lack of Statistical Confidence Intervals</strong>:
-            Current metrics are presented as single-run point estimates under a fixed seed split (Seed 100 train / Seed 200 test). A train/test seed split validates generalization across time windows, but does not provide a stochastic multi-trial robustness check. Point estimates—such as the $61.6\%$ $R^2$ drop at $\sigma_{\text{track}}=0.05^\circ$—must be evaluated across multi-seed random trials with reported standard errors, confidence intervals, and hypothesis significance testing.
+        <p>We identify seven limitations that qualify the scope of these findings:</p>
+        <ol style="line-height: 1.8; font-size: 15px;">
+          <li style="margin-bottom: 16px;">
+            <strong>Single-run point estimates and the absence of statistical confidence intervals.</strong> All metrics are single-run point estimates under a fixed seed split (Seed 100 train / Seed 200 test). A train/test seed split validates generalization across time windows but does not constitute a stochastic multi-trial robustness check. Point estimates — such as the $61.6\%$ $R^2$ drop at $\sigma_{	ext{track}} = 0.05^\circ$ — should be evaluated across multi-seed random trials with reported standard errors, confidence intervals, and hypothesis testing (e.g., Wilcoxon signed-rank tests).
           </li>
-          <li>
-            <strong>Unexplained Model Reversal under Severe Urban Impairments ("All Impairments")</strong>:
-            In Table 4, XGBoost dominates earlier stages (Layers 0–2), but under "All Impairments" (Layer 4), Dilated TCN suddenly outperforms XGBoost ($R^2 = 0.0820$ vs. $0.0081$). This performance reversal is a critical WIP finding: we hypothesize that under catastrophic multi-path and mispointing noise, static tabular rolling statistics experience feature breakdown, whereas TCN's 1D dilated temporal convolutions extract residual structural sequence representations. Multi-seed trials are required to determine whether this reversal is a fundamental architectural property or single-trial variance.
+          <li style="margin-bottom: 16px;">
+            <strong>Unexplained model reversal under severe urban impairments ("All Impairments").</strong> In Table 4, XGBoost dominates at earlier stages (Layers 0–2), yet under "All Impairments" (Layer 4) the Dilated TCN outperforms it ($R^2 = 0.0820$ vs. $0.0081$). We hypothesize that under catastrophic multi-path and mispointing noise, static tabular rolling statistics undergo feature breakdown, while the TCN's 1D dilated temporal convolutions extract residual structural sequence representations. Multi-seed trials are required to determine whether this reversal reflects a fundamental architectural property or single-trial variance.
           </li>
-          <li>
-            <strong>Synthetic and Mathematical Data Dependency</strong>:
-            All telemetry measurements and ground-truth rain labels in this benchmark are generated via synthetic mathematical models (ITU-R recommendations and SGP4 propagation). While mathematically rigorous, real-world satellite links possess unmodeled hardware non-linearities, local urban clutter, receiver temperature drifts, and non-stationary raindrop size distributions (DSD) that are absent from synthetic mathematical formulations.
+          <li style="margin-bottom: 16px;">
+            <strong>Synthetic and mathematical data dependency.</strong> All telemetry measurements and ground-truth rain labels in this benchmark are generated from synthetic mathematical models (ITU-R recommendations and SGP4 propagation). While mathematically rigorous, real-world satellite links possess unmodeled hardware non-linearities, local urban clutter, receiver temperature drifts, and non-stationary raindrop size distributions absent from these synthetic formulations.
           </li>
-          <li>
-            <strong>Uniform Slant Path Rain Rate Assumption</strong>:
-            Our forward observation model computes attenuation by integrating specific attenuation over an effective path length $L_{\text{eff}}(t)$. This assumes uniform rainfall intensity along the slant path cell. In real-world convective storms, rain cells exhibit extreme spatial heterogeneity, localized intense cores, and vertical rain rate gradients that violate uniform path assumptions.
+          <li style="margin-bottom: 16px;">
+            <strong>Uniform slant-path rain-rate assumption.</strong> The forward observation model integrates specific attenuation over an effective path length $L_{	ext{eff}}(t)$, assuming uniform rainfall intensity along the slant-path cell. Real-world convective storms exhibit substantial spatial heterogeneity, localized intense cores, and vertical rain-rate gradients that violate this assumption.
           </li>
-          <li>
-            <strong>Scintillation vs. Light Rain Ambiguity Floor</strong>:
-            Tropospheric scintillation power spectral densities overlap with low-rate rain attenuation ($R < 1.0\text{ mm/h}$). Under severe scintillation ($\sigma_{\text{scint}} > 1.0\text{ dB}$), the signal fade produced by light rain is physically indistinguishable from refractive phase noise, setting a fundamental physical detection limit regardless of neural network capacity.
+          <li style="margin-bottom: 16px;">
+            <strong>Scintillation vs. light-rain ambiguity floor.</strong> Tropospheric scintillation PSDs overlap with low-rate rain attenuation ($R < 1.0\ 	ext{mm/h}$). Under severe scintillation ($\sigma_{	ext{scint}} > 1.0\ 	ext{dB}$), the fade produced by light rain is physically indistinguishable from refractive phase noise, imposing a fundamental detection limit independent of network capacity.
           </li>
-          <li>
-            <strong>Simplistic Wet Antenna Modeling</strong>:
-            Our wet antenna impairment model applies a simplified additive attenuation offset ($1.5\text{--}3.0\text{ dB}$). In practice, water film accumulation on antenna radomes is dynamic, non-linear, and dependent on wind speed, radome hydrophobic coatings, and surface tension, introducing complex hysteresis not captured by static offsets.
+          <li style="margin-bottom: 16px;">
+            <strong>Simplistic wet-antenna modeling.</strong> The wet-antenna impairment model applies a simplified additive attenuation offset ($1.5$–$3.0\ 	ext{dB}$). In practice, water-film accumulation on antenna radomes is dynamic and non-linear, and depends on wind speed, radome hydrophobic coatings, and surface tension — introducing hysteresis effects not captured by a static offset.
           </li>
-          <li>
-            <strong>Lack of Operational Telemetry Validation</strong>:
-            Because operational satellite operators rarely release high-frequency link telemetry alongside co-located ground rain gauge networks, this study has not yet validated model performance on real-world satellite-to-ground communication networks.
+          <li style="margin-bottom: 16px;">
+            <strong>Lack of operational telemetry validation.</strong> Because operational satellite operators rarely release high-frequency link telemetry alongside co-located ground rain-gauge networks, this study has not yet validated model performance against real-world satellite-to-ground communication networks.
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- SECTION 7: CONCLUSION (Light Section) -->
+    <!-- SECTION 7: CONCLUSION & FUTURE ROADMAP (Light Section) -->
     <section class="full-bleed-section light-section" id="conclusionSec">
       <div class="content-column">
-        <span class="section-label">SECTION 05 / CONCLUSION & FUTURE RESEARCH ROADMAP</span>
-        <h2 class="section-heading">7. Conclusion & Future Directions</h2>
+        <span class="section-label">SECTION 07 / CONCLUSION & FUTURE RESEARCH ROADMAP</span>
+        <h2 class="section-heading">7. Conclusion & Future Research Roadmap</h2>
         
-        <p>
-          In this paper, we investigated how realistic receiver and propagation impairments influence the learnability of rainfall retrieval from satellite communication telemetry. We formulated a forward observation model and conducted a progressive impairment cascade study ($0 \rightarrow 2 \rightarrow 4 \rightarrow 8 \rightarrow \text{All}$) across Analytical, XGBoost, Deep MLP, and Dilated TCN model families.
-        </p>
-
-        <h3 class="sub-heading">7.1 Main Scientific Takeaways</h3>
-        <ul>
-          <li><strong>Tracking Error Dominance</strong>: Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{\text{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.</li>
-          <li><strong>Temporal Feature Requirement</strong>: Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2=0.2924 \rightarrow 0.4996$).</li>
-          <li><strong>Cross-Frequency Generalization</strong>: Embedding physics parameters ($k, \alpha, f$) enables cross-frequency transfer across 10–30 GHz ($R^2=0.9980, \text{RMSE}=0.28\text{ mm/h}$), outperforming analytical inversion by $84\%$.</li>
-          <li><strong>Learnability Hierarchy</strong>: Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
-        </ul>
+        <h3 class="sub-heading">7.1 Key Takeaways</h3>
+        <ol style="line-height: 1.8; font-size: 15px; margin-bottom: 24px;">
+          <li style="margin-bottom: 10px;"><strong>Tracking error dominance.</strong> Empirical tracking sweeps confirm that antenna tracking mispointing ($\sigma_{	ext{track}} \ge 0.05^\circ$) is the primary driver of retrieval degradation, reducing model $R^2$ by $61.6\%$.</li>
+          <li style="margin-bottom: 10px;"><strong>Temporal feature requirement.</strong> Controlled feature ablations demonstrate that temporal rolling statistics are necessary to prevent model collapse under scintillation ($R^2 = 0.2924 ightarrow 0.4996$).</li>
+          <li style="margin-bottom: 10px;"><strong>Cross-frequency generalization.</strong> Embedding physics parameters ($k$, $lpha$, $f$) enables cross-frequency transfer across 10–30 GHz ($R^2 = 0.9980$, $	ext{RMSE} = 0.28\ 	ext{mm/h}$), outperforming analytical inversion by $84\%$.</li>
+          <li style="margin-bottom: 10px;"><strong>Learnability hierarchy.</strong> Physical observation quality and temporal feature representation exert far greater influence on retrieval learnability than neural network parameter depth.</li>
+        </ol>
 
         <h3 class="sub-heading">7.2 Future Work Roadmap</h3>
-        <ol style="line-height: 1.7; font-size: 15px;">
-          <li style="margin-bottom: 12px;">
-            <strong>Validation on Real Satellite Beacon Telemetry (Highest Priority)</strong>:
-            The current work evaluates retrieval algorithms using a mathematically grounded simulator whose observation process is parameterized from ITU recommendations, hardware specifications, and published literature. The next step is to validate these findings using real satellite beacon measurements collected from operational Earth-space communication links.
+        <ol style="line-height: 1.8; font-size: 15px;">
+          <li style="margin-bottom: 14px;">
+            <strong>Validation on real satellite beacon telemetry (highest priority).</strong> The current work evaluates retrieval algorithms using a mathematically grounded simulator parameterized from ITU recommendations, hardware specifications, and published literature. The next step is to validate these findings against real satellite beacon measurements collected from operational Earth–space communication links.
           </li>
-          <li style="margin-bottom: 12px;">
-            <strong>Learning Observation Model Parameters</strong>:
-            The present observation model uses literature-derived coefficients for tracking jitter, calibration drift, AGC dynamics, multipath, and thermal effects. A natural extension is to estimate these parameters directly from measured telemetry using Bayesian inference or system identification techniques, allowing the simulator to become site-specific rather than relying on generic literature values.
+          <li style="margin-bottom: 14px;">
+            <strong>Learning observation model parameters.</strong> The present observation model uses literature-derived coefficients for tracking jitter, calibration drift, AGC dynamics, multipath, and thermal effects. A natural extension is to estimate these parameters directly from measured telemetry using Bayesian inference or system identification, allowing the simulator to become site-specific rather than reliant on generic literature values.
           </li>
-          <li style="margin-bottom: 12px;">
-            <strong>Joint Observation and Retrieval Learning</strong>:
-            Rather than assuming the observation process is fixed, future work will jointly optimize latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.
+          <li style="margin-bottom: 14px;">
+            <strong>Joint observation and retrieval learning.</strong> Rather than treating the observation process as fixed, future work will jointly optimize latent observation states, receiver calibration, and rain-rate estimation within a unified probabilistic framework.
           </li>
         </ol>
       </div>
@@ -953,74 +1031,75 @@
     <!-- SECTION 8: REFERENCES & BIBLIOGRAPHY (Dark Section) -->
     <section class="full-bleed-section dark-section" id="referencesSec">
       <div class="content-column">
-        <span class="section-label">SECTION 06 / REFERENCES & BIBLIOGRAPHY</span>
-        <h2 class="section-heading">8. Academic References</h2>
+        <span class="section-label">SECTION 08 / REFERENCES & BIBLIOGRAPHY</span>
+        <h2 class="section-heading">8. References & Bibliography</h2>
+        
         <ol style="line-height: 1.8; font-size: 15px; margin-top: 24px;">
           <li style="margin-bottom: 16px;">
-            <strong>Uijlenhoet et al. (2018)</strong>: Uijlenhoet, R., Overeem, A., & Leijnse, H. <em>Opportunistic rainfall monitoring using microwave links</em>. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. <a href="https://doi.org/10.1109/MGRS.2018.2830386" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/MGRS.2018.2830386</a>
+            Uijlenhoet, R., Overeem, A., & Leijnse, H. (2018). <em>Opportunistic rainfall monitoring using microwave links</em>. IEEE Geoscience and Remote Sensing Magazine, 6(2), 90–106. <a href="https://doi.org/10.1109/MGRS.2018.2830386" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/MGRS.2018.2830386</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Overeem et al. (2013)</strong>: Overeem, A., Leijnse, H., & Uijlenhoet, R. <em>Country-wide rainfall maps from cellular communication networks</em>. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. <a href="https://doi.org/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1073/pnas.1217961110</a>
+            Overeem, A., Leijnse, H., & Uijlenhoet, R. (2013). <em>Country-wide rainfall maps from cellular communication networks</em>. Proceedings of the National Academy of Sciences (PNAS), 110(7), 2741–2745. <a href="https://doi.org/10.1073/pnas.1217961110" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1073/pnas.1217961110</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Giannetti et al. (2017)</strong>: Giannetti, F., Reggiannini, R., Moretti, M., et al. <em>Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers</em>. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. <a href="https://doi.org/10.1109/TGRS.2017.2763630" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TGRS.2017.2763630</a>
+            Giannetti, F., Reggiannini, R., Moretti, M., et al. (2017). <em>Small Scale Rain Field Sensing with Passive Geostationary Satellite Receivers</em>. IEEE Transactions on Geoscience and Remote Sensing, 55(11), 6605–6617. <a href="https://doi.org/10.1109/TGRS.2017.2763630" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TGRS.2017.2763630</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Pan et al. (2016)</strong>: Pan, Q., et al. <em>Survey of Rain Fade Models for Earth-Space Telecommunication Links</em>. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. <a href="https://doi.org/10.1109/COMST.2016.2559958" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/COMST.2016.2559958</a>
+            Pan, Q., et al. (2016). <em>Survey of Rain Fade Models for Earth-Space Telecommunication Links</em>. IEEE Communications Surveys & Tutorials, 18(4), 2820–2841. <a href="https://doi.org/10.1109/COMST.2016.2559958" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/COMST.2016.2559958</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Maseng & Bakken (1981)</strong>: Maseng, T., & Bakken, P. M. <em>A stochastic dynamic model of rain attenuation</em>. IEEE Transactions on Communications, 29(5), 660–669. <a href="https://doi.org/10.1109/TCOM.1981.1095066" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TCOM.1981.1095066</a>
+            Maseng, T., & Bakken, P. M. (1981). <em>A stochastic dynamic model of rain attenuation</em>. IEEE Transactions on Communications, 29(5), 660–669. <a href="https://doi.org/10.1109/TCOM.1981.1095066" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TCOM.1981.1095066</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Bai et al. (2018)</strong>: Bai, S., Kolter, J. Z., & Koltun, V. <em>An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling</em>. arXiv preprint arXiv:1803.01271. <a href="https://arxiv.org/abs/1803.01271" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1803.01271</a>
+            Bai, S., Kolter, J. Z., & Koltun, V. (2018). <em>An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling</em>. arXiv preprint arXiv:1803.01271. <a href="https://arxiv.org/abs/1803.01271" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1803.01271</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Chen & Guestrin (2016)</strong>: Chen, T., & Guestrin, C. <em>XGBoost: A Scalable Tree Boosting System</em>. In Proceedings of the 22nd ACM SIGKDD (pp. 785–794). <a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1145/2939672.2939785</a>
+            Chen, T., & Guestrin, C. (2016). <em>XGBoost: A Scalable Tree Boosting System</em>. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (pp. 785–794). <a href="https://doi.org/10.1145/2939672.2939785" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1145/2939672.2939785</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Raissi et al. (2019)</strong>: Raissi, M., Perdikaris, P., & Karniadakis, G. E. <em>Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving non-linear partial differential equations</em>. Journal of Computational Physics, 378, 686–707. <a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1016/j.jcp.2018.10.045</a>
+            Raissi, M., Perdikaris, P., & Karniadakis, G. E. (2019). <em>Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving non-linear partial differential equations</em>. Journal of Computational Physics, 378, 686–707. <a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1016/j.jcp.2018.10.045</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Lakshminarayanan et al. (2017)</strong>: Lakshminarayanan, B., Pritzel, A., & Blundell, C. <em>Simple and scalable predictive uncertainty estimation using deep ensembles</em>. NeurIPS 30. <a href="https://arxiv.org/abs/1703.07370" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1703.07370</a>
+            Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). <em>Simple and scalable predictive uncertainty estimation using deep ensembles</em>. Advances in Neural Information Processing Systems (NeurIPS 30). <a href="https://arxiv.org/abs/1703.07370" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1703.07370</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Gal & Ghahramani (2016)</strong>: Gal, Y., & Ghahramani, Z. <em>Dropout as a Bayesian approximation: Representing model uncertainty in deep learning</em>. ICML (pp. 1050–1059). <a href="https://arxiv.org/abs/1506.02142" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1506.02142</a>
+            Gal, Y., & Ghahramani, Z. (2016). <em>Dropout as a Bayesian approximation: Representing model uncertainty in deep learning</em>. In International Conference on Machine Learning (ICML) (pp. 1050–1059). <a href="https://arxiv.org/abs/1506.02142" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">arXiv:1506.02142</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Vallado et al. (2006)</strong>: Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. <em>Revisiting Spacetrack Report #3: Rev 2</em>. AIAA/AAS Astrodynamics Specialist Conference. <a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.2514/6.2006-6753</a>
+            Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S. (2006). <em>Revisiting Spacetrack Report #3: Rev 2</em>. AIAA/AAS Astrodynamics Specialist Conference. <a href="https://doi.org/10.2514/6.2006-6753" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.2514/6.2006-6753</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>IPWG (2024)</strong>: International Precipitation Working Group. <em>SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval</em>. <a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">GitHub: IPWG/satrain</a>
+            International Precipitation Working Group (2024). <em>SatRain: AI-Ready Benchmark Dataset for Satellite Precipitation Retrieval</em>. <a href="https://github.com/IPWG/satrain" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">GitHub: IPWG/satrain</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Huffman et al. (2020)</strong>: Huffman, G. J., et al. <em>Integrated Multi-satellitE Retrievals for GPM (IMERG) Technical Documentation</em>. NASA GSFC. <a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1175/BAMS-D-19-0270.1</a>
+            Huffman, G. J., et al. (2020). <em>Integrated Multi-satellitE Retrievals for GPM (IMERG) Technical Documentation</em>. NASA GSFC. <a href="https://doi.org/10.1175/BAMS-D-19-0270.1" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1175/BAMS-D-19-0270.1</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Hawkins (1988)</strong>: Hawkins, H. E. <em>Tracking performance of monopulse antenna systems</em>. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. <a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-f-2.1988.0012</a>
+            Hawkins, H. E. (1988). <em>Tracking performance of monopulse antenna systems</em>. IEE Proceedings F - Communications, Radar and Signal Processing, 135(1), 12–18. <a href="https://doi.org/10.1049/ip-f-2.1988.0012" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-f-2.1988.0012</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Skolnik (2008)</strong>: Skolnik, M. I. <em>Radar Handbook</em> (3rd ed.). McGraw-Hill Education. <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">AccessEngineering</a>
+            Skolnik, M. I. (2008). <em>Radar Handbook</em> (3rd ed.). McGraw-Hill Education. <a href="https://www.accessengineeringlibrary.com/content/book/9780071485470" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">AccessEngineering</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>IEEE Std 145-2013</strong>: IEEE Standard Definitions of Terms for Antennas. <em>IEEE Std 145-2013</em>. <a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/IEEESTD.2014.6758443</a>
+            IEEE Standard Definitions of Terms for Antennas. <em>IEEE Std 145-2013</em>. <a href="https://doi.org/10.1109/IEEESTD.2014.6758443" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/IEEESTD.2014.6758443</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Mercier et al. (2014)</strong>: Mercier, H., et al. <em>Automatic gain control dynamic loop performance in satellite receivers</em>. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. <a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TMTT.2014.2305541</a>
+            Mercier, H., et al. (2014). <em>Automatic gain control dynamic loop performance in satellite receivers</em>. IEEE Transactions on Microwave Theory and Techniques, 62(3), 580–591. <a href="https://doi.org/10.1109/TMTT.2014.2305541" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/TMTT.2014.2305541</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Ippolito (2017)</strong>: Ippolito, L. J. <em>Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance</em> (2nd ed.). Wiley. <a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1002/9781119414605</a>
+            Ippolito, L. J. (2017). <em>Satellite Communications Systems Engineering: Atmospheric Effects, Satellite Link Design and System Performance</em> (2nd ed.). Wiley. <a href="https://doi.org/10.1002/9781119414605" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1002/9781119414605</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Tatarskii (1971)</strong>: Tatarskii, V. I. <em>The Effects of the Turbulent Atmosphere on Wave Propagation</em>. Israel Program for Scientific Translations.
+            Tatarskii, V. I. (1971). <em>The Effects of the Turbulent Atmosphere on Wave Propagation</em>. Israel Program for Scientific Translations.
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Vogel & Hong (1988)</strong>: Vogel, W. J., & Hong, U. S. <em>Measurement and modeling of land mobile satellite propagation at UHF and L-band</em>. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. <a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/8.14441</a>
+            Vogel, W. J., & Hong, U. S. (1988). <em>Measurement and modeling of land mobile satellite propagation at UHF and L-band</em>. IEEE Transactions on Antennas and Propagation, 36(5), 707–719. <a href="https://doi.org/10.1109/8.14441" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1109/8.14441</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Athanasiadou et al. (2000)</strong>: Athanasiadou, G. E., et al. <em>A Rician channel model for Earth-space satellite links</em>. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-map:20000438</a>
+            Athanasiadou, G. E., et al. (2000). <em>A Rician channel model for Earth-space satellite links</em>. IEE Proceedings - Microwaves, Antennas and Propagation, 147(6), 438–444. <a href="https://doi.org/10.1049/ip-map:20000438" target="_blank" style="color:var(--color-plaster-white); text-decoration:underline;">DOI: 10.1049/ip-map:20000438</a>
           </li>
           <li style="margin-bottom: 16px;">
-            <strong>Sklar (2001)</strong>: Sklar, B. <em>Digital Communications: Fundamentals and Applications</em> (2nd ed.). Prentice Hall.
+            Sklar, B. (2001). <em>Digital Communications: Fundamentals and Applications</em> (2nd ed.). Prentice Hall.
           </li>
         </ol>
       </div>
@@ -1034,13 +1113,15 @@
     <div class="toc-menu" id="tocMenu">
       <span class="section-label" style="margin-bottom:8px;">TABLE OF CONTENTS</span>
       <a href="#heroSec" class="toc-link">00. Abstract & Overview</a>
-      <a href="#introSec" class="toc-link">01. Introduction & Related Work</a>
-      <a href="#modelSec" class="toc-link">02. Forward Model & Real-World Validation</a>
-      <a href="#impairmentCascadeSec" class="toc-link">03. Impairment Cascade & Benchmark</a>
+      <a href="#introSec" class="toc-link">01. Introduction</a>
+      <a href="#modelSec" class="toc-link">02. Forward Model & Receiver Math</a>
+      <a href="#datasetSec" class="toc-link">03. Dataset & Real-World Validation</a>
+      <a href="#archSec" class="toc-link">04. Retrieval Architectures</a>
+      <a href="#impairmentCascadeSec" class="toc-link">05. Question-Driven Benchmark</a>
       <a href="#interactiveExplorerSec" class="toc-link">Interactive Lab Explorer</a>
-      <a href="#discussionSec" class="toc-link">04. Critical Analysis & Flaws</a>
-      <a href="#conclusionSec" class="toc-link">05. Conclusion & Future Roadmap</a>
-      <a href="#referencesSec" class="toc-link">06. Academic References</a>
+      <a href="#discussionSec" class="toc-link">06. Discussion & Critical Flaws</a>
+      <a href="#conclusionSec" class="toc-link">07. Conclusion & Roadmap</a>
+      <a href="#referencesSec" class="toc-link">08. References & Bibliography</a>
     </div>
   </div>
 
